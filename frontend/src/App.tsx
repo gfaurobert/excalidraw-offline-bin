@@ -15,7 +15,7 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save";
+  type: "status" | "new" | "open" | "save" | "quit";
   message?: string;
   forcePicker?: boolean;
   path?: string;
@@ -239,6 +239,7 @@ export default function App() {
   });
   const homeRef = useRef<string>(".");
   const busyRef = useRef(false);
+  const quittingRef = useRef(false);
   const autosaveTimer = useRef<number | null>(null);
   const lastTitleRef = useRef<string>("");
   const savedSceneKeyRef = useRef<string>("");
@@ -396,7 +397,7 @@ export default function App() {
     await apiLog("info", "runNew done");
   }, [askConfirm]);
 
-  const writeSceneToPath = useCallback(async (path: string) => {
+  const writeSceneToPath = useCallback(async (path: string): Promise<boolean> => {
     busyRef.current = true;
     try {
       const sceneJson = JSON.stringify(sceneRef.current);
@@ -413,9 +414,11 @@ export default function App() {
       await updateTitleRef.current(path, false);
       setStatus(`Saved ${path}`);
       await apiLog("info", `save: done ${path}`);
+      return true;
     } catch (err) {
       await apiLog("error", `save failed: ${String(err)}`);
       setStatus(`Save failed: ${String(err)}`);
+      return false;
     } finally {
       busyRef.current = false;
     }
@@ -424,14 +427,14 @@ export default function App() {
   const runSave = useCallback(async (
     forcePicker: boolean,
     presetPath?: string,
-  ) => {
+  ): Promise<boolean> => {
     await apiLog(
       "info",
       `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${presetPath ?? ""}`,
     );
     if (busyRef.current) {
       await apiLog("info", "runSave skipped: busy");
-      return;
+      return false;
     }
 
     let path = presetPath?.trim() || pathRef.current;
@@ -445,14 +448,49 @@ export default function App() {
       if (entered === null || entered === "") {
         setStatus("Save cancelled");
         await apiLog("info", "runSave cancelled at path dialog");
-        return;
+        return false;
       }
       path = ensureExt(entered);
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
-    await writeSceneToPath(path);
+    return await writeSceneToPath(path);
   }, [askPath, writeSceneToPath]);
+
+  const runQuit = useCallback(async () => {
+    await apiLog("info", `runQuit start dirty=${dirtyRef.current} busy=${busyRef.current}`);
+    if (quittingRef.current || busyRef.current) {
+      await apiLog("info", "runQuit skipped: busy or already quitting");
+      return;
+    }
+    quittingRef.current = true;
+    try {
+      if (dirtyRef.current) {
+        const saved = await runSave(false);
+        if (!saved) {
+          await apiLog("info", "runQuit aborted: save cancelled or failed");
+          setStatus((prev) =>
+            prev.startsWith("Save failed") || prev === "Save cancelled"
+              ? prev
+              : "Quit cancelled"
+          );
+          return;
+        }
+      }
+      setStatus("Quitting…");
+      await apiLog("info", "runQuit POST /api/quit");
+      await apiJson("/api/quit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    } catch (err) {
+      await apiLog("error", `runQuit failed: ${String(err)}`);
+      setStatus(`Quit failed: ${String(err)}`);
+    } finally {
+      quittingRef.current = false;
+    }
+  }, [runSave]);
 
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
@@ -593,6 +631,9 @@ export default function App() {
               setTimeout(() => void runSave(forcePicker, cmd.path), 0);
               break;
             }
+            case "quit":
+              setTimeout(() => void runQuit(), 0);
+              break;
           }
         }
       } catch (err) {
@@ -605,7 +646,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, pathDialog, confirmDialog]);
+  }, [runNew, runOpen, runSave, runQuit, pathDialog, confirmDialog]);
 
   useEffect(() => {
     return () => {
