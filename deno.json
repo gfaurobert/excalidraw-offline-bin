@@ -1,0 +1,35 @@
+{
+  "name": "excalidraw-offline",
+  "version": "0.1.0",
+  "exports": "./desktop/main.ts",
+  "tasks": {
+    "dev:frontend": "cd frontend && deno task dev",
+    "build:frontend": "cd frontend && deno task build",
+    "dev": {
+      "description": "Run desktop app serving built frontend/dist",
+      "command": "deno task build:frontend && deno desktop -A --backend=webview --include=./frontend/dist --include=./icons ./desktop/main.ts"
+    },
+    "start": "deno task build:frontend && deno desktop -A --backend=webview --include=./frontend/dist --include=./icons ./desktop/main.ts",
+    "package:linux": "deno task build:frontend && mkdir -p dist/linux && deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --output=./dist/linux/excalidraw-offline ./desktop/main.ts",
+    "package:appimage": "deno task build:frontend && mkdir -p dist/linux && deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --output=./dist/linux/excalidraw-offline.AppImage ./desktop/main.ts",
+    "test:file-format": "deno test -A desktop/file-format_test.ts desktop/path_test.ts desktop/dialogs_test.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns", "dom"],
+    "strict": true
+  },
+  "nodeModulesDir": "auto",
+  "desktop": {
+    "app": {
+      "name": "Excalidraw Offline",
+      "identifier": "dev.excalidraw.offline",
+      "icons": {
+        "linux": "./icons/icon.png"
+      }
+    },
+    "backend": "webview",
+    "output": {
+      "linux": "./dist/linux/excalidraw-offline"
+    }
+  }
+}

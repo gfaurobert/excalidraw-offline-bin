@@ -1,0 +1,17 @@
+.tools/
+.deno-cache/
+.deno/
+.xdg-cache/
+.xdg-data/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+*.AppImage
+.DS_Store
+packaging/pkg/
+packaging/src/
+packaging/*.pkg.tar*
+packaging/*.log
+*.excalidraw
+!examples/**/*.excalidraw

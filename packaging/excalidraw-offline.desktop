@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Excalidraw Offline
+Comment=Offline Excalidraw desktop editor for local .excalidraw files
+Exec=excalidraw-offline
+Icon=excalidraw-offline
+Terminal=false
+Categories=Graphics;Office;
+MimeType=application/x-excalidraw;
+Keywords=excalidraw;drawing;diagram;whiteboard;
+StartupNotify=true
