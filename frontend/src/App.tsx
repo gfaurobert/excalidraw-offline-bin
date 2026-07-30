@@ -15,7 +15,7 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save";
+  type: "status" | "new" | "open" | "save" | "quit";
   message?: string;
   forcePicker?: boolean;
   path?: string;
@@ -73,6 +73,14 @@ async function apiJson<T>(
     );
   }
   return data;
+}
+
+function notifyQuitAborted(): void {
+  void fetch("/api/quit-aborted", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  }).catch(() => {});
 }
 
 function toScenePayload(
@@ -239,6 +247,7 @@ export default function App() {
   });
   const homeRef = useRef<string>(".");
   const busyRef = useRef(false);
+  const quittingRef = useRef(false);
   const autosaveTimer = useRef<number | null>(null);
   const lastTitleRef = useRef<string>("");
   const savedSceneKeyRef = useRef<string>("");
@@ -396,7 +405,7 @@ export default function App() {
     await apiLog("info", "runNew done");
   }, [askConfirm]);
 
-  const writeSceneToPath = useCallback(async (path: string) => {
+  const writeSceneToPath = useCallback(async (path: string): Promise<boolean> => {
     busyRef.current = true;
     try {
       const sceneJson = JSON.stringify(sceneRef.current);
@@ -413,9 +422,11 @@ export default function App() {
       await updateTitleRef.current(path, false);
       setStatus(`Saved ${path}`);
       await apiLog("info", `save: done ${path}`);
+      return true;
     } catch (err) {
       await apiLog("error", `save failed: ${String(err)}`);
       setStatus(`Save failed: ${String(err)}`);
+      return false;
     } finally {
       busyRef.current = false;
     }
@@ -424,14 +435,14 @@ export default function App() {
   const runSave = useCallback(async (
     forcePicker: boolean,
     presetPath?: string,
-  ) => {
+  ): Promise<boolean> => {
     await apiLog(
       "info",
       `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${presetPath ?? ""}`,
     );
     if (busyRef.current) {
       await apiLog("info", "runSave skipped: busy");
-      return;
+      return false;
     }
 
     let path = presetPath?.trim() || pathRef.current;
@@ -445,14 +456,54 @@ export default function App() {
       if (entered === null || entered === "") {
         setStatus("Save cancelled");
         await apiLog("info", "runSave cancelled at path dialog");
-        return;
+        return false;
       }
       path = ensureExt(entered);
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
-    await writeSceneToPath(path);
+    return await writeSceneToPath(path);
   }, [askPath, writeSceneToPath]);
+
+  const runQuit = useCallback(async () => {
+    await apiLog("info", `runQuit start dirty=${dirtyRef.current} busy=${busyRef.current}`);
+    if (quittingRef.current || busyRef.current) {
+      await apiLog("info", "runQuit skipped: busy or already quitting");
+      if (busyRef.current && !quittingRef.current) {
+        notifyQuitAborted();
+      }
+      return;
+    }
+    quittingRef.current = true;
+    try {
+      if (dirtyRef.current) {
+        const saved = await runSave(false);
+        if (!saved) {
+          await apiLog("info", "runQuit aborted: save cancelled or failed");
+          setStatus((prev) =>
+            prev.startsWith("Save failed") || prev === "Save cancelled"
+              ? prev
+              : "Quit cancelled"
+          );
+          notifyQuitAborted();
+          return;
+        }
+      }
+      setStatus("Quitting…");
+      await apiLog("info", "runQuit POST /api/quit");
+      await apiJson("/api/quit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    } catch (err) {
+      await apiLog("error", `runQuit failed: ${String(err)}`);
+      setStatus(`Quit failed: ${String(err)}`);
+      notifyQuitAborted();
+    } finally {
+      quittingRef.current = false;
+    }
+  }, [runSave]);
 
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
@@ -538,12 +589,8 @@ export default function App() {
           }>("/api/info");
           if (cancelled) return;
           homeRef.current = info.home || ".";
-          setStatus((prev) =>
-            prev.startsWith("Ready")
-              ? prev
-              : `Ready · dialog: ${info.dialogBackend}`
-          );
           await apiLog("info", `api/info ok home=${homeRef.current}`);
+          setStatus("");
           return;
         } catch (err) {
           if (i === 0 || i % 10 === 0) {
@@ -553,7 +600,7 @@ export default function App() {
         }
       }
       if (!cancelled) {
-        setStatus("Ready · HTTP API unavailable");
+        setStatus("HTTP API unavailable");
         await apiLog("error", "api/info failed after retries");
       }
     })();
@@ -593,6 +640,9 @@ export default function App() {
               setTimeout(() => void runSave(forcePicker, cmd.path), 0);
               break;
             }
+            case "quit":
+              setTimeout(() => void runQuit(), 0);
+              break;
           }
         }
       } catch (err) {
@@ -605,7 +655,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, pathDialog, confirmDialog]);
+  }, [runNew, runOpen, runSave, runQuit, pathDialog, confirmDialog]);
 
   useEffect(() => {
     return () => {
@@ -630,6 +680,7 @@ export default function App() {
         }}
       >
         <strong>Excalidraw Offline</strong>
+        <span style={{ opacity: 0.75 }}>{status}</span>
         <span style={{ marginLeft: "auto", opacity: 0.75 }}>{pathLabel}</span>
       </header>
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -655,21 +706,6 @@ export default function App() {
           }}
         />
       </div>
-      <footer
-        style={{
-          padding: "0.25rem 0.75rem",
-          borderTop: "1px solid #ddd",
-          background: "#fafafa",
-          fontSize: "0.8rem",
-          color: "#444",
-          flexShrink: 0,
-        }}
-      >
-        {status}
-        <span style={{ float: "right", opacity: 0.6 }}>
-          Images save into assets/ next to the .excalidraw file
-        </span>
-      </footer>
       {pathDialog && (
         <PathDialog
           state={pathDialog}

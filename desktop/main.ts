@@ -8,6 +8,7 @@
 import { join, fromFileUrl } from "./path.ts";
 import {
   describeDialogBackend,
+  infoDialog,
   openExcalidrawDialog,
   openImageDialog,
   saveExcalidrawDialog,
@@ -19,6 +20,21 @@ import {
   writeScene,
 } from "./file-format.ts";
 import type { ScenePayload } from "./types.ts";
+import { createCloseGuard } from "./close-guard.ts";
+import {
+  CLEAR_RECENT_ID,
+  createRecentFilesStore,
+  defaultRecentFilePath,
+  pathFromRecentMenuId,
+  recentDisplayLabels,
+  recentMenuId,
+} from "./recent-files.ts";
+import {
+  getAppRepoUrl,
+  getAppVersion,
+  getExcalidrawRepoUrl,
+  getExcalidrawVersion,
+} from "./versions.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -43,15 +59,30 @@ const DEV_URL = readDevUrl();
 
 let currentPath: string | null = null;
 let win: Deno.BrowserWindow;
+const closeGuard = createCloseGuard();
+const recentStore = createRecentFilesStore({
+  filePath: defaultRecentFilePath(),
+});
 let dialogBackend = "detecting";
+let appVersion = "unknown";
+let excalidrawVersion = "unknown";
 
 type UiCommand =
   | { type: "status"; message: string }
   | { type: "new" }
   | { type: "open"; path?: string }
-  | { type: "save"; forcePicker: boolean; path?: string };
+  | { type: "save"; forcePicker: boolean; path?: string }
+  | { type: "quit" };
 
 const uiQueue: UiCommand[] = [];
+let quitPending = false;
+
+function enqueueQuit(): void {
+  if (quitPending) return;
+  if (uiQueue.some((cmd) => cmd.type === "quit")) return;
+  quitPending = true;
+  enqueueUi({ type: "quit" });
+}
 
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -176,6 +207,12 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       currentPath = path;
       win.setTitle(`Excalidraw Offline — ${path}`);
       console.log("[write] done", path);
+      try {
+        await recentStore.touch(path);
+        applyMenu(recentStore.list());
+      } catch (err) {
+        console.error("[recent] touch failed", err);
+      }
       return json({ ok: true, path });
     } catch (err) {
       console.error("[write] error", err);
@@ -198,6 +235,12 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         "elements",
         scene.elements?.length ?? 0,
       );
+      try {
+        await recentStore.touch(path);
+        applyMenu(recentStore.list());
+      } catch (err) {
+        console.error("[recent] touch failed", err);
+      }
       return json({ ok: true, path, ...scene });
     } catch (err) {
       console.error("[read] error", err);
@@ -244,6 +287,25 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         dataURL: bytesToDataURL(bytes, mimeType),
       },
     });
+  }
+
+  if (pathname === "/api/quit-aborted" && method === "POST") {
+    quitPending = false;
+    console.log("[quit] aborted — pending cleared");
+    return json({ ok: true });
+  }
+
+  if (pathname === "/api/quit" && method === "POST") {
+    quitPending = false;
+    console.log("[quit] allow close + exit");
+    closeGuard.grantClose();
+    try {
+      win.close();
+    } catch (err) {
+      console.error("[quit] win.close error", err);
+    }
+    // Deno.serve keeps the process alive without an explicit exit.
+    Deno.exit(0);
   }
 
   return json({ ok: false, error: "not found" }, 404);
@@ -309,64 +371,123 @@ win = new Deno.BrowserWindow({
   height: 800,
 });
 
-win.setApplicationMenu([
-  {
-    submenu: {
-      label: "File",
-      items: [
-        {
-          item: {
-            label: "New",
-            id: "new",
-            accelerator: "CmdOrCtrl+N",
-            enabled: true,
-          },
-        },
-        {
-          item: {
-            label: "Open…",
-            id: "open",
-            accelerator: "CmdOrCtrl+O",
-            enabled: true,
-          },
-        },
-        "separator",
-        {
-          item: {
-            label: "Save",
-            id: "save",
-            accelerator: "CmdOrCtrl+S",
-            enabled: true,
-          },
-        },
-        {
-          item: {
-            label: "Save As…",
-            id: "save-as",
-            accelerator: "CmdOrCtrl+Shift+S",
-            enabled: true,
-          },
-        },
-        "separator",
-        { role: { role: "quit" } },
-      ],
+function applyMenu(recentPaths: string[]): void {
+  const labels = recentDisplayLabels(recentPaths);
+  const recentItems: Deno.MenuItem[] = recentPaths.length === 0
+    ? [{
+      item: {
+        label: "(No recent files)",
+        id: "recent-empty",
+        enabled: false,
+      },
+    }]
+    : recentPaths.map((path, i) => ({
+      item: {
+        label: labels[i]!,
+        id: recentMenuId(path),
+        enabled: true,
+      },
+    }));
+
+  recentItems.push("separator");
+  recentItems.push({
+    item: {
+      label: "Clear Recent",
+      id: CLEAR_RECENT_ID,
+      enabled: recentPaths.length > 0,
     },
-  },
-  {
-    submenu: {
-      label: "Edit",
-      items: [
-        { role: { role: "undo" } },
-        { role: { role: "redo" } },
-        "separator",
-        { role: { role: "cut" } },
-        { role: { role: "copy" } },
-        { role: { role: "paste" } },
-        { role: { role: "selectAll" } },
-      ],
+  });
+
+  win.setApplicationMenu([
+    {
+      submenu: {
+        label: "File",
+        items: [
+          {
+            item: {
+              label: "New",
+              id: "new",
+              accelerator: "CmdOrCtrl+N",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "Open…",
+              id: "open",
+              accelerator: "CmdOrCtrl+O",
+              enabled: true,
+            },
+          },
+          {
+            submenu: {
+              label: "Open Recent",
+              items: recentItems,
+            },
+          },
+          "separator",
+          {
+            item: {
+              label: "Save",
+              id: "save",
+              accelerator: "CmdOrCtrl+S",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "Save As…",
+              id: "save-as",
+              accelerator: "CmdOrCtrl+Shift+S",
+              enabled: true,
+            },
+          },
+          "separator",
+          {
+            item: {
+              label: "Quit",
+              id: "quit",
+              accelerator: "CmdOrCtrl+Q",
+              enabled: true,
+            },
+          },
+        ],
+      },
     },
-  },
-]);
+    {
+      submenu: {
+        label: "Info",
+        items: [
+          { item: { label: "Runtime", id: "info-runtime", enabled: true } },
+          { item: { label: "Assets", id: "info-assets", enabled: true } },
+          {
+            item: {
+              label: "About Excalidraw Offline",
+              id: "info-about-app",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "About Excalidraw",
+              id: "info-about-excalidraw",
+              enabled: true,
+            },
+          },
+        ],
+      },
+    },
+  ]);
+}
+
+appVersion = getAppVersion();
+excalidrawVersion = getExcalidrawVersion();
+console.log(
+  "[desktop] versions app=%s excalidraw=%s",
+  appVersion,
+  excalidrawVersion,
+);
+applyMenu(recentStore.list());
 
 /**
  * Native pickers run here (Deno menu), then we enqueue a path for the UI.
@@ -376,6 +497,23 @@ win.addEventListener("menuclick", (e: Event) => {
   const id = (e as CustomEvent<{ id: string }>).detail.id;
   console.log("[menu]", id);
   void (async () => {
+    const recentPath = pathFromRecentMenuId(id);
+    if (recentPath) {
+      try {
+        const info = await Deno.stat(recentPath);
+        if (!info.isFile) throw new Error("not a file");
+        enqueueUi({ type: "open", path: recentPath });
+      } catch {
+        enqueueUi({
+          type: "status",
+          message: `Recent file missing: ${recentPath}`,
+        });
+        await recentStore.remove(recentPath);
+        applyMenu(recentStore.list());
+      }
+      return;
+    }
+
     switch (id) {
       case "new":
         enqueueUi({ type: "new" });
@@ -426,17 +564,93 @@ win.addEventListener("menuclick", (e: Event) => {
         }
         break;
       }
+      case "quit":
+        enqueueQuit();
+        break;
+      case CLEAR_RECENT_ID:
+        await recentStore.clear();
+        applyMenu(recentStore.list());
+        enqueueUi({ type: "status", message: "Recent files cleared" });
+        break;
+      case "info-runtime": {
+        const text = `Ready · dialog: ${dialogBackend}+http`;
+        const result = await infoDialog("Runtime", text);
+        if (!result.ok) {
+          console.warn("[menu] info-runtime", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-assets": {
+        const result = await infoDialog(
+          "Assets",
+          "Images save into assets/ next to the .excalidraw file.",
+        );
+        if (!result.ok) {
+          console.warn("[menu] info-assets", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-about-app": {
+        const text =
+          `Excalidraw Offline\nVersion: ${appVersion}\n\n` +
+          "A Deno Desktop wrapper around @excalidraw/excalidraw for offline local files.";
+        const result = await infoDialog(
+          "About Excalidraw Offline",
+          text,
+          getAppRepoUrl(),
+        );
+        if (!result.ok) {
+          console.warn("[menu] info-about-app", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-about-excalidraw": {
+        const text =
+          `Excalidraw\nRelease: ${excalidrawVersion}\n\n` +
+          "Upstream @excalidraw/excalidraw packaged by this app.";
+        const result = await infoDialog(
+          "About Excalidraw",
+          text,
+          getExcalidrawRepoUrl(),
+        );
+        if (!result.ok) {
+          console.warn("[menu] info-about-excalidraw", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
       default:
         break;
     }
   })();
 });
 
-dialogBackend = await describeDialogBackend();
-enqueueUi({
-  type: "status",
-  message: `Ready · dialog: ${dialogBackend}+http`,
+win.addEventListener("close", (e: Event) => {
+  if (closeGuard.shouldDeferClose()) {
+    e.preventDefault();
+    console.log("[close] deferred → enqueue quit");
+    enqueueQuit();
+  } else {
+    console.log("[close] allowed");
+  }
 });
+
+dialogBackend = await describeDialogBackend();
 console.log("[desktop] http api ready; dialog backend:", dialogBackend);
 
 const target = DEV_URL ?? appUrl;

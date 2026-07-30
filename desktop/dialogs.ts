@@ -14,6 +14,10 @@ export type DialogResult =
     detail?: string;
   };
 
+export type InfoDialogResult =
+  | { ok: true }
+  | { ok: false; reason: "unavailable" | "error"; detail?: string };
+
 async function commandExists(name: string): Promise<boolean> {
   const cmd = new Deno.Command("sh", {
     args: ["-c", `command -v ${name}`],
@@ -35,6 +39,66 @@ function homeDir(): string {
 /** Append .excalidraw when the user omits the extension. */
 export function ensureExcalidrawExt(path: string): string {
   return path.endsWith(".excalidraw") ? path : `${path}.excalidraw`;
+}
+
+/** Append a URL; zenity gets a clickable Pango link, kdialog gets plain text. */
+export function formatLinkedInfoText(
+  backend: "zenity" | "kdialog",
+  body: string,
+  url: string,
+): string {
+  if (backend === "zenity") {
+    return `${body}\n\n<a href="${url}">${url}</a>`;
+  }
+  return `${body}\n\n${url}`;
+}
+
+export function buildInfoDialogArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  text: string,
+): string[] {
+  if (backend === "zenity") {
+    return ["zenity", "--info", `--title=${title}`, `--text=${text}`];
+  }
+  return ["kdialog", "--title", title, "--msgbox", text];
+}
+
+async function runInfoCommand(args: string[]): Promise<InfoDialogResult> {
+  try {
+    const useSetsid = await commandExists("setsid");
+    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+      args: useSetsid ? args : args.slice(1),
+      stdout: "null",
+      stderr: "piped",
+    });
+    const { success, code, stderr } = await cmd.output();
+    if (success || code === 0) return { ok: true };
+    const detail = new TextDecoder().decode(stderr).trim();
+    return { ok: false, reason: "error", detail: detail || `exit ${code}` };
+  } catch (err) {
+    return { ok: false, reason: "error", detail: String(err) };
+  }
+}
+
+export async function infoDialog(
+  title: string,
+  text: string,
+  linkUrl?: string,
+): Promise<InfoDialogResult> {
+  if (await commandExists("zenity")) {
+    const body = linkUrl
+      ? formatLinkedInfoText("zenity", text, linkUrl)
+      : text;
+    return await runInfoCommand(buildInfoDialogArgs("zenity", title, body));
+  }
+  if (await commandExists("kdialog")) {
+    const body = linkUrl
+      ? formatLinkedInfoText("kdialog", text, linkUrl)
+      : text;
+    return await runInfoCommand(buildInfoDialogArgs("kdialog", title, body));
+  }
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
 }
 
 async function runDialog(args: string[]): Promise<DialogResult> {
