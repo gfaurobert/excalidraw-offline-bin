@@ -590,6 +590,7 @@ export default function App() {
           if (cancelled) return;
           homeRef.current = info.home || ".";
           await apiLog("info", `api/info ok home=${homeRef.current}`);
+          setStatus("");
           return;
         } catch (err) {
           if (i === 0 || i % 10 === 0) {
