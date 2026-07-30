@@ -6,6 +6,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 
 - Launch an offline Excalidraw desktop app
 - Open / Save / Save As `.excalidraw` files anywhere on disk
+- File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
 

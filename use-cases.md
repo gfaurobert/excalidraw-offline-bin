@@ -28,6 +28,7 @@
 ### 2) Open a `.excalidraw` file
 - User can open an existing local `.excalidraw` file from the app (menu/open dialog).
 - File-manager double-click association is not required for the first version unless added later.
+- File → Open Recent lists up to 10 recently opened/saved paths (persisted under XDG config). Missing paths are removed from the list when selected.
 
 ### 3) Save under a repo
 - Means: save the `.excalidraw` file anywhere on local disk.
@@ -48,7 +49,6 @@
 - Do not depend on the original absolute path of the imported file after copy.
 
 ## Explicit non-goals for first version
-- Recent files list
 - Export to PNG/SVG
 - Cloud sync / collaboration / login
 - Git integration beyond saving into a folder that happens to be a repo
