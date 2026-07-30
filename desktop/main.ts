@@ -8,6 +8,7 @@
 import { join, fromFileUrl } from "./path.ts";
 import {
   describeDialogBackend,
+  infoDialog,
   openExcalidrawDialog,
   openImageDialog,
   saveExcalidrawDialog,
@@ -28,6 +29,7 @@ import {
   recentDisplayLabels,
   recentMenuId,
 } from "./recent-files.ts";
+import { readAppVersion, readExcalidrawVersion } from "./versions.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -57,6 +59,8 @@ const recentStore = createRecentFilesStore({
   filePath: defaultRecentFilePath(),
 });
 let dialogBackend = "detecting";
+let appVersion = "unknown";
+let excalidrawVersion = "unknown";
 
 type UiCommand =
   | { type: "status"; message: string }
@@ -445,9 +449,43 @@ function applyMenu(recentPaths: string[]): void {
         ],
       },
     },
+    {
+      submenu: {
+        label: "Info",
+        items: [
+          { item: { label: "Runtime", id: "info-runtime", enabled: true } },
+          { item: { label: "Assets", id: "info-assets", enabled: true } },
+          {
+            item: {
+              label: "About Excalidraw Offline",
+              id: "info-about-app",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "About Excalidraw",
+              id: "info-about-excalidraw",
+              enabled: true,
+            },
+          },
+        ],
+      },
+    },
   ]);
 }
 
+appVersion = await readAppVersion(join(ROOT, "deno.json"));
+excalidrawVersion = await readExcalidrawVersion(
+  join(
+    ROOT,
+    "frontend",
+    "node_modules",
+    "@excalidraw",
+    "excalidraw",
+    "package.json",
+  ),
+);
 applyMenu(recentStore.list());
 
 /**
@@ -533,6 +571,58 @@ win.addEventListener("menuclick", (e: Event) => {
         applyMenu(recentStore.list());
         enqueueUi({ type: "status", message: "Recent files cleared" });
         break;
+      case "info-runtime": {
+        const text = `Ready · dialog: ${dialogBackend}+http`;
+        const result = await infoDialog("Runtime", text);
+        if (!result.ok) {
+          console.warn("[menu] info-runtime", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-assets": {
+        const result = await infoDialog(
+          "Assets",
+          "Images save into assets/ next to the .excalidraw file.",
+        );
+        if (!result.ok) {
+          console.warn("[menu] info-assets", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-about-app": {
+        const text =
+          `Excalidraw Offline ${appVersion}\n\n` +
+          "A Deno Desktop wrapper around @excalidraw/excalidraw for offline local files.";
+        const result = await infoDialog("About Excalidraw Offline", text);
+        if (!result.ok) {
+          console.warn("[menu] info-about-app", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
+      case "info-about-excalidraw": {
+        const text = `Upstream @excalidraw/excalidraw version ${excalidrawVersion}`;
+        const result = await infoDialog("About Excalidraw", text);
+        if (!result.ok) {
+          console.warn("[menu] info-about-excalidraw", result);
+          enqueueUi({
+            type: "status",
+            message: `Info dialog unavailable: ${result.detail ?? result.reason}`,
+          });
+        }
+        break;
+      }
       default:
         break;
     }
@@ -550,10 +640,6 @@ win.addEventListener("close", (e: Event) => {
 });
 
 dialogBackend = await describeDialogBackend();
-enqueueUi({
-  type: "status",
-  message: `Ready · dialog: ${dialogBackend}+http`,
-});
 console.log("[desktop] http api ready; dialog backend:", dialogBackend);
 
 const target = DEV_URL ?? appUrl;
