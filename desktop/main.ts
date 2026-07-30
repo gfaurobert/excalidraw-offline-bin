@@ -198,6 +198,8 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       currentPath = path;
       win.setTitle(`Excalidraw Offline — ${path}`);
       console.log("[write] done", path);
+      await recentStore.touch(path);
+      applyMenu(recentStore.list());
       return json({ ok: true, path });
     } catch (err) {
       console.error("[write] error", err);
@@ -220,6 +222,8 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         "elements",
         scene.elements?.length ?? 0,
       );
+      await recentStore.touch(path);
+      applyMenu(recentStore.list());
       return json({ ok: true, path, ...scene });
     } catch (err) {
       console.error("[read] error", err);
