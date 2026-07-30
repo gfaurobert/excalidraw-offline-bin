@@ -29,7 +29,12 @@ import {
   recentDisplayLabels,
   recentMenuId,
 } from "./recent-files.ts";
-import { readAppVersion, readExcalidrawVersion } from "./versions.ts";
+import {
+  getAppRepoUrl,
+  getAppVersion,
+  getExcalidrawRepoUrl,
+  getExcalidrawVersion,
+} from "./versions.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -475,16 +480,12 @@ function applyMenu(recentPaths: string[]): void {
   ]);
 }
 
-appVersion = await readAppVersion(join(ROOT, "deno.json"));
-excalidrawVersion = await readExcalidrawVersion(
-  join(
-    ROOT,
-    "frontend",
-    "node_modules",
-    "@excalidraw",
-    "excalidraw",
-    "package.json",
-  ),
+appVersion = getAppVersion();
+excalidrawVersion = getExcalidrawVersion();
+console.log(
+  "[desktop] versions app=%s excalidraw=%s",
+  appVersion,
+  excalidrawVersion,
 );
 applyMenu(recentStore.list());
 
@@ -599,9 +600,13 @@ win.addEventListener("menuclick", (e: Event) => {
       }
       case "info-about-app": {
         const text =
-          `Excalidraw Offline ${appVersion}\n\n` +
+          `Excalidraw Offline\nVersion: ${appVersion}\n\n` +
           "A Deno Desktop wrapper around @excalidraw/excalidraw for offline local files.";
-        const result = await infoDialog("About Excalidraw Offline", text);
+        const result = await infoDialog(
+          "About Excalidraw Offline",
+          text,
+          getAppRepoUrl(),
+        );
         if (!result.ok) {
           console.warn("[menu] info-about-app", result);
           enqueueUi({
@@ -612,8 +617,14 @@ win.addEventListener("menuclick", (e: Event) => {
         break;
       }
       case "info-about-excalidraw": {
-        const text = `Upstream @excalidraw/excalidraw version ${excalidrawVersion}`;
-        const result = await infoDialog("About Excalidraw", text);
+        const text =
+          `Excalidraw\nRelease: ${excalidrawVersion}\n\n` +
+          "Upstream @excalidraw/excalidraw packaged by this app.";
+        const result = await infoDialog(
+          "About Excalidraw",
+          text,
+          getExcalidrawRepoUrl(),
+        );
         if (!result.ok) {
           console.warn("[menu] info-about-excalidraw", result);
           enqueueUi({

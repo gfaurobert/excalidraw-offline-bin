@@ -41,6 +41,18 @@ export function ensureExcalidrawExt(path: string): string {
   return path.endsWith(".excalidraw") ? path : `${path}.excalidraw`;
 }
 
+/** Append a URL; zenity gets a clickable Pango link, kdialog gets plain text. */
+export function formatLinkedInfoText(
+  backend: "zenity" | "kdialog",
+  body: string,
+  url: string,
+): string {
+  if (backend === "zenity") {
+    return `${body}\n\n<a href="${url}">${url}</a>`;
+  }
+  return `${body}\n\n${url}`;
+}
+
 export function buildInfoDialogArgs(
   backend: "zenity" | "kdialog",
   title: string,
@@ -72,12 +84,19 @@ async function runInfoCommand(args: string[]): Promise<InfoDialogResult> {
 export async function infoDialog(
   title: string,
   text: string,
+  linkUrl?: string,
 ): Promise<InfoDialogResult> {
   if (await commandExists("zenity")) {
-    return await runInfoCommand(buildInfoDialogArgs("zenity", title, text));
+    const body = linkUrl
+      ? formatLinkedInfoText("zenity", text, linkUrl)
+      : text;
+    return await runInfoCommand(buildInfoDialogArgs("zenity", title, body));
   }
   if (await commandExists("kdialog")) {
-    return await runInfoCommand(buildInfoDialogArgs("kdialog", title, text));
+    const body = linkUrl
+      ? formatLinkedInfoText("kdialog", text, linkUrl)
+      : text;
+    return await runInfoCommand(buildInfoDialogArgs("kdialog", title, body));
   }
   return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
 }
