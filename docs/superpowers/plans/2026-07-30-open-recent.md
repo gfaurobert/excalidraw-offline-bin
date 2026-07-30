@@ -279,8 +279,6 @@ export function createRecentFilesStore(options: {
 }
 ```
 
-Note: `emptyDoc` may be unused — omit it if the linter complains; keep load/save as above.
-
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `deno test -A desktop/recent-files_test.ts`
