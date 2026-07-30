@@ -20,6 +20,14 @@ import {
 } from "./file-format.ts";
 import type { ScenePayload } from "./types.ts";
 import { createCloseGuard } from "./close-guard.ts";
+import {
+  CLEAR_RECENT_ID,
+  createRecentFilesStore,
+  defaultRecentFilePath,
+  pathFromRecentMenuId,
+  recentDisplayLabels,
+  recentMenuId,
+} from "./recent-files.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -45,6 +53,9 @@ const DEV_URL = readDevUrl();
 let currentPath: string | null = null;
 let win: Deno.BrowserWindow;
 const closeGuard = createCloseGuard();
+const recentStore = createRecentFilesStore({
+  filePath: defaultRecentFilePath(),
+});
 let dialogBackend = "detecting";
 
 type UiCommand =
@@ -339,71 +350,93 @@ win = new Deno.BrowserWindow({
   height: 800,
 });
 
-win.setApplicationMenu([
-  {
-    submenu: {
-      label: "File",
-      items: [
-        {
-          item: {
-            label: "New",
-            id: "new",
-            accelerator: "CmdOrCtrl+N",
-            enabled: true,
-          },
-        },
-        {
-          item: {
-            label: "Open…",
-            id: "open",
-            accelerator: "CmdOrCtrl+O",
-            enabled: true,
-          },
-        },
-        "separator",
-        {
-          item: {
-            label: "Save",
-            id: "save",
-            accelerator: "CmdOrCtrl+S",
-            enabled: true,
-          },
-        },
-        {
-          item: {
-            label: "Save As…",
-            id: "save-as",
-            accelerator: "CmdOrCtrl+Shift+S",
-            enabled: true,
-          },
-        },
-        "separator",
-        {
-          item: {
-            label: "Quit",
-            id: "quit",
-            accelerator: "CmdOrCtrl+Q",
-            enabled: true,
-          },
-        },
-      ],
+function applyMenu(recentPaths: string[]): void {
+  const labels = recentDisplayLabels(recentPaths);
+  const recentItems: Deno.MenuItem[] = recentPaths.length === 0
+    ? [{
+      item: {
+        label: "(No recent files)",
+        id: "recent-empty",
+        enabled: false,
+      },
+    }]
+    : recentPaths.map((path, i) => ({
+      item: {
+        label: labels[i]!,
+        id: recentMenuId(path),
+        enabled: true,
+      },
+    }));
+
+  recentItems.push("separator");
+  recentItems.push({
+    item: {
+      label: "Clear Recent",
+      id: CLEAR_RECENT_ID,
+      enabled: recentPaths.length > 0,
     },
-  },
-  {
-    submenu: {
-      label: "Edit",
-      items: [
-        { role: { role: "undo" } },
-        { role: { role: "redo" } },
-        "separator",
-        { role: { role: "cut" } },
-        { role: { role: "copy" } },
-        { role: { role: "paste" } },
-        { role: { role: "selectAll" } },
-      ],
+  });
+
+  win.setApplicationMenu([
+    {
+      submenu: {
+        label: "File",
+        items: [
+          {
+            item: {
+              label: "New",
+              id: "new",
+              accelerator: "CmdOrCtrl+N",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "Open…",
+              id: "open",
+              accelerator: "CmdOrCtrl+O",
+              enabled: true,
+            },
+          },
+          {
+            submenu: {
+              label: "Open Recent",
+              items: recentItems,
+            },
+          },
+          "separator",
+          {
+            item: {
+              label: "Save",
+              id: "save",
+              accelerator: "CmdOrCtrl+S",
+              enabled: true,
+            },
+          },
+          {
+            item: {
+              label: "Save As…",
+              id: "save-as",
+              accelerator: "CmdOrCtrl+Shift+S",
+              enabled: true,
+            },
+          },
+          "separator",
+          {
+            item: {
+              label: "Quit",
+              id: "quit",
+              accelerator: "CmdOrCtrl+Q",
+              enabled: true,
+            },
+          },
+        ],
+      },
     },
-  },
-]);
+  ]);
+}
+
+applyMenu(recentStore.list());
 
 /**
  * Native pickers run here (Deno menu), then we enqueue a path for the UI.
@@ -413,6 +446,22 @@ win.addEventListener("menuclick", (e: Event) => {
   const id = (e as CustomEvent<{ id: string }>).detail.id;
   console.log("[menu]", id);
   void (async () => {
+    const recentPath = pathFromRecentMenuId(id);
+    if (recentPath) {
+      try {
+        await Deno.stat(recentPath);
+        enqueueUi({ type: "open", path: recentPath });
+      } catch {
+        enqueueUi({
+          type: "status",
+          message: `Recent file missing: ${recentPath}`,
+        });
+        await recentStore.remove(recentPath);
+        applyMenu(recentStore.list());
+      }
+      return;
+    }
+
     switch (id) {
       case "new":
         enqueueUi({ type: "new" });
@@ -465,6 +514,11 @@ win.addEventListener("menuclick", (e: Event) => {
       }
       case "quit":
         enqueueQuit();
+        break;
+      case CLEAR_RECENT_ID:
+        await recentStore.clear();
+        applyMenu(recentStore.list());
+        enqueueUi({ type: "status", message: "Recent files cleared" });
         break;
       default:
         break;
