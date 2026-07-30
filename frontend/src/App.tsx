@@ -75,6 +75,14 @@ async function apiJson<T>(
   return data;
 }
 
+function notifyQuitAborted(): void {
+  void fetch("/api/quit-aborted", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  }).catch(() => {});
+}
+
 function toScenePayload(
   elements: readonly ExcalidrawElement[],
   appState: AppState,
@@ -461,6 +469,9 @@ export default function App() {
     await apiLog("info", `runQuit start dirty=${dirtyRef.current} busy=${busyRef.current}`);
     if (quittingRef.current || busyRef.current) {
       await apiLog("info", "runQuit skipped: busy or already quitting");
+      if (busyRef.current && !quittingRef.current) {
+        notifyQuitAborted();
+      }
       return;
     }
     quittingRef.current = true;
@@ -474,6 +485,7 @@ export default function App() {
               ? prev
               : "Quit cancelled"
           );
+          notifyQuitAborted();
           return;
         }
       }
@@ -487,6 +499,7 @@ export default function App() {
     } catch (err) {
       await apiLog("error", `runQuit failed: ${String(err)}`);
       setStatus(`Quit failed: ${String(err)}`);
+      notifyQuitAborted();
     } finally {
       quittingRef.current = false;
     }

@@ -55,6 +55,14 @@ type UiCommand =
   | { type: "quit" };
 
 const uiQueue: UiCommand[] = [];
+let quitPending = false;
+
+function enqueueQuit(): void {
+  if (quitPending) return;
+  if (uiQueue.some((cmd) => cmd.type === "quit")) return;
+  quitPending = true;
+  enqueueUi({ type: "quit" });
+}
 
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -249,7 +257,14 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     });
   }
 
+  if (pathname === "/api/quit-aborted" && method === "POST") {
+    quitPending = false;
+    console.log("[quit] aborted — pending cleared");
+    return json({ ok: true });
+  }
+
   if (pathname === "/api/quit" && method === "POST") {
+    quitPending = false;
     console.log("[quit] allow close + exit");
     closeGuard.grantClose();
     try {
@@ -449,7 +464,7 @@ win.addEventListener("menuclick", (e: Event) => {
         break;
       }
       case "quit":
-        enqueueUi({ type: "quit" });
+        enqueueQuit();
         break;
       default:
         break;
@@ -461,7 +476,7 @@ win.addEventListener("close", (e: Event) => {
   if (closeGuard.shouldDeferClose()) {
     e.preventDefault();
     console.log("[close] deferred → enqueue quit");
-    enqueueUi({ type: "quit" });
+    enqueueQuit();
   } else {
     console.log("[close] allowed");
   }

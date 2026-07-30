@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "jsr:@std/assert@1";
 import { createCloseGuard } from "./close-guard.ts";
 
 Deno.test("close guard defers until grantClose", () => {
