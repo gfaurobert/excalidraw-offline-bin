@@ -198,8 +198,12 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       currentPath = path;
       win.setTitle(`Excalidraw Offline — ${path}`);
       console.log("[write] done", path);
-      await recentStore.touch(path);
-      applyMenu(recentStore.list());
+      try {
+        await recentStore.touch(path);
+        applyMenu(recentStore.list());
+      } catch (err) {
+        console.error("[recent] touch failed", err);
+      }
       return json({ ok: true, path });
     } catch (err) {
       console.error("[write] error", err);
@@ -222,8 +226,12 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         "elements",
         scene.elements?.length ?? 0,
       );
-      await recentStore.touch(path);
-      applyMenu(recentStore.list());
+      try {
+        await recentStore.touch(path);
+        applyMenu(recentStore.list());
+      } catch (err) {
+        console.error("[recent] touch failed", err);
+      }
       return json({ ok: true, path, ...scene });
     } catch (err) {
       console.error("[read] error", err);
@@ -453,7 +461,8 @@ win.addEventListener("menuclick", (e: Event) => {
     const recentPath = pathFromRecentMenuId(id);
     if (recentPath) {
       try {
-        await Deno.stat(recentPath);
+        const info = await Deno.stat(recentPath);
+        if (!info.isFile) throw new Error("not a file");
         enqueueUi({ type: "open", path: recentPath });
       } catch {
         enqueueUi({
