@@ -19,6 +19,7 @@ import {
   writeScene,
 } from "./file-format.ts";
 import type { ScenePayload } from "./types.ts";
+import { createCloseGuard } from "./close-guard.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -43,13 +44,15 @@ const DEV_URL = readDevUrl();
 
 let currentPath: string | null = null;
 let win: Deno.BrowserWindow;
+const closeGuard = createCloseGuard();
 let dialogBackend = "detecting";
 
 type UiCommand =
   | { type: "status"; message: string }
   | { type: "new" }
   | { type: "open"; path?: string }
-  | { type: "save"; forcePicker: boolean; path?: string };
+  | { type: "save"; forcePicker: boolean; path?: string }
+  | { type: "quit" };
 
 const uiQueue: UiCommand[] = [];
 
@@ -246,6 +249,18 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     });
   }
 
+  if (pathname === "/api/quit" && method === "POST") {
+    console.log("[quit] allow close + exit");
+    closeGuard.grantClose();
+    try {
+      win.close();
+    } catch (err) {
+      console.error("[quit] win.close error", err);
+    }
+    // Deno.serve keeps the process alive without an explicit exit.
+    Deno.exit(0);
+  }
+
   return json({ ok: false, error: "not found" }, 404);
 }
 
@@ -348,7 +363,14 @@ win.setApplicationMenu([
           },
         },
         "separator",
-        { role: { role: "quit" } },
+        {
+          item: {
+            label: "Quit",
+            id: "quit",
+            accelerator: "CmdOrCtrl+Q",
+            enabled: true,
+          },
+        },
       ],
     },
   },
@@ -426,10 +448,23 @@ win.addEventListener("menuclick", (e: Event) => {
         }
         break;
       }
+      case "quit":
+        enqueueUi({ type: "quit" });
+        break;
       default:
         break;
     }
   })();
+});
+
+win.addEventListener("close", (e: Event) => {
+  if (closeGuard.shouldDeferClose()) {
+    e.preventDefault();
+    console.log("[close] deferred → enqueue quit");
+    enqueueUi({ type: "quit" });
+  } else {
+    console.log("[close] allowed");
+  }
 });
 
 dialogBackend = await describeDialogBackend();
