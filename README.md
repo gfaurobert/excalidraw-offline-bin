@@ -9,6 +9,8 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
+- Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
+- Transient open/save status appears in the header (not a footer)
 
 ## Requirements
 

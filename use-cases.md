@@ -24,6 +24,7 @@
 ### 1) Launch Excalidraw App
 - Offline desktop app that wraps upstream Excalidraw (not a reimplementation).
 - No account, sync, collaboration, or network requirement for core drawing.
+- Info menu (native): Runtime dialog backend, assets storage tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version). Transient open/save status shows in the app header; there is no footer status bar.
 
 ### 2) Open a `.excalidraw` file
 - User can open an existing local `.excalidraw` file from the app (menu/open dialog).

@@ -589,11 +589,6 @@ export default function App() {
           }>("/api/info");
           if (cancelled) return;
           homeRef.current = info.home || ".";
-          setStatus((prev) =>
-            prev.startsWith("Ready")
-              ? prev
-              : `Ready · dialog: ${info.dialogBackend}`
-          );
           await apiLog("info", `api/info ok home=${homeRef.current}`);
           return;
         } catch (err) {
@@ -604,7 +599,7 @@ export default function App() {
         }
       }
       if (!cancelled) {
-        setStatus("Ready · HTTP API unavailable");
+        setStatus("HTTP API unavailable");
         await apiLog("error", "api/info failed after retries");
       }
     })();
@@ -684,6 +679,7 @@ export default function App() {
         }}
       >
         <strong>Excalidraw Offline</strong>
+        <span style={{ opacity: 0.75 }}>{status}</span>
         <span style={{ marginLeft: "auto", opacity: 0.75 }}>{pathLabel}</span>
       </header>
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -709,21 +705,6 @@ export default function App() {
           }}
         />
       </div>
-      <footer
-        style={{
-          padding: "0.25rem 0.75rem",
-          borderTop: "1px solid #ddd",
-          background: "#fafafa",
-          fontSize: "0.8rem",
-          color: "#444",
-          flexShrink: 0,
-        }}
-      >
-        {status}
-        <span style={{ float: "right", opacity: 0.6 }}>
-          Images save into assets/ next to the .excalidraw file
-        </span>
-      </footer>
       {pathDialog && (
         <PathDialog
           state={pathDialog}
