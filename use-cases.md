@@ -25,6 +25,7 @@
 - Offline desktop app that wraps upstream Excalidraw (not a reimplementation).
 - No account, sync, collaboration, or network requirement for core drawing.
 - Info menu (native): Runtime dialog backend, assets storage tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version). Transient open/save status shows in the app header; there is no footer status bar.
+- Skills menu (native): Install bundled `excalidraw-sketching` Agent Skill to Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom (folder as-is).
 
 ### 2) Open a `.excalidraw` file
 - User can open an existing local `.excalidraw` file from the app (menu/open dialog).

@@ -18,6 +18,23 @@ export type InfoDialogResult =
   | { ok: true }
   | { ok: false; reason: "unavailable" | "error"; detail?: string };
 
+export type ChoiceDialogResult =
+  | { ok: true; id: string }
+  | {
+    ok: false;
+    reason: "cancelled" | "unavailable" | "error";
+    detail?: string;
+  };
+
+export type ConfirmDialogResult =
+  | { ok: true; confirmed: boolean }
+  | { ok: false; reason: "unavailable" | "error"; detail?: string };
+
+export interface ChoiceOption {
+  id: string;
+  label: string;
+}
+
 async function commandExists(name: string): Promise<boolean> {
   const cmd = new Deno.Command("sh", {
     args: ["-c", `command -v ${name}`],
@@ -230,4 +247,171 @@ export async function describeDialogBackend(): Promise<string> {
   if (await commandExists("kdialog")) parts.push("kdialog");
   if (parts.length === 0) parts.push("in-webview");
   return parts.join("+");
+}
+
+/** Pure args builder for radiolist choice dialogs (testable). */
+export function buildChoiceDialogArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultId?: string,
+): string[] {
+  if (backend === "zenity") {
+    const args = [
+      "zenity",
+      "--list",
+      "--radiolist",
+      `--title=${title}`,
+      `--text=${text}`,
+      "--column=Select",
+      "--column=Option",
+      "--hide-header",
+      "--print-column=2",
+    ];
+    for (const opt of options) {
+      args.push(opt.id === defaultId ? "TRUE" : "FALSE", opt.label);
+    }
+    return args;
+  }
+
+  const args = ["kdialog", "--title", title, "--radiolist", text];
+  for (const opt of options) {
+    args.push(opt.id, opt.label, opt.id === defaultId ? "on" : "off");
+  }
+  return args;
+}
+
+function labelToChoiceId(
+  options: ChoiceOption[],
+  printed: string,
+): string | undefined {
+  const trimmed = printed.trim();
+  const byId = options.find((o) => o.id === trimmed);
+  if (byId) return byId.id;
+  const byLabel = options.find((o) => o.label === trimmed);
+  return byLabel?.id;
+}
+
+export async function choiceDialog(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultId?: string,
+): Promise<ChoiceDialogResult> {
+  if (options.length === 0) {
+    return { ok: false, reason: "error", detail: "no options" };
+  }
+
+  if (await commandExists("zenity")) {
+    const result = await runDialog(
+      buildChoiceDialogArgs("zenity", title, text, options, defaultId),
+    );
+    if (!result.ok) return result;
+    const id = labelToChoiceId(options, result.path);
+    if (!id) {
+      return {
+        ok: false,
+        reason: "error",
+        detail: `unknown choice: ${result.path}`,
+      };
+    }
+    return { ok: true, id };
+  }
+
+  if (await commandExists("kdialog")) {
+    const result = await runDialog(
+      buildChoiceDialogArgs("kdialog", title, text, options, defaultId),
+    );
+    if (!result.ok) return result;
+    const id = labelToChoiceId(options, result.path);
+    if (!id) {
+      return {
+        ok: false,
+        reason: "error",
+        detail: `unknown choice: ${result.path}`,
+      };
+    }
+    return { ok: true, id };
+  }
+
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
+}
+
+export function buildDirectoryDialogArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  startDir: string,
+): string[] {
+  if (backend === "zenity") {
+    return [
+      "zenity",
+      "--file-selection",
+      "--directory",
+      `--title=${title}`,
+      `--filename=${startDir}/`,
+    ];
+  }
+  return ["kdialog", "--title", title, "--getexistingdirectory", startDir];
+}
+
+export async function openDirectoryDialog(
+  title = "Select folder",
+  startDir?: string,
+): Promise<DialogResult> {
+  const start = startDir ?? homeDir();
+  if (await commandExists("zenity")) {
+    return await runDialog(buildDirectoryDialogArgs("zenity", title, start));
+  }
+  if (await commandExists("kdialog")) {
+    return await runDialog(buildDirectoryDialogArgs("kdialog", title, start));
+  }
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
+}
+
+export function buildConfirmDialogArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  text: string,
+): string[] {
+  if (backend === "zenity") {
+    return ["zenity", "--question", `--title=${title}`, `--text=${text}`];
+  }
+  return ["kdialog", "--title", title, "--yesno", text];
+}
+
+async function runConfirmCommand(args: string[]): Promise<ConfirmDialogResult> {
+  try {
+    const useSetsid = await commandExists("setsid");
+    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+      args: useSetsid ? args : args.slice(1),
+      stdout: "null",
+      stderr: "piped",
+    });
+    const { success, code, stderr } = await cmd.output();
+    // zenity/kdialog: 0 = Yes, 1 = No/Cancel
+    if (success || code === 0) return { ok: true, confirmed: true };
+    if (code === 1) return { ok: true, confirmed: false };
+    const detail = new TextDecoder().decode(stderr).trim();
+    return { ok: false, reason: "error", detail: detail || `exit ${code}` };
+  } catch (err) {
+    return { ok: false, reason: "error", detail: String(err) };
+  }
+}
+
+export async function confirmDialog(
+  title: string,
+  text: string,
+): Promise<ConfirmDialogResult> {
+  if (await commandExists("zenity")) {
+    return await runConfirmCommand(
+      buildConfirmDialogArgs("zenity", title, text),
+    );
+  }
+  if (await commandExists("kdialog")) {
+    return await runConfirmCommand(
+      buildConfirmDialogArgs("kdialog", title, text),
+    );
+  }
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
 }

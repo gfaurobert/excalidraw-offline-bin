@@ -1,7 +1,7 @@
 # Maintainer: Gregoire <gregoire@localhost>
 pkgname=excalidraw-offline
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Deno Desktop wrapper)"
 arch=('x86_64' 'aarch64')
 url="https://github.com/gregoire/excalidraw-offline-bin"
@@ -25,12 +25,14 @@ build() {
   cd ..
 
   mkdir -p dist/linux
+  rm -rf dist/linux/excalidraw-offline
   deno desktop \
     -A \
     --backend=webview \
     --compress=xz \
     --include=./frontend/dist \
     --include=./icons \
+    --include=./skills \
     --output=./dist/linux/excalidraw-offline \
     ./desktop/main.ts
 }
@@ -41,8 +43,8 @@ package() {
   install -d "$pkgdir/usr/lib/$pkgname"
   cp -a dist/linux/excalidraw-offline/. "$pkgdir/usr/lib/$pkgname/"
 
-  install -d "$pkgdir/usr/bin"
-  ln -s "/usr/lib/$pkgname/excalidraw-offline" "$pkgdir/usr/bin/excalidraw-offline"
+  install -Dm755 packaging/excalidraw-offline.sh \
+    "$pkgdir/usr/bin/excalidraw-offline"
 
   install -Dm644 packaging/excalidraw-offline.desktop \
     "$pkgdir/usr/share/applications/excalidraw-offline.desktop"
