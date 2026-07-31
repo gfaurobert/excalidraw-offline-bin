@@ -43,6 +43,9 @@ STAGING="$OUT/staging/$STAGING_NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT" "$STAGING"
 
+echo "==> installing frontend deps"
+(cd frontend && deno install --node-modules-dir=auto)
+
 echo "==> building frontend"
 deno task build:frontend
 
@@ -69,13 +72,16 @@ fi
 echo "==> tarball → $TARBALL_NAME"
 tar -C "$OUT/staging" -cJf "$OUT/$TARBALL_NAME" "$STAGING_NAME"
 
+rm -rf "$OUT/staging"
+
+# Deno Desktop leaves AppImage intermediate dirs (e.g. excalidraw-offline-0.1/).
+find "$OUT" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+
 echo "==> checksums"
 (
   cd "$OUT"
   sha256sum "$APPIMAGE_NAME" "$TARBALL_NAME" > "$SUMS_NAME"
 )
-
-rm -rf "$OUT/staging"
 
 echo "Artifacts in $OUT:"
 ls -la "$OUT"
