@@ -37,3 +37,19 @@ deno task package:linux
 Runtime depends: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`).
 
 File dialogs use zenity/kdialog because Deno Desktop does not yet expose a native file-picker API.
+
+## GitHub Release binaries
+
+Tagged releases publish an AppImage and a binary `.tar.xz` (plus `SHA256SUMS`) via CI.
+Those are for direct download / portable use.
+
+The `.tar.xz` is built with `--compress=xz`: after extract you get the launcher script plus `payload.tar.xz` (Deno Desktop self-extracting layout), not an expanded `.so`/icons tree. Run `./excalidraw-offline`.
+
+makepkg and the AUR `PKGBUILD` still **build from source** (git checkout or GitHub source archive for `v$pkgver`). They do not install the Release AppImage.
+
+Local release-shaped artifacts (same names as CI):
+
+```bash
+deno task package:release
+# → dist/release/
+```
