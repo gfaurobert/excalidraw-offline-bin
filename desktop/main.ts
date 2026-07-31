@@ -7,8 +7,11 @@
 /// <reference path="./desktop-types.d.ts" />
 import { join, fromFileUrl } from "./path.ts";
 import {
+  choiceDialog,
+  confirmDialog,
   describeDialogBackend,
   infoDialog,
+  openDirectoryDialog,
   openExcalidrawDialog,
   openImageDialog,
   saveExcalidrawDialog,
@@ -35,9 +38,23 @@ import {
   getExcalidrawRepoUrl,
   getExcalidrawVersion,
 } from "./versions.ts";
+import {
+  installSkillTo,
+  pathExists,
+  resolveInstallTarget,
+  SKILL_ID,
+  type InstallMode,
+} from "./install-skill.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
+const BUNDLED_SKILL = join(ROOT, "skills", SKILL_ID);
+
+const INSTALL_SKILL_OPTIONS = [
+  { id: "global", label: "Global (user) — ~/.agents/skills" },
+  { id: "project", label: "Project — <folder>/.agents/skills" },
+  { id: "custom", label: "Custom — pick any folder" },
+];
 
 function readDevUrl(): string | undefined {
   try {
@@ -456,6 +473,20 @@ function applyMenu(recentPaths: string[]): void {
     },
     {
       submenu: {
+        label: "Skills",
+        items: [
+          {
+            item: {
+              label: "Install excalidraw-sketching skill",
+              id: "skills-install-sketching",
+              enabled: true,
+            },
+          },
+        ],
+      },
+    },
+    {
+      submenu: {
         label: "Info",
         items: [
           { item: { label: "Runtime", id: "info-runtime", enabled: true } },
@@ -478,6 +509,89 @@ function applyMenu(recentPaths: string[]): void {
       },
     },
   ]);
+}
+
+async function runInstallSketchingSkill(): Promise<void> {
+  const choice = await choiceDialog(
+    "Install skill",
+    "Where should excalidraw-sketching be installed?",
+    INSTALL_SKILL_OPTIONS,
+    "global",
+  );
+  if (!choice.ok) {
+    if (choice.reason === "cancelled") {
+      enqueueUi({ type: "status", message: "Skill install cancelled" });
+      return;
+    }
+    await infoDialog(
+      "Install skill",
+      `Cannot show install options: ${choice.detail ?? choice.reason}`,
+    );
+    return;
+  }
+
+  const mode = choice.id as InstallMode;
+  let picked: string | undefined;
+
+  if (mode === "project" || mode === "custom") {
+    const title = mode === "project"
+      ? "Select project folder"
+      : "Select destination folder";
+    const dir = await openDirectoryDialog(title, homeDir());
+    if (!dir.ok) {
+      if (dir.reason === "cancelled") {
+        enqueueUi({ type: "status", message: "Skill install cancelled" });
+        return;
+      }
+      await infoDialog(
+        "Install skill",
+        `Cannot pick folder: ${dir.detail ?? dir.reason}`,
+      );
+      return;
+    }
+    picked = dir.path;
+  }
+
+  let dest: string;
+  try {
+    dest = resolveInstallTarget(mode, homeDir(), picked);
+  } catch (err) {
+    await infoDialog("Install skill", String(err));
+    return;
+  }
+
+  if (await pathExists(dest)) {
+    const overwrite = await confirmDialog(
+      "Overwrite skill?",
+      `Skill already exists at:\n${dest}\n\nReplace it?`,
+    );
+    if (!overwrite.ok) {
+      await infoDialog(
+        "Install skill",
+        `Cannot confirm overwrite: ${overwrite.detail ?? overwrite.reason}`,
+      );
+      return;
+    }
+    if (!overwrite.confirmed) {
+      enqueueUi({ type: "status", message: "Skill install cancelled" });
+      return;
+    }
+  }
+
+  const result = await installSkillTo(BUNDLED_SKILL, dest);
+  if (result.ok) {
+    await infoDialog(
+      "Install skill",
+      `Installed ${SKILL_ID} to:\n${result.dest}`,
+    );
+    enqueueUi({ type: "status", message: `Skill installed: ${result.dest}` });
+  } else {
+    await infoDialog(
+      "Install skill",
+      `Install failed:\n${result.detail}`,
+    );
+    enqueueUi({ type: "status", message: "Skill install failed" });
+  }
 }
 
 appVersion = getAppVersion();
@@ -571,6 +685,9 @@ win.addEventListener("menuclick", (e: Event) => {
         await recentStore.clear();
         applyMenu(recentStore.list());
         enqueueUi({ type: "status", message: "Recent files cleared" });
+        break;
+      case "skills-install-sketching":
+        await runInstallSketchingSkill();
         break;
       case "info-runtime": {
         const text = `Ready · dialog: ${dialogBackend}+http`;

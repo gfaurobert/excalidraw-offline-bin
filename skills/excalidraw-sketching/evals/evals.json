@@ -1,0 +1,35 @@
+{
+  "skill_name": "excalidraw-sketching",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Sketch a simple login wireframe: email field, password field, and a primary Login button. Save it under sketches/.",
+      "expected_output": "A valid sketches/<name>.excalidraw file with rectangle+text elements for the fields and button, no MCP or canvas server used, and the user told how to open it in excalidraw-offline.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "Draw an architecture diagram with Client → API → Postgres as labeled boxes and arrows. Put it in sketches/api-flow.excalidraw.",
+      "expected_output": "sketches/api-flow.excalidraw exists with three nodes, bound or free-standing labels, and arrows with startBinding/endBinding. No mcp-excalidraw-server or MCP tools invoked.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Create a CAD object sketch of a small enclosure: front outline, four mounting holes, and a callout for M4 screws. Then update the sketch to add a side-view outline.",
+      "expected_output": "One .excalidraw under sketches/ created then updated in place (CRUD), with view labels and feature callouts; agent notes exact dims belong in FreeCAD/ForgeCAD.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "List sketches in the workspace, open an existing sketches/smoke-test.excalidraw if present (or create it), add a title text 'Smoke', and confirm the file still validates as type=excalidraw version=2.",
+      "expected_output": "File-backed read/update only under sketches/; document still has type, version, elements, appState, files; no Obsidian .excalidraw.md and no canvas server.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Delete the sketch sketches/tmp-delete-me.excalidraw after creating a throwaway one with that name.",
+      "expected_output": "Create then delete under sketches/; leftover assets cleaned if any; no git commit unless asked.",
+      "files": []
+    }
+  ]
+}

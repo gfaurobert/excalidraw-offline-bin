@@ -10,6 +10,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
 - Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
+- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project / Custom → `.agents/skills`)
 - Transient open/save status appears in the header (not a footer)
 
 ## Requirements
@@ -24,7 +25,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 cd frontend && deno install && deno task build && cd ..
 
 # Desktop (serves frontend/dist)
-deno desktop --backend=webview --include=./frontend/dist --include=./icons ./desktop/main.ts
+deno desktop --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts
 ```
 
 Or use tasks from the repo root:
@@ -35,19 +36,28 @@ deno task test:file-format
 deno task package:linux
 ```
 
-## Packaging (Arch / AUR)
+## Packaging (Arch, no AUR required)
 
-- [`packaging/PKGBUILD`](packaging/PKGBUILD) — AUR-oriented build from a release tarball
-- [`packaging/PKGBUILD.local`](packaging/PKGBUILD.local) — build from a local checkout:
+Install from a local git checkout with [`packaging/PKGBUILD.local`](packaging/PKGBUILD.local):
 
 ```bash
-makepkg -f -p packaging/PKGBUILD.local
+# Prereqs: base-devel, deno ≥ 2.9
+cd packaging
+makepkg -si -f -p PKGBUILD.local
 ```
+
+`-s` pulls runtime/build deps, `-i` installs the package. No GitHub release or AUR account needed.
 
 Installs:
 
 - `/usr/bin/excalidraw-offline`
-- desktop entry + icon
+- `/usr/lib/excalidraw-offline/` (bundled binary + payload)
+- `/usr/share/applications/excalidraw-offline.desktop`
+- `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
+
+Uninstall: `sudo pacman -Rns excalidraw-offline`.
+
+[`packaging/PKGBUILD`](packaging/PKGBUILD) is an optional AUR/release-tarball template for later; skip it until you publish.
 
 ## File layout on disk
 
@@ -65,5 +75,7 @@ The `.excalidraw` JSON stores relative `assets/...` references. On open, the wra
 |------|------|
 | `frontend/` | Vite + React UI embedding Excalidraw |
 | `desktop/` | Deno Desktop entry, dialogs, file format |
-| `packaging/` | AUR PKGBUILD + `.desktop` |
+| `skills/` | Bundled Agent Skills (e.g. `excalidraw-sketching`) |
+| `packaging/` | Local/AUR PKGBUILD + `.desktop` |
 | `use-cases.md` | Product scope and clarifications |
+| `docs/research/2026-07-31-agent-skills-locations.md` | Where AI tools store user/project skills |

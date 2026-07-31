@@ -1,4 +1,7 @@
 import {
+  buildChoiceDialogArgs,
+  buildConfirmDialogArgs,
+  buildDirectoryDialogArgs,
   buildInfoDialogArgs,
   ensureExcalidrawExt,
   formatLinkedInfoText,
@@ -59,5 +62,103 @@ Deno.test("formatLinkedInfoText kdialog uses plain URL", () => {
   assertEquals(
     formatLinkedInfoText("kdialog", "Release: 0.18.1", EXCALIDRAW_REPO_URL),
     `Release: 0.18.1\n\n${EXCALIDRAW_REPO_URL}`,
+  );
+});
+
+const INSTALL_OPTIONS = [
+  { id: "global", label: "Global (user) — ~/.agents/skills" },
+  { id: "project", label: "Project — <folder>/.agents/skills" },
+  { id: "custom", label: "Custom — pick any folder" },
+];
+
+Deno.test("buildChoiceDialogArgs zenity radiolist", () => {
+  assertEquals(
+    buildChoiceDialogArgs(
+      "zenity",
+      "Install skill",
+      "Where to install?",
+      INSTALL_OPTIONS,
+      "global",
+    ),
+    [
+      "zenity",
+      "--list",
+      "--radiolist",
+      "--title=Install skill",
+      "--text=Where to install?",
+      "--column=Select",
+      "--column=Option",
+      "--hide-header",
+      "--print-column=2",
+      "TRUE",
+      "Global (user) — ~/.agents/skills",
+      "FALSE",
+      "Project — <folder>/.agents/skills",
+      "FALSE",
+      "Custom — pick any folder",
+    ],
+  );
+});
+
+Deno.test("buildChoiceDialogArgs kdialog radiolist", () => {
+  assertEquals(
+    buildChoiceDialogArgs(
+      "kdialog",
+      "Install skill",
+      "Where to install?",
+      INSTALL_OPTIONS,
+      "global",
+    ),
+    [
+      "kdialog",
+      "--title",
+      "Install skill",
+      "--radiolist",
+      "Where to install?",
+      "global",
+      "Global (user) — ~/.agents/skills",
+      "on",
+      "project",
+      "Project — <folder>/.agents/skills",
+      "off",
+      "custom",
+      "Custom — pick any folder",
+      "off",
+    ],
+  );
+});
+
+Deno.test("buildDirectoryDialogArgs zenity", () => {
+  assertEquals(
+    buildDirectoryDialogArgs("zenity", "Select project folder", "/home/u"),
+    [
+      "zenity",
+      "--file-selection",
+      "--directory",
+      "--title=Select project folder",
+      "--filename=/home/u/",
+    ],
+  );
+});
+
+Deno.test("buildConfirmDialogArgs", () => {
+  assertEquals(
+    buildConfirmDialogArgs("zenity", "Overwrite?", "Replace existing skill?"),
+    [
+      "zenity",
+      "--question",
+      "--title=Overwrite?",
+      "--text=Replace existing skill?",
+    ],
+  );
+  assertEquals(
+    buildConfirmDialogArgs("kdialog", "Overwrite?", "Replace existing skill?"),
+    [
+      "kdialog",
+      "--title",
+      "Overwrite?",
+      "--yesno",
+      "Replace existing skill?",
+    ],
   );
 });
