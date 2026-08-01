@@ -345,6 +345,8 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     win.setTitle(
       currentPath
         ? `Excalidraw Offline — ${currentPath}`
+        : uiMode === "start"
+        ? "Excalidraw Offline"
         : "Excalidraw Offline — Untitled",
     );
     return json({ ok: true });

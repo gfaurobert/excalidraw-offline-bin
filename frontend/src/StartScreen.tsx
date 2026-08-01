@@ -69,11 +69,11 @@ export function StartScreen(props: StartScreenProps) {
 
         <button type="button" style={rowStyle} onClick={props.onNew}>
           <span>New file</span>
-          <span style={shortcutStyle}>Ctrl N</span>
+          <span style={shortcutStyle}>Ctrl+N</span>
         </button>
         <button type="button" style={rowStyle} onClick={props.onOpen}>
           <span>Open file</span>
-          <span style={shortcutStyle}>Ctrl O</span>
+          <span style={shortcutStyle}>Ctrl+O</span>
         </button>
 
         {props.status ? (

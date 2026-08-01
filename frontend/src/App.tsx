@@ -154,13 +154,15 @@ export default function App() {
   modeRef.current = mode;
 
   const enterCanvas = useCallback(() => {
+    modeRef.current = "canvas";
     setMode("canvas");
     void notifyMode("canvas");
   }, []);
 
-  const returnToStart = useCallback(() => {
+  const returnToStart = useCallback(async () => {
+    modeRef.current = "start";
     setMode("start");
-    void notifyMode("start");
+    await notifyMode("start");
   }, []);
 
   const refreshRecent = useCallback(async (): Promise<void> => {
@@ -181,6 +183,23 @@ export default function App() {
   }, []);
 
   const updateTitle = useCallback(async (path: string | null, dirty: boolean) => {
+    if (modeRef.current === "start") {
+      setPathLabel("Untitled");
+      const title = "Excalidraw Offline";
+      if (lastTitleRef.current === title) return;
+      lastTitleRef.current = title;
+      try {
+        await apiJson("/api/set-title", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title }),
+        });
+      } catch {
+        // non-fatal
+      }
+      return;
+    }
+
     const base = path ? basename(path) : "Untitled";
     const label = dirty ? `${base} *` : base;
     setPathLabel((prev) => (prev === label ? prev : label));
@@ -548,6 +567,7 @@ export default function App() {
     dirtyRef.current = false;
     sceneRef.current = { elements: [], appState: {}, files: {} };
     savedSceneKeyRef.current = "";
+    await returnToStart();
     try {
       await apiJson("/api/set-path", {
         method: "POST",
@@ -557,7 +577,6 @@ export default function App() {
     } catch {
       // ignore
     }
-    returnToStart();
     await refreshRecent();
     await updateTitleRef.current(null, false);
     setStatus("");
@@ -621,7 +640,8 @@ export default function App() {
           homeRef.current = info.home || ".";
           await apiLog("info", `api/info ok home=${homeRef.current}`);
           await refreshRecent();
-          void notifyMode("start");
+          await notifyMode("start");
+          await updateTitleRef.current(null, false);
           setStatus("");
           return;
         } catch (err) {
@@ -690,6 +710,48 @@ export default function App() {
       window.clearInterval(id);
     };
   }, [runNew, runOpen, runSave, runClose, runQuit]);
+
+  // Webview steals focus from native menu accelerators — handle file shortcuts here.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || e.altKey) return;
+      const key = e.key.toLowerCase();
+
+      if (key === "n" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runNew();
+        return;
+      }
+      if (key === "o" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runOpen();
+        return;
+      }
+      if (modeRef.current !== "canvas") return;
+      if (key === "w" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runClose();
+        return;
+      }
+      if (key === "s" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runSave(true);
+        return;
+      }
+      if (key === "s" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runSave(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [runNew, runOpen, runSave, runClose]);
 
   useEffect(() => {
     return () => {
