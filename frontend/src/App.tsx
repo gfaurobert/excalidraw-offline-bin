@@ -25,6 +25,10 @@ interface UiCommand {
 type AppMode = "start" | "canvas";
 type DirtyGateResult = "proceed" | "abort";
 
+type PickPathResult =
+  | { ok: true; path: string }
+  | { ok: false; reason: "cancelled" | "failed"; message?: string };
+
 const AUTOSAVE_MS = 1500;
 const POLL_MS = 200;
 
@@ -286,7 +290,7 @@ export default function App() {
     return await writeSceneToPath(pathRef.current);
   }, [writeSceneToPath]);
 
-  const pickSavePath = useCallback(async (suggested?: string): Promise<string | null> => {
+  const pickSavePath = useCallback(async (suggested?: string): Promise<PickPathResult> => {
     nativeDialogBusyRef.current = true;
     try {
       const data = await apiJson<{
@@ -299,18 +303,24 @@ export default function App() {
           suggested: suggested ?? `${homeRef.current}/drawing.excalidraw`,
         }),
       });
-      if (data.cancelled || !data.path) return null;
-      return data.path;
+      if (data.cancelled) return { ok: false, reason: "cancelled" };
+      if (!data.path) {
+        const message = "Save failed: no path returned";
+        setStatus(message);
+        return { ok: false, reason: "failed", message };
+      }
+      return { ok: true, path: data.path };
     } catch (err) {
-      setStatus(`Save failed: ${String(err)}`);
+      const message = `Save failed: ${String(err)}`;
+      setStatus(message);
       await apiLog("error", `pick-save failed: ${String(err)}`);
-      return null;
+      return { ok: false, reason: "failed", message };
     } finally {
       nativeDialogBusyRef.current = false;
     }
   }, []);
 
-  const pickOpenPath = useCallback(async (): Promise<string | null> => {
+  const pickOpenPath = useCallback(async (): Promise<PickPathResult> => {
     nativeDialogBusyRef.current = true;
     try {
       const data = await apiJson<{
@@ -321,12 +331,18 @@ export default function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (data.cancelled || !data.path) return null;
-      return data.path;
+      if (data.cancelled) return { ok: false, reason: "cancelled" };
+      if (!data.path) {
+        const message = "Open failed: no path returned";
+        setStatus(message);
+        return { ok: false, reason: "failed", message };
+      }
+      return { ok: true, path: data.path };
     } catch (err) {
-      setStatus(`Open failed: ${String(err)}`);
+      const message = `Open failed: ${String(err)}`;
+      setStatus(message);
       await apiLog("error", `pick-open failed: ${String(err)}`);
-      return null;
+      return { ok: false, reason: "failed", message };
     } finally {
       nativeDialogBusyRef.current = false;
     }
@@ -365,12 +381,12 @@ export default function App() {
     if (choice === "cancel") return "abort";
     if (choice === "discard") return "proceed";
 
-    const path = await pickSavePath();
-    if (!path) {
-      setStatus("Save cancelled");
+    const picked = await pickSavePath();
+    if (!picked.ok) {
+      if (picked.reason === "cancelled") setStatus("Save cancelled");
       return "abort";
     }
-    const saved = await writeSceneToPath(path);
+    const saved = await writeSceneToPath(picked.path);
     return saved ? "proceed" : "abort";
   }, [flushIfPathed, pickSavePath, writeSceneToPath]);
 
@@ -430,12 +446,14 @@ export default function App() {
       const chosen = await pickSavePath(
         path ?? `${homeRef.current}/drawing.excalidraw`,
       );
-      if (!chosen) {
-        setStatus("Save cancelled");
-        await apiLog("info", "runSave cancelled at pick-save");
+      if (!chosen.ok) {
+        if (chosen.reason === "cancelled") {
+          setStatus("Save cancelled");
+          await apiLog("info", "runSave cancelled at pick-save");
+        }
         return false;
       }
-      path = chosen;
+      path = chosen.path;
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
@@ -462,12 +480,14 @@ export default function App() {
     let path = presetPath?.trim() ?? "";
     if (!path) {
       const picked = await pickOpenPath();
-      if (!picked) {
-        setStatus("Open cancelled");
-        await apiLog("info", "runOpen cancelled at pick-open");
+      if (!picked.ok) {
+        if (picked.reason === "cancelled") {
+          setStatus("Open cancelled");
+          await apiLog("info", "runOpen cancelled at pick-open");
+        }
         return;
       }
-      path = picked;
+      path = picked.path;
     }
 
     busyRef.current = true;
@@ -682,6 +702,7 @@ export default function App() {
   return mode === "start" ? (
     <StartScreen
       recent={recent}
+      status={status}
       onNew={() => void runNew()}
       onOpen={() => void runOpen()}
       onOpenRecent={(path) => void runOpen(path)}

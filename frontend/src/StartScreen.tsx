@@ -1,5 +1,6 @@
 export interface StartScreenProps {
   recent: { path: string; label: string }[];
+  status?: string;
   onNew: () => void;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
@@ -74,6 +75,20 @@ export function StartScreen(props: StartScreenProps) {
           <span>Open file</span>
           <span style={shortcutStyle}>Ctrl O</span>
         </button>
+
+        {props.status ? (
+          <div
+            style={{
+              width: 280,
+              marginTop: "0.5rem",
+              fontSize: "0.85rem",
+              color: /fail/i.test(props.status) ? "#c92a2a" : "#868e96",
+              lineHeight: 1.35,
+            }}
+          >
+            {props.status}
+          </div>
+        ) : null}
 
         <div
           style={{
