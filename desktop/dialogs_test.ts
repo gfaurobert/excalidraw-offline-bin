@@ -3,6 +3,7 @@ import {
   buildConfirmDialogArgs,
   buildDirectoryDialogArgs,
   buildInfoDialogArgs,
+  buildUnsavedChangesDialogArgs,
   ensureExcalidrawExt,
   formatLinkedInfoText,
 } from "./dialogs.ts";
@@ -159,6 +160,48 @@ Deno.test("buildConfirmDialogArgs", () => {
       "Overwrite?",
       "--yesno",
       "Replace existing skill?",
+    ],
+  );
+});
+
+Deno.test("buildUnsavedChangesDialogArgs zenity", () => {
+  assertEquals(
+    buildUnsavedChangesDialogArgs(
+      "zenity",
+      "Unsaved changes",
+      "Save this drawing before continuing?",
+    ),
+    [
+      "zenity",
+      "--question",
+      "--title=Unsaved changes",
+      "--text=Save this drawing before continuing?",
+      "--ok-label=Save",
+      "--cancel-label=Cancel",
+      "--extra-button=Discard",
+    ],
+  );
+});
+
+Deno.test("buildUnsavedChangesDialogArgs kdialog", () => {
+  assertEquals(
+    buildUnsavedChangesDialogArgs(
+      "kdialog",
+      "Unsaved changes",
+      "Save this drawing before continuing?",
+    ),
+    [
+      "kdialog",
+      "--title",
+      "Unsaved changes",
+      "--yesnocancel",
+      "Save this drawing before continuing?",
+      "--yes-label",
+      "Save",
+      "--no-label",
+      "Discard",
+      "--cancel-label",
+      "Cancel",
     ],
   );
 });
