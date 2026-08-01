@@ -1,6 +1,6 @@
 {
   "name": "excalidraw-offline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "exports": "./desktop/main.ts",
   "tasks": {
     "dev:frontend": "cd frontend && deno task dev",

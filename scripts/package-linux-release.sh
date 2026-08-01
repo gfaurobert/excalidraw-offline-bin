@@ -52,8 +52,16 @@ deno task build:frontend
 COMMON=(deno desktop -A --backend=webview --compress=xz
   --include=./frontend/dist --include=./icons --include=./skills)
 
+# Build AppImage with a dot-free basename, then rename to the canonical release
+# name. LaufeyFindColocatedRuntime strips at the last '.' in the executable
+# name (treating it as an extension), so an output like
+# excalidraw-offline-0.1.0-….AppImage produces binary excalidraw-offline-0.1
+# which looks for excalidraw-offline-0.so while the payload ships
+# excalidraw-offline-0.1.so → "No runtime library found".
 echo "==> AppImage → $APPIMAGE_NAME"
-"${COMMON[@]}" --output="$OUT/$APPIMAGE_NAME" ./desktop/main.ts
+APPIMAGE_BUILD="$OUT/excalidraw-offline.AppImage"
+"${COMMON[@]}" --output="$APPIMAGE_BUILD" ./desktop/main.ts
+mv -f "$APPIMAGE_BUILD" "$OUT/$APPIMAGE_NAME"
 
 echo "==> directory bundle → staging"
 "${COMMON[@]}" --output="$STAGING/excalidraw-offline" ./desktop/main.ts
@@ -74,7 +82,7 @@ tar -C "$OUT/staging" -cJf "$OUT/$TARBALL_NAME" "$STAGING_NAME"
 
 rm -rf "$OUT/staging"
 
-# Deno Desktop leaves AppImage intermediate dirs (e.g. excalidraw-offline-0.1/).
+# Deno Desktop leaves AppImage intermediate dirs (e.g. excalidraw-offline/).
 find "$OUT" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
 
 echo "==> checksums"
