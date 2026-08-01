@@ -31,9 +31,9 @@
 - Skills menu (native): Install bundled `excalidraw-sketching` Agent Skill to Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom (folder as-is).
 
 ### 2) Open a `.excalidraw` file
-- User can open an existing local `.excalidraw` file from the app (menu/open dialog).
+- User can open an existing local `.excalidraw` file from the app (menu/open dialog or start-screen Open).
 - File-manager double-click association is not required for the first version unless added later.
-- File → Open Recent lists up to 10 recently opened/saved paths (persisted under XDG config). Missing paths are removed from the list when selected.
+- File → Open Recent and the start-screen Recent list show up to 10 recently opened/saved paths (persisted under XDG config). Missing or unreadable paths are removed from the list when selected (menu or start-screen).
 
 ### 3) Save under a repo
 - Means: save the `.excalidraw` file anywhere on local disk.

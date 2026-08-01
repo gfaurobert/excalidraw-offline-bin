@@ -320,6 +320,15 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       return json({ ok: true, path, ...scene });
     } catch (err) {
       console.error("[read] error", err);
+      // Match File → Open Recent: drop missing/unreadable paths from MRU.
+      try {
+        if (recentStore.list().includes(path)) {
+          await recentStore.remove(path);
+          applyMenu(recentStore.list());
+        }
+      } catch (recentErr) {
+        console.error("[recent] remove failed", recentErr);
+      }
       return json({ ok: false, error: String(err) }, 500);
     }
   }

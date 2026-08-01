@@ -506,6 +506,8 @@ export default function App() {
     } catch (err) {
       await apiLog("error", `open failed: ${String(err)}`);
       setStatus(`Open failed: ${String(err)}`);
+      // /api/read drops missing paths from recentStore; refresh start-screen list.
+      await refreshRecent();
       // stay on current mode (start or canvas)
     } finally {
       busyRef.current = false;
