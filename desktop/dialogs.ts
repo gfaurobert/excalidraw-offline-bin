@@ -452,6 +452,31 @@ export function buildUnsavedChangesDialogArgs(
   ];
 }
 
+/**
+ * Map zenity/kdialog exit code + stdout to Save/Discard/Cancel.
+ * Returns null for unrecognized outcomes (caller treats as error).
+ *
+ * zenity: 0 → save; 1 + "Discard" → discard; 1 + empty → cancel
+ * kdialog: 0 → save; 1 → discard; 2 → cancel
+ */
+export function parseUnsavedDialogOutcome(
+  backend: "zenity" | "kdialog",
+  code: number,
+  stdout: string,
+): UnsavedChoice | null {
+  const out = stdout.trim();
+  if (backend === "zenity") {
+    if (code === 0) return "save";
+    if (code === 1 && out === "Discard") return "discard";
+    if (code === 1) return "cancel";
+    return null;
+  }
+  if (code === 0) return "save";
+  if (code === 1) return "discard";
+  if (code === 2) return "cancel";
+  return null;
+}
+
 async function runUnsavedCommand(
   backend: "zenity" | "kdialog",
   args: string[],
@@ -464,28 +489,15 @@ async function runUnsavedCommand(
       stderr: "piped",
     });
     const { code, stdout, stderr } = await cmd.output();
-    const out = new TextDecoder().decode(stdout).trim();
+    const out = new TextDecoder().decode(stdout);
     const err = new TextDecoder().decode(stderr).trim();
-
-    if (backend === "zenity") {
-      // 0 = Save; 1 + "Discard" = Discard; 1 + empty = Cancel
-      if (code === 0) return { ok: true, choice: "save" };
-      if (code === 1 && out === "Discard") {
-        return { ok: true, choice: "discard" };
-      }
-      if (code === 1) return { ok: true, choice: "cancel" };
-      return {
-        ok: false,
-        reason: "error",
-        detail: err || `exit ${code}`,
-      };
-    }
-
-    // kdialog: 0=Yes/Save, 1=No/Discard, 2=Cancel
-    if (code === 0) return { ok: true, choice: "save" };
-    if (code === 1) return { ok: true, choice: "discard" };
-    if (code === 2) return { ok: true, choice: "cancel" };
-    return { ok: false, reason: "error", detail: err || `exit ${code}` };
+    const choice = parseUnsavedDialogOutcome(backend, code, out);
+    if (choice) return { ok: true, choice };
+    return {
+      ok: false,
+      reason: "error",
+      detail: err || `exit ${code}`,
+    };
   } catch (err) {
     return { ok: false, reason: "error", detail: String(err) };
   }
