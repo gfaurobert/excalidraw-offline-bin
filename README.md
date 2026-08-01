@@ -5,6 +5,9 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 ## Features (MVP)
 
 - Launch an offline Excalidraw desktop app
+- Start screen on launch (New / Open / Recent); canvas opens after a choice
+- File → Close returns to the start screen; Quit exits
+- Native zenity/kdialog for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
 - File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists

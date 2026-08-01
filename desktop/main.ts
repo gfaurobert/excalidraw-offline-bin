@@ -15,6 +15,7 @@ import {
   openExcalidrawDialog,
   openImageDialog,
   saveExcalidrawDialog,
+  unsavedChangesDialog,
 } from "./dialogs.ts";
 import {
   bytesToDataURL,
@@ -89,7 +90,11 @@ type UiCommand =
   | { type: "new" }
   | { type: "open"; path?: string }
   | { type: "save"; forcePicker: boolean; path?: string }
+  | { type: "close" }
   | { type: "quit" };
+
+type UiMode = "start" | "canvas";
+let uiMode: UiMode = "start";
 
 const uiQueue: UiCommand[] = [];
 let quitPending = false;
@@ -196,6 +201,60 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     });
   }
 
+  if (pathname === "/api/recent" && method === "GET") {
+    const paths = recentStore.list();
+    return json({
+      ok: true,
+      paths,
+      labels: recentDisplayLabels(paths),
+    });
+  }
+
+  if (pathname === "/api/set-mode" && method === "POST") {
+    const body = await readJson<{ mode?: string }>(req);
+    if (body.mode !== "start" && body.mode !== "canvas") {
+      return json({ ok: false, error: "invalid mode" }, 400);
+    }
+    uiMode = body.mode;
+    applyMenu(recentStore.list());
+    return json({ ok: true, mode: uiMode });
+  }
+
+  if (pathname === "/api/pick-open" && method === "POST") {
+    const picked = await openExcalidrawDialog();
+    if (picked.ok) return json({ ok: true, path: picked.path });
+    if (picked.reason === "cancelled") {
+      return json({ ok: true, cancelled: true });
+    }
+    if (picked.reason === "unavailable") {
+      return json({ ok: false, error: "no file picker available" }, 501);
+    }
+    return json({ ok: false, error: picked.detail ?? picked.reason }, 500);
+  }
+
+  if (pathname === "/api/pick-save" && method === "POST") {
+    const body = await readJson<{ suggested?: string }>(req);
+    const suggested = body.suggested?.trim() || "drawing.excalidraw";
+    const picked = await saveExcalidrawDialog(suggested);
+    if (picked.ok) return json({ ok: true, path: picked.path });
+    if (picked.reason === "cancelled") {
+      return json({ ok: true, cancelled: true });
+    }
+    if (picked.reason === "unavailable") {
+      return json({ ok: false, error: "no file picker available" }, 501);
+    }
+    return json({ ok: false, error: picked.detail ?? picked.reason }, 500);
+  }
+
+  if (pathname === "/api/unsaved" && method === "POST") {
+    const result = await unsavedChangesDialog();
+    if (result.ok) return json({ ok: true, choice: result.choice });
+    if (result.reason === "unavailable") {
+      return json({ ok: false, error: "no dialog available" }, 501);
+    }
+    return json({ ok: false, error: result.detail ?? result.reason }, 500);
+  }
+
   if (pathname === "/api/write" && method === "POST") {
     const body = await readJson<{ path?: string; scene?: unknown }>(req);
     const path = body.path?.trim();
@@ -261,6 +320,15 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       return json({ ok: true, path, ...scene });
     } catch (err) {
       console.error("[read] error", err);
+      // Match File → Open Recent: drop missing/unreadable paths from MRU.
+      try {
+        if (recentStore.list().includes(path)) {
+          await recentStore.remove(path);
+          applyMenu(recentStore.list());
+        }
+      } catch (recentErr) {
+        console.error("[recent] remove failed", recentErr);
+      }
       return json({ ok: false, error: String(err) }, 500);
     }
   }
@@ -277,6 +345,8 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     win.setTitle(
       currentPath
         ? `Excalidraw Offline — ${currentPath}`
+        : uiMode === "start"
+        ? "Excalidraw Offline"
         : "Excalidraw Offline — Untitled",
     );
     return json({ ok: true });
@@ -442,13 +512,21 @@ function applyMenu(recentPaths: string[]): void {
               items: recentItems,
             },
           },
+          {
+            item: {
+              label: "Close",
+              id: "close",
+              accelerator: "CmdOrCtrl+W",
+              enabled: true,
+            },
+          },
           "separator",
           {
             item: {
               label: "Save",
               id: "save",
               accelerator: "CmdOrCtrl+S",
-              enabled: true,
+              enabled: uiMode === "canvas",
             },
           },
           {
@@ -456,7 +534,7 @@ function applyMenu(recentPaths: string[]): void {
               label: "Save As…",
               id: "save-as",
               accelerator: "CmdOrCtrl+Shift+S",
-              enabled: true,
+              enabled: uiMode === "canvas",
             },
           },
           "separator",
@@ -641,7 +719,10 @@ win.addEventListener("menuclick", (e: Event) => {
           enqueueUi({ type: "status", message: "Open cancelled" });
         } else {
           console.warn("[menu] open picker fallback", picked);
-          enqueueUi({ type: "open" });
+          enqueueUi({
+            type: "status",
+            message: "File picker unavailable (install zenity or kdialog)",
+          });
         }
         break;
       }
@@ -660,7 +741,10 @@ win.addEventListener("menuclick", (e: Event) => {
           enqueueUi({ type: "status", message: "Save cancelled" });
         } else {
           console.warn("[menu] save picker fallback", picked);
-          enqueueUi({ type: "save", forcePicker: true });
+          enqueueUi({
+            type: "status",
+            message: "File picker unavailable (install zenity or kdialog)",
+          });
         }
         break;
       }
@@ -674,10 +758,16 @@ win.addEventListener("menuclick", (e: Event) => {
           enqueueUi({ type: "status", message: "Save cancelled" });
         } else {
           console.warn("[menu] save-as picker fallback", picked);
-          enqueueUi({ type: "save", forcePicker: true });
+          enqueueUi({
+            type: "status",
+            message: "File picker unavailable (install zenity or kdialog)",
+          });
         }
         break;
       }
+      case "close":
+        enqueueUi({ type: "close" });
+        break;
       case "quit":
         enqueueQuit();
         break;

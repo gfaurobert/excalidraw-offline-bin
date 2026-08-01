@@ -7,6 +7,7 @@ import type {
   ExcalidrawImperativeAPI,
 } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import { StartScreen } from "./StartScreen";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -15,34 +16,24 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save" | "quit";
+  type: "status" | "new" | "open" | "save" | "close" | "quit";
   message?: string;
   forcePicker?: boolean;
   path?: string;
 }
 
+type AppMode = "start" | "canvas";
+type DirtyGateResult = "proceed" | "abort";
+
+type PickPathResult =
+  | { ok: true; path: string }
+  | { ok: false; reason: "cancelled" | "failed"; message?: string };
+
 const AUTOSAVE_MS = 1500;
 const POLL_MS = 200;
 
-type PathDialogMode = "save" | "open";
-
-interface PathDialogState {
-  mode: PathDialogMode;
-  title: string;
-  value: string;
-}
-
-interface ConfirmDialogState {
-  message: string;
-  resolve: (ok: boolean) => void;
-}
-
 function basename(path: string): string {
   return path.split("/").pop() || path;
-}
-
-function ensureExt(path: string): string {
-  return path.endsWith(".excalidraw") ? path : `${path}.excalidraw`;
 }
 
 async function apiLog(
@@ -83,6 +74,18 @@ function notifyQuitAborted(): void {
   }).catch(() => {});
 }
 
+async function notifyMode(next: AppMode): Promise<void> {
+  try {
+    await apiJson("/api/set-mode", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode: next }),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
 function toScenePayload(
   elements: readonly ExcalidrawElement[],
   appState: AppState,
@@ -112,130 +115,6 @@ function toScenePayload(
   };
 }
 
-function PathDialog(props: {
-  state: PathDialogState;
-  onCancel: () => void;
-  onConfirm: (path: string) => void;
-}) {
-  const [value, setValue] = useState(props.state.value);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setValue(props.state.value);
-    const t = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(t);
-  }, [props.state]);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10000,
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") props.onCancel();
-        if (e.key === "Enter") props.onConfirm(value.trim());
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          padding: "1rem 1.25rem",
-          minWidth: 420,
-          maxWidth: "90vw",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-        }}
-      >
-        <div style={{ fontWeight: 600, marginBottom: "0.75rem" }}>
-          {props.state.title}
-        </div>
-        <input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: "0.4rem 0.5rem",
-            fontFamily: "monospace",
-            fontSize: "0.9rem",
-          }}
-        />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "0.5rem",
-            marginTop: "0.85rem",
-          }}
-        >
-          <button type="button" onClick={props.onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => props.onConfirm(value.trim())}
-            disabled={value.trim() === ""}
-          >
-            {props.state.mode === "open" ? "Open" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmDialog(props: {
-  message: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10001,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          padding: "1rem 1.25rem",
-          minWidth: 320,
-          maxWidth: "90vw",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-        }}
-      >
-        <div style={{ marginBottom: "0.85rem" }}>{props.message}</div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "0.5rem",
-          }}
-        >
-          <button type="button" onClick={props.onCancel}>
-            Cancel
-          </button>
-          <button type="button" onClick={props.onConfirm}>
-            Discard
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const pathRef = useRef<string | null>(null);
@@ -251,14 +130,14 @@ export default function App() {
   const autosaveTimer = useRef<number | null>(null);
   const lastTitleRef = useRef<string>("");
   const savedSceneKeyRef = useRef<string>("");
-  const pathDialogOpenRef = useRef(false);
+  const nativeDialogBusyRef = useRef(false);
+  const modeRef = useRef<AppMode>("start");
   const updateTitleRef = useRef<
     (path: string | null, dirty: boolean) => Promise<void>
   >(async () => {});
-  const pathDialogResolve = useRef<((path: string | null) => void) | null>(
-    null,
-  );
 
+  const [mode, setMode] = useState<AppMode>("start");
+  const [recent, setRecent] = useState<{ path: string; label: string }[]>([]);
   const [docKey, setDocKey] = useState(0);
   const [initialData, setInitialData] = useState<{
     elements: ExcalidrawElement[];
@@ -271,31 +150,56 @@ export default function App() {
   });
   const [pathLabel, setPathLabel] = useState<string>("Untitled");
   const [status, setStatus] = useState<string>("Starting…");
-  const [pathDialog, setPathDialog] = useState<PathDialogState | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(
-    null,
-  );
 
-  const askPath = useCallback(
-    (mode: PathDialogMode, title: string, suggested: string) => {
-      return new Promise<string | null>((resolve) => {
-        pathDialogResolve.current = resolve;
-        pathDialogOpenRef.current = true;
-        setPathDialog({ mode, title, value: suggested });
-        void apiLog("info", `path dialog open mode=${mode}`);
-      });
-    },
-    [],
-  );
+  modeRef.current = mode;
 
-  const askConfirm = useCallback((message: string) => {
-    return new Promise<boolean>((resolve) => {
-      setConfirmDialog({ message, resolve });
-      void apiLog("info", `confirm dialog: ${message}`);
-    });
+  const enterCanvas = useCallback(() => {
+    modeRef.current = "canvas";
+    setMode("canvas");
+    void notifyMode("canvas");
+  }, []);
+
+  const returnToStart = useCallback(async () => {
+    modeRef.current = "start";
+    setMode("start");
+    await notifyMode("start");
+  }, []);
+
+  const refreshRecent = useCallback(async (): Promise<void> => {
+    try {
+      const data = await apiJson<{
+        paths: string[];
+        labels: string[];
+      }>("/api/recent");
+      setRecent(
+        data.paths.map((path, i) => ({
+          path,
+          label: data.labels[i] ?? path.split("/").pop() ?? path,
+        })),
+      );
+    } catch (err) {
+      await apiLog("error", `recent refresh failed: ${String(err)}`);
+    }
   }, []);
 
   const updateTitle = useCallback(async (path: string | null, dirty: boolean) => {
+    if (modeRef.current === "start") {
+      setPathLabel("Untitled");
+      const title = "Excalidraw Offline";
+      if (lastTitleRef.current === title) return;
+      lastTitleRef.current = title;
+      try {
+        await apiJson("/api/set-title", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title }),
+        });
+      } catch {
+        // non-fatal
+      }
+      return;
+    }
+
     const base = path ? basename(path) : "Untitled";
     const label = dirty ? `${base} *` : base;
     setPathLabel((prev) => (prev === label ? prev : label));
@@ -326,7 +230,7 @@ export default function App() {
         !pathRef.current ||
         !dirtyRef.current ||
         busyRef.current ||
-        pathDialogOpenRef.current
+        nativeDialogBusyRef.current
       ) {
         return;
       }
@@ -373,38 +277,6 @@ export default function App() {
     [scheduleAutosave, updateTitle],
   );
 
-  const runNew = useCallback(async () => {
-    await apiLog("info", "runNew start");
-    if (dirtyRef.current) {
-      const ok = await askConfirm("Discard unsaved changes?");
-      if (!ok) {
-        await apiLog("info", "runNew cancelled");
-        return;
-      }
-    }
-    pathRef.current = null;
-    dirtyRef.current = false;
-    sceneRef.current = { elements: [], appState: {}, files: {} };
-    setInitialData({
-      elements: [],
-      appState: { currentItemFontFamily: 1 },
-      files: {},
-    });
-    setDocKey((k) => k + 1);
-    try {
-      await apiJson("/api/set-path", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ path: null }),
-      });
-    } catch {
-      // ignore
-    }
-    await updateTitleRef.current(null, false);
-    setStatus("New drawing");
-    await apiLog("info", "runNew done");
-  }, [askConfirm]);
-
   const writeSceneToPath = useCallback(async (path: string): Promise<boolean> => {
     busyRef.current = true;
     try {
@@ -432,6 +304,145 @@ export default function App() {
     }
   }, []);
 
+  const flushIfPathed = useCallback(async (): Promise<boolean> => {
+    if (!pathRef.current || !dirtyRef.current) return true;
+    return await writeSceneToPath(pathRef.current);
+  }, [writeSceneToPath]);
+
+  const pickSavePath = useCallback(async (suggested?: string): Promise<PickPathResult> => {
+    nativeDialogBusyRef.current = true;
+    try {
+      const data = await apiJson<{
+        path?: string;
+        cancelled?: boolean;
+      }>("/api/pick-save", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          suggested: suggested ?? `${homeRef.current}/drawing.excalidraw`,
+        }),
+      });
+      if (data.cancelled) return { ok: false, reason: "cancelled" };
+      if (!data.path) {
+        const message = "Save failed: no path returned";
+        setStatus(message);
+        return { ok: false, reason: "failed", message };
+      }
+      return { ok: true, path: data.path };
+    } catch (err) {
+      const message = `Save failed: ${String(err)}`;
+      setStatus(message);
+      await apiLog("error", `pick-save failed: ${String(err)}`);
+      return { ok: false, reason: "failed", message };
+    } finally {
+      nativeDialogBusyRef.current = false;
+    }
+  }, []);
+
+  const pickOpenPath = useCallback(async (): Promise<PickPathResult> => {
+    nativeDialogBusyRef.current = true;
+    try {
+      const data = await apiJson<{
+        path?: string;
+        cancelled?: boolean;
+      }>("/api/pick-open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (data.cancelled) return { ok: false, reason: "cancelled" };
+      if (!data.path) {
+        const message = "Open failed: no path returned";
+        setStatus(message);
+        return { ok: false, reason: "failed", message };
+      }
+      return { ok: true, path: data.path };
+    } catch (err) {
+      const message = `Open failed: ${String(err)}`;
+      setStatus(message);
+      await apiLog("error", `pick-open failed: ${String(err)}`);
+      return { ok: false, reason: "failed", message };
+    } finally {
+      nativeDialogBusyRef.current = false;
+    }
+  }, []);
+
+  const ensureCleanForNavigation = useCallback(async (): Promise<DirtyGateResult> => {
+    if (!dirtyRef.current) return "proceed";
+
+    // Has path: silent flush
+    if (pathRef.current) {
+      const ok = await flushIfPathed();
+      return ok ? "proceed" : "abort";
+    }
+
+    // Untitled dirty: Cancel / Save / Discard
+    let choice: "save" | "discard" | "cancel";
+    nativeDialogBusyRef.current = true;
+    try {
+      const result = await apiJson<{ choice: "save" | "discard" | "cancel" }>(
+        "/api/unsaved",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      choice = result.choice;
+    } catch (err) {
+      setStatus(`Unsaved dialog failed: ${String(err)}`);
+      await apiLog("error", `unsaved dialog failed: ${String(err)}`);
+      return "abort";
+    } finally {
+      nativeDialogBusyRef.current = false;
+    }
+
+    if (choice === "cancel") return "abort";
+    if (choice === "discard") return "proceed";
+
+    const picked = await pickSavePath();
+    if (!picked.ok) {
+      if (picked.reason === "cancelled") setStatus("Save cancelled");
+      return "abort";
+    }
+    const saved = await writeSceneToPath(picked.path);
+    return saved ? "proceed" : "abort";
+  }, [flushIfPathed, pickSavePath, writeSceneToPath]);
+
+  const runNew = useCallback(async () => {
+    await apiLog("info", "runNew start");
+    if (modeRef.current === "canvas") {
+      const gate = await ensureCleanForNavigation();
+      if (gate === "abort") {
+        await apiLog("info", "runNew cancelled");
+        return;
+      }
+    }
+    pathRef.current = null;
+    dirtyRef.current = false;
+    sceneRef.current = { elements: [], appState: {}, files: {} };
+    savedSceneKeyRef.current = JSON.stringify(sceneRef.current);
+    setInitialData({
+      elements: [],
+      appState: { currentItemFontFamily: 1 },
+      files: {},
+    });
+    setDocKey((k) => k + 1);
+    try {
+      await apiJson("/api/set-path", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: null }),
+      });
+    } catch {
+      // ignore
+    }
+    enterCanvas();
+    await updateTitleRef.current(null, false);
+    setStatus("New drawing");
+    await apiLog("info", "runNew done");
+  }, [ensureCleanForNavigation, enterCanvas]);
+
   const runSave = useCallback(async (
     forcePicker: boolean,
     presetPath?: string,
@@ -440,6 +451,10 @@ export default function App() {
       "info",
       `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${presetPath ?? ""}`,
     );
+    if (modeRef.current !== "canvas") {
+      await apiLog("info", "runSave skipped: not on canvas");
+      return false;
+    }
     if (busyRef.current) {
       await apiLog("info", "runSave skipped: busy");
       return false;
@@ -447,95 +462,51 @@ export default function App() {
 
     let path = presetPath?.trim() || pathRef.current;
     if (forcePicker || !path) {
-      const suggested = path ?? `${homeRef.current}/drawing.excalidraw`;
-      const entered = await askPath(
-        "save",
-        "Save Excalidraw file — enter full path:",
-        suggested,
+      const chosen = await pickSavePath(
+        path ?? `${homeRef.current}/drawing.excalidraw`,
       );
-      if (entered === null || entered === "") {
-        setStatus("Save cancelled");
-        await apiLog("info", "runSave cancelled at path dialog");
+      if (!chosen.ok) {
+        if (chosen.reason === "cancelled") {
+          setStatus("Save cancelled");
+          await apiLog("info", "runSave cancelled at pick-save");
+        }
         return false;
       }
-      path = ensureExt(entered);
+      path = chosen.path;
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
     return await writeSceneToPath(path);
-  }, [askPath, writeSceneToPath]);
-
-  const runQuit = useCallback(async () => {
-    await apiLog("info", `runQuit start dirty=${dirtyRef.current} busy=${busyRef.current}`);
-    if (quittingRef.current || busyRef.current) {
-      await apiLog("info", "runQuit skipped: busy or already quitting");
-      if (busyRef.current && !quittingRef.current) {
-        notifyQuitAborted();
-      }
-      return;
-    }
-    quittingRef.current = true;
-    try {
-      if (dirtyRef.current) {
-        const saved = await runSave(false);
-        if (!saved) {
-          await apiLog("info", "runQuit aborted: save cancelled or failed");
-          setStatus((prev) =>
-            prev.startsWith("Save failed") || prev === "Save cancelled"
-              ? prev
-              : "Quit cancelled"
-          );
-          notifyQuitAborted();
-          return;
-        }
-      }
-      setStatus("Quitting…");
-      await apiLog("info", "runQuit POST /api/quit");
-      await apiJson("/api/quit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
-      });
-    } catch (err) {
-      await apiLog("error", `runQuit failed: ${String(err)}`);
-      setStatus(`Quit failed: ${String(err)}`);
-      notifyQuitAborted();
-    } finally {
-      quittingRef.current = false;
-    }
-  }, [runSave]);
+  }, [pickSavePath, writeSceneToPath]);
 
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
       "info",
-      `runOpen start busy=${busyRef.current} preset=${presetPath ?? ""}`,
+      `runOpen start busy=${busyRef.current} preset=${presetPath ?? ""} mode=${modeRef.current}`,
     );
     if (busyRef.current) {
       await apiLog("info", "runOpen skipped: busy");
       return;
     }
-    if (dirtyRef.current) {
-      const ok = await askConfirm("Discard unsaved changes?");
-      if (!ok) {
-        await apiLog("info", "runOpen cancelled at confirm");
+    if (modeRef.current === "canvas") {
+      const gate = await ensureCleanForNavigation();
+      if (gate === "abort") {
+        await apiLog("info", "runOpen cancelled at dirty gate");
         return;
       }
     }
 
     let path = presetPath?.trim() ?? "";
     if (!path) {
-      const suggested = `${homeRef.current}/drawing.excalidraw`;
-      const entered = await askPath(
-        "open",
-        "Open Excalidraw file — enter full path:",
-        suggested,
-      );
-      if (entered === null || entered === "") {
-        setStatus("Open cancelled");
-        await apiLog("info", "runOpen cancelled at path dialog");
+      const picked = await pickOpenPath();
+      if (!picked.ok) {
+        if (picked.reason === "cancelled") {
+          setStatus("Open cancelled");
+          await apiLog("info", "runOpen cancelled at pick-open");
+        }
         return;
       }
-      path = entered;
+      path = picked.path;
     }
 
     busyRef.current = true;
@@ -566,16 +537,94 @@ export default function App() {
         files: doc.files,
       });
       setDocKey((k) => k + 1);
+      enterCanvas();
+      await refreshRecent();
       await updateTitleRef.current(doc.path, false);
       setStatus(`Opened ${doc.path}`);
       await apiLog("info", `runOpen done ${doc.path}`);
     } catch (err) {
       await apiLog("error", `open failed: ${String(err)}`);
       setStatus(`Open failed: ${String(err)}`);
+      // /api/read drops missing paths from recentStore; refresh start-screen list.
+      await refreshRecent();
+      // stay on current mode (start or canvas)
     } finally {
       busyRef.current = false;
     }
-  }, [askConfirm, askPath]);
+  }, [ensureCleanForNavigation, enterCanvas, pickOpenPath, refreshRecent]);
+
+  const runClose = useCallback(async () => {
+    await apiLog("info", `runClose start mode=${modeRef.current}`);
+    if (modeRef.current !== "canvas") return;
+
+    const gate = await ensureCleanForNavigation();
+    if (gate === "abort") {
+      await apiLog("info", "runClose cancelled at dirty gate");
+      return;
+    }
+
+    pathRef.current = null;
+    dirtyRef.current = false;
+    sceneRef.current = { elements: [], appState: {}, files: {} };
+    savedSceneKeyRef.current = "";
+    await returnToStart();
+    try {
+      await apiJson("/api/set-path", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: null }),
+      });
+    } catch {
+      // ignore
+    }
+    await refreshRecent();
+    await updateTitleRef.current(null, false);
+    setStatus("");
+    await apiLog("info", "runClose done");
+  }, [ensureCleanForNavigation, refreshRecent, returnToStart]);
+
+  const runQuit = useCallback(async () => {
+    await apiLog(
+      "info",
+      `runQuit start dirty=${dirtyRef.current} busy=${busyRef.current} mode=${modeRef.current}`,
+    );
+    if (quittingRef.current || busyRef.current) {
+      await apiLog("info", "runQuit skipped: busy or already quitting");
+      if (busyRef.current && !quittingRef.current) {
+        notifyQuitAborted();
+      }
+      return;
+    }
+    quittingRef.current = true;
+    try {
+      if (modeRef.current === "canvas") {
+        const gate = await ensureCleanForNavigation();
+        if (gate === "abort") {
+          await apiLog("info", "runQuit aborted: dirty gate");
+          setStatus((prev) =>
+            prev.startsWith("Save failed") || prev === "Save cancelled"
+              ? prev
+              : "Quit cancelled"
+          );
+          notifyQuitAborted();
+          return;
+        }
+      }
+      setStatus("Quitting…");
+      await apiLog("info", "runQuit POST /api/quit");
+      await apiJson("/api/quit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    } catch (err) {
+      await apiLog("error", `runQuit failed: ${String(err)}`);
+      setStatus(`Quit failed: ${String(err)}`);
+      notifyQuitAborted();
+    } finally {
+      quittingRef.current = false;
+    }
+  }, [ensureCleanForNavigation]);
 
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
@@ -590,6 +639,9 @@ export default function App() {
           if (cancelled) return;
           homeRef.current = info.home || ".";
           await apiLog("info", `api/info ok home=${homeRef.current}`);
+          await refreshRecent();
+          await notifyMode("start");
+          await updateTitleRef.current(null, false);
           setStatus("");
           return;
         } catch (err) {
@@ -607,14 +659,13 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshRecent]);
 
   // Poll menu command queue over HTTP.
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
-      if (cancelled || busyRef.current) return;
-      if (pathDialog || confirmDialog) return;
+      if (cancelled || busyRef.current || nativeDialogBusyRef.current) return;
       try {
         for (let i = 0; i < 5; i++) {
           const { cmd } = await apiJson<{ cmd: UiCommand | null }>(
@@ -640,6 +691,9 @@ export default function App() {
               setTimeout(() => void runSave(forcePicker, cmd.path), 0);
               break;
             }
+            case "close":
+              setTimeout(() => void runClose(), 0);
+              break;
             case "quit":
               setTimeout(() => void runQuit(), 0);
               break;
@@ -655,7 +709,49 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, runQuit, pathDialog, confirmDialog]);
+  }, [runNew, runOpen, runSave, runClose, runQuit]);
+
+  // Webview steals focus from native menu accelerators — handle file shortcuts here.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || e.altKey) return;
+      const key = e.key.toLowerCase();
+
+      if (key === "n" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runNew();
+        return;
+      }
+      if (key === "o" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runOpen();
+        return;
+      }
+      if (modeRef.current !== "canvas") return;
+      if (key === "w" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runClose();
+        return;
+      }
+      if (key === "s" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runSave(true);
+        return;
+      }
+      if (key === "s" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runSave(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [runNew, runOpen, runSave, runClose]);
 
   useEffect(() => {
     return () => {
@@ -665,7 +761,15 @@ export default function App() {
     };
   }, []);
 
-  return (
+  return mode === "start" ? (
+    <StartScreen
+      recent={recent}
+      status={status}
+      onNew={() => void runNew()}
+      onOpen={() => void runOpen()}
+      onOpenRecent={(path) => void runOpen(path)}
+    />
+  ) : (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <header
         style={{
@@ -706,40 +810,6 @@ export default function App() {
           }}
         />
       </div>
-      {pathDialog && (
-        <PathDialog
-          state={pathDialog}
-          onCancel={() => {
-            setPathDialog(null);
-            pathDialogOpenRef.current = false;
-            pathDialogResolve.current?.(null);
-            pathDialogResolve.current = null;
-            void apiLog("info", "path dialog cancel");
-          }}
-          onConfirm={(path) => {
-            setPathDialog(null);
-            pathDialogOpenRef.current = false;
-            pathDialogResolve.current?.(path);
-            pathDialogResolve.current = null;
-            void apiLog("info", `path dialog confirm: ${path}`);
-          }}
-        />
-      )}
-      {confirmDialog && (
-        <ConfirmDialog
-          message={confirmDialog.message}
-          onCancel={() => {
-            confirmDialog.resolve(false);
-            setConfirmDialog(null);
-            void apiLog("info", "confirm cancel");
-          }}
-          onConfirm={() => {
-            confirmDialog.resolve(true);
-            setConfirmDialog(null);
-            void apiLog("info", "confirm ok");
-          }}
-        />
-      )}
     </div>
   );
 }

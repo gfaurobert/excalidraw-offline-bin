@@ -3,7 +3,6 @@
  *
  * Safe when run from the Deno menu handler while the UI talks over HTTP.
  * Do NOT run these inside a webview binding call — that freezes laufey_webview.
- * Fallback: { ok: false, reason: "unavailable" } so the UI can show an in-webview path form.
  */
 
 export type DialogResult =
@@ -28,6 +27,12 @@ export type ChoiceDialogResult =
 
 export type ConfirmDialogResult =
   | { ok: true; confirmed: boolean }
+  | { ok: false; reason: "unavailable" | "error"; detail?: string };
+
+export type UnsavedChoice = "save" | "discard" | "cancel";
+
+export type UnsavedDialogResult =
+  | { ok: true; choice: UnsavedChoice }
   | { ok: false; reason: "unavailable" | "error"; detail?: string };
 
 export interface ChoiceOption {
@@ -411,6 +416,107 @@ export async function confirmDialog(
   if (await commandExists("kdialog")) {
     return await runConfirmCommand(
       buildConfirmDialogArgs("kdialog", title, text),
+    );
+  }
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
+}
+
+export function buildUnsavedChangesDialogArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  text: string,
+): string[] {
+  if (backend === "zenity") {
+    return [
+      "zenity",
+      "--question",
+      `--title=${title}`,
+      `--text=${text}`,
+      "--ok-label=Save",
+      "--cancel-label=Cancel",
+      "--extra-button=Discard",
+    ];
+  }
+  return [
+    "kdialog",
+    "--title",
+    title,
+    "--yesnocancel",
+    text,
+    "--yes-label",
+    "Save",
+    "--no-label",
+    "Discard",
+    "--cancel-label",
+    "Cancel",
+  ];
+}
+
+/**
+ * Map zenity/kdialog exit code + stdout to Save/Discard/Cancel.
+ * Returns null for unrecognized outcomes (caller treats as error).
+ *
+ * zenity: 0 → save; 1 + "Discard" → discard; 1 + empty → cancel
+ * kdialog: 0 → save; 1 → discard; 2 → cancel
+ */
+export function parseUnsavedDialogOutcome(
+  backend: "zenity" | "kdialog",
+  code: number,
+  stdout: string,
+): UnsavedChoice | null {
+  const out = stdout.trim();
+  if (backend === "zenity") {
+    if (code === 0) return "save";
+    if (code === 1 && out === "Discard") return "discard";
+    if (code === 1) return "cancel";
+    return null;
+  }
+  if (code === 0) return "save";
+  if (code === 1) return "discard";
+  if (code === 2) return "cancel";
+  return null;
+}
+
+async function runUnsavedCommand(
+  backend: "zenity" | "kdialog",
+  args: string[],
+): Promise<UnsavedDialogResult> {
+  try {
+    const useSetsid = await commandExists("setsid");
+    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+      args: useSetsid ? args : args.slice(1),
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { code, stdout, stderr } = await cmd.output();
+    const out = new TextDecoder().decode(stdout);
+    const err = new TextDecoder().decode(stderr).trim();
+    const choice = parseUnsavedDialogOutcome(backend, code, out);
+    if (choice) return { ok: true, choice };
+    return {
+      ok: false,
+      reason: "error",
+      detail: err || `exit ${code}`,
+    };
+  } catch (err) {
+    return { ok: false, reason: "error", detail: String(err) };
+  }
+}
+
+export async function unsavedChangesDialog(
+  title = "Unsaved changes",
+  text = "This drawing has no file path yet. Save, discard, or cancel?",
+): Promise<UnsavedDialogResult> {
+  if (await commandExists("zenity")) {
+    return await runUnsavedCommand(
+      "zenity",
+      buildUnsavedChangesDialogArgs("zenity", title, text),
+    );
+  }
+  if (await commandExists("kdialog")) {
+    return await runUnsavedCommand(
+      "kdialog",
+      buildUnsavedChangesDialogArgs("kdialog", title, text),
     );
   }
   return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };

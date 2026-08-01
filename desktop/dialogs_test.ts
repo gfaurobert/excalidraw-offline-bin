@@ -3,8 +3,10 @@ import {
   buildConfirmDialogArgs,
   buildDirectoryDialogArgs,
   buildInfoDialogArgs,
+  buildUnsavedChangesDialogArgs,
   ensureExcalidrawExt,
   formatLinkedInfoText,
+  parseUnsavedDialogOutcome,
 } from "./dialogs.ts";
 import { APP_REPO_URL, EXCALIDRAW_REPO_URL } from "./versions.ts";
 
@@ -161,4 +163,60 @@ Deno.test("buildConfirmDialogArgs", () => {
       "Replace existing skill?",
     ],
   );
+});
+
+Deno.test("buildUnsavedChangesDialogArgs zenity", () => {
+  assertEquals(
+    buildUnsavedChangesDialogArgs(
+      "zenity",
+      "Unsaved changes",
+      "Save this drawing before continuing?",
+    ),
+    [
+      "zenity",
+      "--question",
+      "--title=Unsaved changes",
+      "--text=Save this drawing before continuing?",
+      "--ok-label=Save",
+      "--cancel-label=Cancel",
+      "--extra-button=Discard",
+    ],
+  );
+});
+
+Deno.test("buildUnsavedChangesDialogArgs kdialog", () => {
+  assertEquals(
+    buildUnsavedChangesDialogArgs(
+      "kdialog",
+      "Unsaved changes",
+      "Save this drawing before continuing?",
+    ),
+    [
+      "kdialog",
+      "--title",
+      "Unsaved changes",
+      "--yesnocancel",
+      "Save this drawing before continuing?",
+      "--yes-label",
+      "Save",
+      "--no-label",
+      "Discard",
+      "--cancel-label",
+      "Cancel",
+    ],
+  );
+});
+
+Deno.test("parseUnsavedDialogOutcome zenity", () => {
+  assertEquals(parseUnsavedDialogOutcome("zenity", 0, ""), "save");
+  assertEquals(parseUnsavedDialogOutcome("zenity", 1, "Discard"), "discard");
+  assertEquals(parseUnsavedDialogOutcome("zenity", 1, ""), "cancel");
+  assertEquals(parseUnsavedDialogOutcome("zenity", 5, ""), null);
+});
+
+Deno.test("parseUnsavedDialogOutcome kdialog", () => {
+  assertEquals(parseUnsavedDialogOutcome("kdialog", 0, ""), "save");
+  assertEquals(parseUnsavedDialogOutcome("kdialog", 1, ""), "discard");
+  assertEquals(parseUnsavedDialogOutcome("kdialog", 2, ""), "cancel");
+  assertEquals(parseUnsavedDialogOutcome("kdialog", 3, ""), null);
 });
