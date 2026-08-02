@@ -6,9 +6,22 @@ nav_order: 2
 # Install
 
 ## Requirements
+### Arch
+```shell
+sudo pacman -S --needed webkit2gtk-4.1 gtk3 zenity
+```
+### Debian / Ubuntu
+```shell
+sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 zenity
+```
 
-- Deno **≥ 2.9** (`deno desktop`) for development and packaging
-- Runtime: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`)
+### Fedora
+```shell
+sudo dnf install webkit2gtk4.1 gtk3 zenity
+```
+
+### Qt based Desktop Environment
+Replace 'zenity' with 'kdialog'
 
 ## Linux (GitHub Releases)
 

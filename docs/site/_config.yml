@@ -10,6 +10,13 @@ plugins:
 
 search_enabled: true
 
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default
+
 aux_links:
   "GitHub":
     - https://github.com/gfaurobert/excalidraw-offline-bin

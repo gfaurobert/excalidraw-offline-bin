@@ -1,4 +1,5 @@
 ---
+layout: default
 title: File layout
 nav_order: 4
 ---

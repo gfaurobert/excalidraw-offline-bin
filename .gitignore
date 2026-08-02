@@ -16,3 +16,7 @@ packaging/*.log
 *.excalidraw
 !examples/**/*.excalidraw
 .worktrees/
+
+# Jekyll local build
+docs/site/_site/
+docs/site/.jekyll-cache/

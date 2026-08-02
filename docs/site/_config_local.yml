@@ -1,0 +1,27 @@
+# Local preview only — mirrors GH Pages look via the just-the-docs gem
+# (CI still uses remote_theme from _config.yml)
+title: Excalidraw Offline
+description: Offline Excalidraw desktop app for Linux — install, usage, and file layout docs.
+theme: just-the-docs
+
+url: http://127.0.0.1:4000
+baseurl: /excalidraw-offline-bin
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-include-cache
+
+search_enabled: true
+
+aux_links:
+  "GitHub":
+    - https://github.com/gfaurobert/excalidraw-offline-bin
+  "Releases":
+    - https://github.com/gfaurobert/excalidraw-offline-bin/releases
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default

@@ -29,14 +29,6 @@ Up to 10 recent paths are persisted under XDG config on the local machine.
 
 Imported images are copied there with relative paths so the drawing stays portable and reopen does not depend on the original absolute path of the imported file.
 
-## Can I export to PNG or SVG?
-
-Not in the first version (explicit non-goal). Use upstream Excalidraw export later if/when the wrapper adds it, or export from other Excalidraw clients if you open the same file there.
-
-## Is there git integration?
-
-No. You can save into a folder that happens to be a git repo; the app is not git-aware.
-
 ## How do I install the sketching Agent Skill?
 
 Use the Skills menu: Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom folder. The bundled skill is `excalidraw-sketching`.
