@@ -1,0 +1,24 @@
+title: Excalidraw Offline
+description: Offline Excalidraw desktop app for Linux — install, usage, and file layout docs.
+remote_theme: just-the-docs/just-the-docs
+
+url: https://gfaurobert.github.io
+baseurl: /excalidraw-offline-bin
+
+plugins:
+  - jekyll-remote-theme
+
+search_enabled: true
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default
+
+aux_links:
+  "GitHub":
+    - https://github.com/gfaurobert/excalidraw-offline-bin
+  "Releases":
+    - https://github.com/gfaurobert/excalidraw-offline-bin/releases
