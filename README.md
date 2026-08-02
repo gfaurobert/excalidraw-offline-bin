@@ -2,6 +2,8 @@
 
 Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
 
+**Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
+
 ## Features (MVP)
 
 - Launch an offline Excalidraw desktop app
@@ -96,6 +98,7 @@ The `.excalidraw` JSON stores relative `assets/...` references. On open, the wra
 | `skills/` | Bundled Agent Skills (e.g. `excalidraw-sketching`) |
 | `scripts/` | Release packaging and naming helpers |
 | `packaging/` | Local/AUR PKGBUILD + `.desktop` |
-| `.github/workflows/` | CI release workflow (`release-linux.yml`) |
+| `docs/site/` | Public GitHub Pages docs (Jekyll + Just the Docs) |
+| `.github/workflows/` | CI: `release-linux.yml`, `jekyll-gh-pages.yml` |
 | `use-cases.md` | Product scope and clarifications |
 | `docs/research/2026-07-31-agent-skills-locations.md` | Where AI tools store user/project skills |
