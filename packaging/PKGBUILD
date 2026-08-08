@@ -1,12 +1,12 @@
 # Maintainer: Gregoire <gregoire@localhost>
 pkgname=excalidraw-offline
-pkgver=0.1.0
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Deno Desktop wrapper)"
 arch=('x86_64' 'aarch64')
 url="https://github.com/gregoire/excalidraw-offline-bin"
 license=('MIT')
-depends=('webkit2gtk-4.1' 'gtk3' 'zenity')
+depends=('webkit2gtk-4.1' 'gtk3' 'zenity' 'shared-mime-info' 'desktop-file-utils')
 makedepends=('deno>=2.9.0')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/gregoire/excalidraw-offline-bin/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
@@ -48,6 +48,8 @@ package() {
 
   install -Dm644 packaging/excalidraw-offline.desktop \
     "$pkgdir/usr/share/applications/excalidraw-offline.desktop"
+  install -Dm644 packaging/application-x-excalidraw.xml \
+    "$pkgdir/usr/share/mime/packages/application-x-excalidraw.xml"
   install -Dm644 icons/icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
 

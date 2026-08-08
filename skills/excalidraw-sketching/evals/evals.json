@@ -4,7 +4,7 @@
     {
       "id": 0,
       "prompt": "Sketch a simple login wireframe: email field, password field, and a primary Login button. Save it under sketches/.",
-      "expected_output": "A valid sketches/<name>.excalidraw file with rectangle+text elements for the fields and button, no MCP or canvas server used, and the user told how to open it in excalidraw-offline.",
+      "expected_output": "A valid sketches/<name>.excalidraw file with rectangle+text elements for the fields and button, no MCP or canvas server used; user told the path; agent launches excalidraw-offline <path> when available (or explains how to open).",
       "files": []
     },
     {

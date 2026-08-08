@@ -15,6 +15,6 @@ Deno.test("hardcoded versions and repo URLs", () => {
   assertEquals(getExcalidrawVersion(), EXCALIDRAW_VERSION);
   assertEquals(getAppRepoUrl(), APP_REPO_URL);
   assertEquals(getExcalidrawRepoUrl(), EXCALIDRAW_REPO_URL);
-  assertEquals(APP_VERSION, "0.2.0");
+  assertEquals(APP_VERSION, "0.3.0");
   assertEquals(EXCALIDRAW_VERSION, "0.18.0-4872083");
 });

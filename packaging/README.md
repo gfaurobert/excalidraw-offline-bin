@@ -17,6 +17,7 @@ Install layout:
 - `/usr/bin/excalidraw-offline`
 - `/usr/lib/excalidraw-offline/`
 - `/usr/share/applications/excalidraw-offline.desktop`
+- `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
 Uninstall: `sudo pacman -Rns excalidraw-offline`.

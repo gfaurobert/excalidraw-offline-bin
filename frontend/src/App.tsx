@@ -661,6 +661,25 @@ export default function App() {
     };
   }, [refreshRecent]);
 
+  // Tell desktop which window was focused last (single-instance handoff).
+  useEffect(() => {
+    const bump = () => {
+      void apiJson("/api/focus", { method: "POST" }).catch(() => {
+        /* ignore while API warms up */
+      });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") bump();
+    };
+    window.addEventListener("focus", bump);
+    document.addEventListener("visibilitychange", onVisibility);
+    bump();
+    return () => {
+      window.removeEventListener("focus", bump);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
   // Poll menu command queue over HTTP.
   useEffect(() => {
     let cancelled = false;

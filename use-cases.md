@@ -32,8 +32,11 @@
 
 ### 2) Open a `.excalidraw` file
 - User can open an existing local `.excalidraw` file from the app (menu/open dialog or start-screen Open).
-- File-manager double-click association is not required for the first version unless added later.
+- CLI: `excalidraw-offline /path/to/file.excalidraw` (creates a blank file if the path is missing).
+- File-manager double-click / Open with / `xdg-open` via OS MIME association (system package + AppImage).
+- Single-instance handoff: reuse the most recently focused window when it is on the start screen or a saved drawing; if that window is Untitled, open a new window.
 - File → Open Recent and the start-screen Recent list show up to 10 recently opened/saved paths (persisted under XDG config). Missing or unreadable paths are removed from the list when selected (menu or start-screen).
+- Cursor chat path clicks typically open inside the editor — agents should launch the CLI (or `xdg-open`) instead.
 
 ### 3) Save under a repo
 - Means: save the `.excalidraw` file anywhere on local disk.

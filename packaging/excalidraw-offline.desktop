@@ -2,7 +2,7 @@
 Type=Application
 Name=Excalidraw Offline
 Comment=Offline Excalidraw desktop editor for local .excalidraw files
-Exec=excalidraw-offline
+Exec=excalidraw-offline %F
 Icon=excalidraw-offline
 Terminal=false
 Categories=Graphics;Office;

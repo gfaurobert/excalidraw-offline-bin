@@ -63,6 +63,36 @@ APPIMAGE_BUILD="$OUT/excalidraw-offline.AppImage"
 "${COMMON[@]}" --output="$APPIMAGE_BUILD" ./desktop/main.ts
 mv -f "$APPIMAGE_BUILD" "$OUT/$APPIMAGE_NAME"
 
+echo "==> patch AppImage MIME / %F"
+chmod +x "$ROOT/scripts/patch-appimage-mime.sh"
+APPIMAGETOOL_BIN=""
+if command -v appimagetool >/dev/null 2>&1; then
+  APPIMAGETOOL_BIN="$(command -v appimagetool)"
+else
+  TOOL_DIR="$OUT/.tools"
+  mkdir -p "$TOOL_DIR"
+  TOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$TOOL_DIR/appimagetool" "$TOOL_URL" || true
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$TOOL_DIR/appimagetool" "$TOOL_URL" || true
+  fi
+  if [[ -f "$TOOL_DIR/appimagetool" ]]; then
+    chmod +x "$TOOL_DIR/appimagetool"
+    APPIMAGETOOL_BIN="$TOOL_DIR/appimagetool"
+  fi
+fi
+if [[ -n "$APPIMAGETOOL_BIN" ]]; then
+  bash "$ROOT/scripts/patch-appimage-mime.sh" \
+    "$OUT/$APPIMAGE_NAME" \
+    "$ROOT/packaging/application-x-excalidraw.xml" \
+    "$APPIMAGETOOL_BIN"
+else
+  bash "$ROOT/scripts/patch-appimage-mime.sh" \
+    "$OUT/$APPIMAGE_NAME" \
+    "$ROOT/packaging/application-x-excalidraw.xml"
+fi
+
 echo "==> directory bundle → staging"
 "${COMMON[@]}" --output="$STAGING/excalidraw-offline" ./desktop/main.ts
 

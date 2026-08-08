@@ -20,7 +20,20 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
 - **Quit** (File → Quit) — exits the app
 
+### Open from CLI or file manager
 
+```bash
+excalidraw-offline /path/to/drawing.excalidraw
+xdg-open /path/to/drawing.excalidraw   # after MIME install (package / AppImage integration)
+```
+
+If the path does not exist yet, `excalidraw-offline` creates a blank `.excalidraw` there (parent directories included) and opens it. Existing files are opened as usual.
+
+If another Excalidraw Offline window is already open on the **start screen** or a **saved** drawing, the file opens there (after a silent flush when the current drawing has a path). If the focused window is an **Untitled** sketch, a new window opens so you are not interrupted with Save/Discard.
+
+### Cursor / agent note
+
+Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the editor**, not in Excalidraw Offline. Agents should run `excalidraw-offline <path>` (or `xdg-open`) instead of relying on chat links.
 
 ### Unsaved changes
 

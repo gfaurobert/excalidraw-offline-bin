@@ -46,10 +46,19 @@ import {
   SKILL_ID,
   type InstallMode,
 } from "./install-skill.ts";
+import { openPathFromArgs } from "./cli-args.ts";
+import {
+  createInstanceRegistry,
+  deriveInstanceState,
+  type InstanceState,
+} from "./instance-registry.ts";
+import { ensureExcalidrawFile } from "./open-path.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
 const BUNDLED_SKILL = join(ROOT, "skills", SKILL_ID);
+const instanceRegistry = createInstanceRegistry();
+const startupOpenPath = openPathFromArgs(Deno.args, Deno.cwd());
 
 const INSTALL_SKILL_OPTIONS = [
   { id: "global", label: "Global (user) — ~/.agents/skills" },
@@ -84,6 +93,8 @@ const recentStore = createRecentFilesStore({
 let dialogBackend = "detecting";
 let appVersion = "unknown";
 let excalidrawVersion = "unknown";
+let lastFocusedAt = Date.now();
+let listenPort = 0;
 
 type UiCommand =
   | { type: "status"; message: string }
@@ -98,6 +109,73 @@ let uiMode: UiMode = "start";
 
 const uiQueue: UiCommand[] = [];
 let quitPending = false;
+
+function currentInstanceState(): InstanceState {
+  return deriveInstanceState(uiMode, currentPath);
+}
+
+async function syncInstanceRegistry(): Promise<void> {
+  if (listenPort <= 0) return;
+  try {
+    await instanceRegistry.write({
+      pid: Deno.pid,
+      port: listenPort,
+      state: currentInstanceState(),
+      path: currentPath,
+      lastFocusedAt,
+    });
+  } catch (err) {
+    console.error("[instance] registry write failed", err);
+  }
+}
+
+async function unregisterInstance(): Promise<void> {
+  try {
+    await instanceRegistry.remove(Deno.pid);
+  } catch (err) {
+    console.error("[instance] registry remove failed", err);
+  }
+}
+
+async function tryHandoffOpen(path: string): Promise<boolean> {
+  const target = instanceRegistry.pickHandoffTarget(Deno.pid);
+  if (!target) return false;
+  const base = `http://127.0.0.1:${target.port}`;
+  try {
+    const health = await fetch(`${base}/api/health`);
+    if (!health.ok) return false;
+    const res = await fetch(`${base}/api/open-external`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    if (res.status === 409) return false;
+    const body = await res.json() as { accepted?: boolean };
+    return body.accepted === true;
+  } catch (err) {
+    console.warn("[instance] handoff failed", err);
+    return false;
+  }
+}
+
+/** Create a blank .excalidraw if missing, then enqueue UI open. */
+async function enqueueOpenPath(path: string): Promise<void> {
+  try {
+    const result = await ensureExcalidrawFile(path);
+    if (result === "created") {
+      console.log("[desktop] created new drawing", path);
+      enqueueUi({ type: "status", message: `Created ${path}` });
+    }
+  } catch (err) {
+    console.error("[desktop] ensure open path failed", err);
+    enqueueUi({
+      type: "status",
+      message: `Open failed: ${String(err)}`,
+    });
+    return;
+  }
+  enqueueUi({ type: "open", path });
+}
 
 function enqueueQuit(): void {
   if (quitPending) return;
@@ -155,6 +233,7 @@ async function readJson<T>(req: Request): Promise<T> {
 function shouldLogHttp(method: string, pathname: string): boolean {
   if (pathname === "/api/poll" && method === "GET") return false;
   if (pathname === "/api/set-title" && method === "POST") return false;
+  if (pathname === "/api/focus" && method === "POST") return false;
   return true;
 }
 
@@ -166,6 +245,39 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
 
   if (pathname === "/api/health" && method === "GET") {
     return json({ ok: true, path: currentPath, queue: uiQueue.length });
+  }
+
+  if (pathname === "/api/instance-state" && method === "GET") {
+    return json({
+      ok: true,
+      state: currentInstanceState(),
+      path: currentPath,
+      lastFocusedAt,
+    });
+  }
+
+  if (pathname === "/api/focus" && method === "POST") {
+    lastFocusedAt = Date.now();
+    await syncInstanceRegistry();
+    return json({ ok: true, lastFocusedAt });
+  }
+
+  if (pathname === "/api/open-external" && method === "POST") {
+    const body = await readJson<{ path?: string }>(req);
+    const path = body.path?.trim();
+    if (!path) return json({ ok: false, error: "missing path" }, 400);
+    if (currentInstanceState() === "untitled") {
+      return json({ accepted: false, reason: "untitled" }, 409);
+    }
+    await enqueueOpenPath(path);
+    try {
+      win.focus();
+    } catch (err) {
+      console.warn("[open-external] focus failed", err);
+    }
+    lastFocusedAt = Date.now();
+    await syncInstanceRegistry();
+    return json({ accepted: true, ok: true });
   }
 
   if (pathname === "/api/log" && method === "POST") {
@@ -217,6 +329,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     }
     uiMode = body.mode;
     applyMenu(recentStore.list());
+    await syncInstanceRegistry();
     return json({ ok: true, mode: uiMode });
   }
 
@@ -283,6 +396,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       currentPath = path;
       win.setTitle(`Excalidraw Offline — ${path}`);
       console.log("[write] done", path);
+      await syncInstanceRegistry();
       try {
         await recentStore.touch(path);
         applyMenu(recentStore.list());
@@ -311,6 +425,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         "elements",
         scene.elements?.length ?? 0,
       );
+      await syncInstanceRegistry();
       try {
         await recentStore.touch(path);
         applyMenu(recentStore.list());
@@ -349,6 +464,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
         ? "Excalidraw Offline"
         : "Excalidraw Offline — Untitled",
     );
+    await syncInstanceRegistry();
     return json({ ok: true });
   }
 
@@ -386,6 +502,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     quitPending = false;
     console.log("[quit] allow close + exit");
     closeGuard.grantClose();
+    await unregisterInstance();
     try {
       win.close();
     } catch (err) {
@@ -440,6 +557,15 @@ async function serveStatic(req: Request): Promise<Response> {
   }
 }
 
+if (startupOpenPath) {
+  console.log("[desktop] cli open path", startupOpenPath);
+  const handedOff = await tryHandoffOpen(startupOpenPath);
+  if (handedOff) {
+    console.log("[desktop] handed off open to existing instance");
+    Deno.exit(0);
+  }
+}
+
 const server = Deno.serve({ hostname: "127.0.0.1", port: 0 }, (req) =>
   serveStatic(req)
 );
@@ -448,6 +574,7 @@ const addr = server.addr;
 if (!("port" in addr)) {
   throw new Error("expected TCP addr from Deno.serve");
 }
+listenPort = addr.port;
 const appUrl = `http://127.0.0.1:${addr.port}/`;
 console.log("[desktop] app url", appUrl);
 console.log("[desktop] dist", DIST);
@@ -854,12 +981,30 @@ win.addEventListener("close", (e: Event) => {
     enqueueQuit();
   } else {
     console.log("[close] allowed");
+    void unregisterInstance();
   }
 });
 
 dialogBackend = await describeDialogBackend();
 console.log("[desktop] http api ready; dialog backend:", dialogBackend);
 
+await syncInstanceRegistry();
+
+try {
+  Deno.addSignalListener("SIGINT", () => {
+    void unregisterInstance().finally(() => Deno.exit(130));
+  });
+  Deno.addSignalListener("SIGTERM", () => {
+    void unregisterInstance().finally(() => Deno.exit(143));
+  });
+} catch (err) {
+  console.warn("[desktop] signal listeners unavailable", err);
+}
+
 const target = DEV_URL ?? appUrl;
 console.log("[desktop] navigate", target);
 win.navigate(target);
+
+if (startupOpenPath) {
+  await enqueueOpenPath(startupOpenPath);
+}

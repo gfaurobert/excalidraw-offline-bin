@@ -1,11 +1,12 @@
 ---
 name: excalidraw-sketching
-description: >-
+  description: >-
   AI agent sketching for wireframes, diagrams, and CAD object drawings via
   plain .excalidraw files under sketches/. Use when the user asks to sketch,
   wireframe, diagram, draw a flowchart/architecture, or outline a part/assembly
   for CAD. CRUD files on disk only — never launch MCP, never start a canvas
-  server. View with the local excalidraw-offline binary.
+  server. After create/update, tell the user the path and launch
+  `excalidraw-offline <path>` when available.
 ---
 
 # Excalidraw sketches (offline)
@@ -54,12 +55,22 @@ Root: `<workspace-root>/sketches/` (create if missing).
 
 ### Viewing
 
-Tell the user to open the file in **Excalidraw Offline** (`excalidraw-offline`),
-e.g. File → Open → `sketches/<name>.excalidraw`. Optional CLI if installed:
+After create or update:
+
+1. Tell the human the sketch path (workspace-relative, e.g. `sketches/<name>.excalidraw`).
+2. Launch it with the CLI when available (preferred — works for agents and is reliable):
 
 ```bash
-excalidraw-offline   # then File → Open the sketch path
+excalidraw-offline sketches/<name>.excalidraw
 ```
+
+If the file does not exist yet, the app **creates a blank** `.excalidraw` at that path (including parent directories) and opens it. Prefer writing the sketch JSON yourself for real content; use create-on-open when you want a blank canvas at a known path.
+
+If `excalidraw-offline` is not on `PATH`, say so and fall back to: open the file manually via File → Open in Excalidraw Offline.
+
+After OS MIME install, `xdg-open sketches/<name>.excalidraw` also works for existing files. Prefer the CLI for agent launches.
+
+**Cursor note:** Clicking a `.excalidraw` path in Cursor chat usually opens it **inside the editor**, not via the OS handler. Do not rely on chat file links for viewing — run the CLI (or `xdg-open`) instead.
 
 ## Document format
 

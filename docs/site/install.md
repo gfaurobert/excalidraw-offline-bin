@@ -27,8 +27,8 @@ Replace 'zenity' with 'kdialog'
 
 Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
 
-- **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run)
-- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree)
+- **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run). Release builds embed MIME/`%F` in the AppImage desktop entry when `appimagetool` is available during packaging (first-run AppImage integration registers the association).
+- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree). The portable tarball does **not** register MIME types.
 
 Runtime deps: `webkit2gtk-4.1`, `gtk3`, and `zenity` (or `kdialog`).
 
@@ -51,6 +51,7 @@ Installs:
 - `/usr/bin/excalidraw-offline`
 - `/usr/lib/excalidraw-offline/` (bundled binary + payload)
 - `/usr/share/applications/excalidraw-offline.desktop`
+- `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
 Uninstall: `sudo pacman -Rns excalidraw-offline`.

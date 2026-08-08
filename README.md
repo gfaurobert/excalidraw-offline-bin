@@ -11,6 +11,8 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - File → Close returns to the start screen; Quit exits
 - Native zenity/kdialog for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
+- CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
+- OS file association (system package + AppImage): double-click / Open with / `xdg-open`
 - File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
@@ -54,6 +56,7 @@ Installs:
 - `/usr/bin/excalidraw-offline`
 - `/usr/lib/excalidraw-offline/` (bundled binary + payload)
 - `/usr/share/applications/excalidraw-offline.desktop`
+- `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
 Uninstall: `sudo pacman -Rns excalidraw-offline`.
