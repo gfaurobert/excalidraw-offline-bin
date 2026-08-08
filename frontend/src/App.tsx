@@ -790,7 +790,7 @@ export default function App() {
       <div style={{ flex: 1, minHeight: 0 }}>
         <Excalidraw
           key={docKey}
-          excalidrawAPI={(api) => {
+          onExcalidrawAPI={(api) => {
             apiRef.current = api;
           }}
           initialData={{

@@ -4,8 +4,8 @@
  * frontend/package.json @excalidraw/excalidraw).
  */
 
-export const APP_VERSION = "0.1.2";
-export const EXCALIDRAW_VERSION = "0.18.1";
+export const APP_VERSION = "0.2.0";
+export const EXCALIDRAW_VERSION = "0.18.0-4872083";
 
 export const APP_REPO_URL =
   "https://github.com/gfaurobert/excalidraw-offline-bin";
