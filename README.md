@@ -17,6 +17,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
 - Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project / Custom → `.agents/skills`)
 - Transient open/save status appears in the header (not a footer)
+- Upstream editor tools from `@excalidraw/excalidraw` `@next` (lasso selection, bucket fill, draw-to-shape / autoshape)
 
 ## Requirements
 
