@@ -4,7 +4,7 @@
  * frontend/package.json @excalidraw/excalidraw).
  */
 
-export const APP_VERSION = "0.3.0";
+export const APP_VERSION = "0.3.1";
 export const EXCALIDRAW_VERSION = "0.18.0-4872083";
 
 export const APP_REPO_URL =
