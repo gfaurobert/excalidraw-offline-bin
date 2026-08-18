@@ -47,6 +47,10 @@ Deno.test("resolveInstallTarget project strips trailing slash", () => {
     resolveInstallTarget("project", "/home/alice", "/work/repo/"),
     `/work/repo/.agents/skills/${SKILL_ID}`,
   );
+  assertEquals(
+    resolveInstallTarget("project", "C:/Users/a", "C:\\work\\repo\\"),
+    `C:/work/repo/.agents/skills/${SKILL_ID}`,
+  );
 });
 
 Deno.test("copyDirRecursive and installSkillTo round-trip", async () => {

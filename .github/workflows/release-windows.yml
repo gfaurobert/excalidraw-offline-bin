@@ -1,0 +1,60 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V="$(deno eval --quiet 'import { readDenoJsonVersion } from "./scripts/release-names.ts"; console.log(readDenoJsonVersion(await Deno.readTextFile("deno.json")));')"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Package Windows release artifacts
+        run: deno task package:windows:release
+        env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+          GITHUB_REF: ${{ github.ref }}
+
+      - name: Upload workflow artifacts (dispatch / always retain)
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64-${{ steps.ver.outputs.version }}
+          path: |
+            dist/release-windows/*.msi
+            dist/release-windows/*.zip
+            dist/release-windows/SHA256SUMS-windows-x86_64
+
+      - name: Publish GitHub Release (tags only)
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release-windows/*.msi
+            dist/release-windows/*.zip
+            dist/release-windows/SHA256SUMS-windows-x86_64
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

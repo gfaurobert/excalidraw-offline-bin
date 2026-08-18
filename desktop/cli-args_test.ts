@@ -47,6 +47,17 @@ Deno.test("resolveOpenPath absolute and relative", () => {
   );
 });
 
+Deno.test("resolveOpenPath windows drive and relative", () => {
+  assertEquals(
+    resolveOpenPath("C:\\Users\\u\\a.excalidraw", "D:\\work"),
+    "C:/Users/u/a.excalidraw",
+  );
+  assertEquals(
+    resolveOpenPath("sketches\\a.excalidraw", "C:\\work"),
+    "C:/work/sketches/a.excalidraw",
+  );
+});
+
 Deno.test("openPathFromArgs combines parse and resolve", () => {
   assertEquals(
     openPathFromArgs(["-A", "foo.excalidraw"], "/work"),

@@ -54,3 +54,18 @@ Local release-shaped artifacts (same names as CI):
 deno task package:release
 # → dist/release/
 ```
+
+## Windows 11
+
+GitHub Releases also publish an MSI and a zip (`excalidraw-offline-<ver>-windows-x86_64.*`) via `.github/workflows/release-windows.yml`. Those artifacts are cross-compiled from Linux (`--target x86_64-pc-windows-msvc`).
+
+```bash
+deno task package:windows
+# → dist/windows/excalidraw-offline/
+
+deno task package:windows:release
+# → dist/release-windows/  (MSI + zip + SHA256SUMS-windows-x86_64)
+```
+
+Runtime on the target PC: WebView2 + PowerShell. File dialogs use WinForms because Deno Desktop does not yet expose a native file-picker API.
+

@@ -34,6 +34,23 @@ Runtime deps: `webkit2gtk-4.1`, `gtk3`, and `zenity` (or `kdialog`).
 
 Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs `.github/workflows/release-linux.yml`. Local dry-run: `deno task package:release`.
 
+## Windows 11 (GitHub Releases)
+
+Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+
+- **MSI** — `excalidraw-offline-<version>-windows-x86_64.msi`
+- **Zip** — `excalidraw-offline-<version>-windows-x86_64.zip` (portable)
+
+Runtime: WebView2 (preinstalled on Windows 11) and Windows PowerShell for open/save/unsaved dialogs. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
+
+The packaged app registers a per-user `.excalidraw` file association on first launch. CLI:
+
+```powershell
+excalidraw-offline C:\path\to\drawing.excalidraw
+```
+
+Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-windows.yml`. Local dry-run: `deno task package:windows:release`.
+
 ## Arch Linux (makepkg)
 
 Install from a local git checkout with `packaging/PKGBUILD.local`:

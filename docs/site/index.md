@@ -1,13 +1,13 @@
 ---
 title: Home
 nav_order: 1
-description: Offline Excalidraw desktop wrapper for Linux
+description: Offline Excalidraw desktop wrapper for Linux and Windows 11
 permalink: /
 ---
 
 # Excalidraw Offline
 
-Thin Deno Desktop wrapper around [@excalidraw/excalidraw](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use for you and you AI agent 🤖. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
+Thin Deno Desktop wrapper around [@excalidraw/excalidraw](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux and Windows 11, for you and your AI agent 🤖. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
 
 ![Start Screen](assets/start_screen_01.png)
 

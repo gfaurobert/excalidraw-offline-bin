@@ -1,4 +1,5 @@
 /** Parse file-open paths from process argv for CLI / MIME launches. */
+import { isAbsolutePath, join } from "./path.ts";
 
 /**
  * Pick the first openable path from argv-like strings.
@@ -37,11 +38,11 @@ export function resolveOpenPath(
   cwd: string,
 ): string {
   const trimmed = raw.trim();
-  if (trimmed.startsWith("/")) return trimmed;
-  const base = cwd.replace(/\/+$/, "") || "/";
-  if (trimmed === "" || trimmed === ".") return base;
-  const rel = trimmed.replace(/^\.\//, "");
-  return `${base}/${rel}`.replace(/\/+/g, "/");
+  if (isAbsolutePath(trimmed)) return trimmed.replace(/\\/g, "/");
+  const base = cwd.replace(/[\\/]+$/, "") || "/";
+  if (trimmed === "" || trimmed === ".") return base.replace(/\\/g, "/");
+  const rel = trimmed.replace(/^\.[\\/]/, "");
+  return join(base, rel);
 }
 
 /** Parse argv and resolve; null if no path argument. */

@@ -7,6 +7,7 @@ import {
   ensureExcalidrawExt,
   formatLinkedInfoText,
   parseUnsavedDialogOutcome,
+  pickerUnavailableMessage,
 } from "./dialogs.ts";
 import { APP_REPO_URL, EXCALIDRAW_REPO_URL } from "./versions.ts";
 
@@ -219,4 +220,13 @@ Deno.test("parseUnsavedDialogOutcome kdialog", () => {
   assertEquals(parseUnsavedDialogOutcome("kdialog", 1, ""), "discard");
   assertEquals(parseUnsavedDialogOutcome("kdialog", 2, ""), "cancel");
   assertEquals(parseUnsavedDialogOutcome("kdialog", 3, ""), null);
+});
+
+Deno.test("pickerUnavailableMessage is OS-specific", () => {
+  const msg = pickerUnavailableMessage();
+  if (Deno.build.os === "windows") {
+    assertEquals(msg.includes("PowerShell"), true);
+  } else {
+    assertEquals(msg.includes("zenity"), true);
+  }
 });
