@@ -29,7 +29,7 @@
       "identifier": "dev.excalidraw.offline",
       "icons": {
         "linux": "./icons/icon.png",
-        "windows": "./icons/icon.png"
+        "windows": "./icons/icon.ico"
       }
     },
     "backend": "webview",
