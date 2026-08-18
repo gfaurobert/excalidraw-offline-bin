@@ -14,6 +14,7 @@ import {
   openDirectoryDialog,
   openExcalidrawDialog,
   openImageDialog,
+  pickerUnavailableMessage,
   saveExcalidrawDialog,
   unsavedChangesDialog,
 } from "./dialogs.ts";
@@ -53,6 +54,8 @@ import {
   type InstanceState,
 } from "./instance-registry.ts";
 import { ensureExcalidrawFile } from "./open-path.ts";
+import { homeDir } from "./platform.ts";
+import { registerExcalidrawFileAssociation } from "./file-association-win.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -71,14 +74,6 @@ function readDevUrl(): string | undefined {
     return Deno.env.get("EXCALIDRAW_DEV_URL") ?? undefined;
   } catch {
     return undefined;
-  }
-}
-
-function homeDir(): string {
-  try {
-    return Deno.env.get("HOME") ?? ".";
-  } catch {
-    return ".";
   }
 }
 
@@ -848,7 +843,7 @@ win.addEventListener("menuclick", (e: Event) => {
           console.warn("[menu] open picker fallback", picked);
           enqueueUi({
             type: "status",
-            message: "File picker unavailable (install zenity or kdialog)",
+            message: pickerUnavailableMessage(),
           });
         }
         break;
@@ -870,7 +865,7 @@ win.addEventListener("menuclick", (e: Event) => {
           console.warn("[menu] save picker fallback", picked);
           enqueueUi({
             type: "status",
-            message: "File picker unavailable (install zenity or kdialog)",
+            message: pickerUnavailableMessage(),
           });
         }
         break;
@@ -887,7 +882,7 @@ win.addEventListener("menuclick", (e: Event) => {
           console.warn("[menu] save-as picker fallback", picked);
           enqueueUi({
             type: "status",
-            message: "File picker unavailable (install zenity or kdialog)",
+            message: pickerUnavailableMessage(),
           });
         }
         break;
@@ -987,6 +982,7 @@ win.addEventListener("close", (e: Event) => {
 
 dialogBackend = await describeDialogBackend();
 console.log("[desktop] http api ready; dialog backend:", dialogBackend);
+void registerExcalidrawFileAssociation();
 
 await syncInstanceRegistry();
 

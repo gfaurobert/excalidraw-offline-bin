@@ -12,9 +12,11 @@
     "start": "deno task build:frontend && deno desktop -A --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts",
     "package:linux": "deno task build:frontend && mkdir -p dist/linux && rm -rf dist/linux/excalidraw-offline && deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills --output=./dist/linux/excalidraw-offline ./desktop/main.ts",
     "package:appimage": "deno task build:frontend && mkdir -p dist/linux && rm -f dist/linux/excalidraw-offline.AppImage && deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills --output=./dist/linux/excalidraw-offline.AppImage ./desktop/main.ts",
-    "test:file-format": "deno test -A desktop/file-format_test.ts desktop/path_test.ts desktop/dialogs_test.ts desktop/close-guard_test.ts desktop/recent-files_test.ts desktop/versions_test.ts desktop/install-skill_test.ts desktop/cli-args_test.ts desktop/instance-registry_test.ts desktop/open-path_test.ts",
+    "test:file-format": "deno test -A desktop/file-format_test.ts desktop/path_test.ts desktop/dialogs_test.ts desktop/dialogs-win_test.ts desktop/close-guard_test.ts desktop/recent-files_test.ts desktop/versions_test.ts desktop/install-skill_test.ts desktop/cli-args_test.ts desktop/instance-registry_test.ts desktop/open-path_test.ts desktop/platform_test.ts desktop/file-association-win_test.ts",
     "test:release": "deno test -A scripts/release-names_test.ts",
-    "package:release": "bash ./scripts/package-linux-release.sh"
+    "package:release": "bash ./scripts/package-linux-release.sh",
+    "package:windows": "deno task build:frontend && deno desktop -A --backend=webview --compress=xz --target x86_64-pc-windows-msvc --include=./frontend/dist --include=./icons --include=./skills --output=./dist/windows/excalidraw-offline ./desktop/main.ts",
+    "package:windows:release": "deno run -A ./scripts/package-windows-release.ts"
   },
   "compilerOptions": {
     "lib": ["deno.window", "deno.ns", "dom"],
@@ -26,12 +28,14 @@
       "name": "Excalidraw Offline",
       "identifier": "dev.excalidraw.offline",
       "icons": {
-        "linux": "./icons/icon.png"
+        "linux": "./icons/icon.png",
+        "windows": "./icons/icon.ico"
       }
     },
     "backend": "webview",
     "output": {
-      "linux": "./dist/linux/excalidraw-offline"
+      "linux": "./dist/linux/excalidraw-offline",
+      "windows": "./dist/windows/excalidraw-offline"
     }
   }
 }

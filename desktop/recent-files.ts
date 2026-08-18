@@ -1,5 +1,6 @@
 /** MRU recent .excalidraw paths for File → Open Recent. */
 import { basename, dirname, join } from "./path.ts";
+import { defaultRecentFilePath as recentPathFromPlatform } from "./platform.ts";
 
 export const RECENT_MAX = 10;
 export const RECENT_MENU_PREFIX = "recent:";
@@ -11,22 +12,7 @@ interface RecentFile {
 }
 
 export function defaultRecentFilePath(): string {
-  let xdg: string | undefined;
-  let home: string | undefined;
-  try {
-    xdg = Deno.env.get("XDG_CONFIG_HOME");
-  } catch {
-    xdg = undefined;
-  }
-  try {
-    home = Deno.env.get("HOME");
-  } catch {
-    home = undefined;
-  }
-  const base = xdg && xdg.length > 0
-    ? xdg
-    : join(home && home.length > 0 ? home : ".", ".config");
-  return join(base, "excalidraw-offline", "recent.json");
+  return recentPathFromPlatform();
 }
 
 export function recentMenuId(path: string): string {

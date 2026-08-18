@@ -1,9 +1,21 @@
 /**
- * Native file dialogs via zenity/kdialog (setsid).
+ * Native file dialogs via zenity/kdialog (Linux) or PowerShell WinForms (Windows).
  *
  * Safe when run from the Deno menu handler while the UI talks over HTTP.
  * Do NOT run these inside a webview binding call — that freezes laufey_webview.
  */
+import { commandExists, homeDir } from "./platform.ts";
+import {
+  describeWindowsDialogBackend,
+  winChoiceDialog,
+  winConfirmDialog,
+  winInfoDialog,
+  winOpenDirectoryDialog,
+  winOpenExcalidrawDialog,
+  winOpenImageDialog,
+  winSaveExcalidrawDialog,
+  winUnsavedChangesDialog,
+} from "./dialogs-win.ts";
 
 export type DialogResult =
   | { ok: true; path: string }
@@ -40,22 +52,14 @@ export interface ChoiceOption {
   label: string;
 }
 
-async function commandExists(name: string): Promise<boolean> {
-  const cmd = new Deno.Command("sh", {
-    args: ["-c", `command -v ${name}`],
-    stdout: "null",
-    stderr: "null",
-  });
-  const { success } = await cmd.output();
-  return success;
+function isWindows(): boolean {
+  return Deno.build.os === "windows";
 }
 
-function homeDir(): string {
-  try {
-    return Deno.env.get("HOME") ?? ".";
-  } catch {
-    return ".";
-  }
+export function pickerUnavailableMessage(): string {
+  return isWindows()
+    ? "File picker unavailable (PowerShell WinForms failed)"
+    : "File picker unavailable (install zenity or kdialog)";
 }
 
 /** Append .excalidraw when the user omits the extension. */
@@ -108,6 +112,10 @@ export async function infoDialog(
   text: string,
   linkUrl?: string,
 ): Promise<InfoDialogResult> {
+  if (isWindows()) {
+    const body = linkUrl ? `${text}\n\n${linkUrl}` : text;
+    return await winInfoDialog(title, body);
+  }
   if (await commandExists("zenity")) {
     const body = linkUrl
       ? formatLinkedInfoText("zenity", text, linkUrl)
@@ -156,6 +164,7 @@ async function runDialog(args: string[]): Promise<DialogResult> {
 }
 
 export async function openExcalidrawDialog(): Promise<DialogResult> {
+  if (isWindows()) return await winOpenExcalidrawDialog();
   if (await commandExists("zenity")) {
     return await runDialog([
       "zenity",
@@ -189,6 +198,8 @@ export async function saveExcalidrawDialog(
   } catch {
     // ignore
   }
+
+  if (isWindows()) return await winSaveExcalidrawDialog(defaultNameOrPath);
 
   const defaultPath = defaultNameOrPath.includes("/")
     ? defaultNameOrPath
@@ -224,6 +235,7 @@ export async function saveExcalidrawDialog(
 }
 
 export async function openImageDialog(): Promise<DialogResult> {
+  if (isWindows()) return await winOpenImageDialog();
   if (await commandExists("zenity")) {
     return await runDialog([
       "zenity",
@@ -247,6 +259,7 @@ export async function openImageDialog(): Promise<DialogResult> {
 }
 
 export async function describeDialogBackend(): Promise<string> {
+  if (isWindows()) return await describeWindowsDialogBackend();
   const parts: string[] = [];
   if (await commandExists("zenity")) parts.push("zenity");
   if (await commandExists("kdialog")) parts.push("kdialog");
@@ -308,6 +321,10 @@ export async function choiceDialog(
     return { ok: false, reason: "error", detail: "no options" };
   }
 
+  if (isWindows()) {
+    return await winChoiceDialog(title, text, options, defaultId);
+  }
+
   if (await commandExists("zenity")) {
     const result = await runDialog(
       buildChoiceDialogArgs("zenity", title, text, options, defaultId),
@@ -365,6 +382,7 @@ export async function openDirectoryDialog(
   startDir?: string,
 ): Promise<DialogResult> {
   const start = startDir ?? homeDir();
+  if (isWindows()) return await winOpenDirectoryDialog(title, start);
   if (await commandExists("zenity")) {
     return await runDialog(buildDirectoryDialogArgs("zenity", title, start));
   }
@@ -408,6 +426,7 @@ export async function confirmDialog(
   title: string,
   text: string,
 ): Promise<ConfirmDialogResult> {
+  if (isWindows()) return await winConfirmDialog(title, text);
   if (await commandExists("zenity")) {
     return await runConfirmCommand(
       buildConfirmDialogArgs("zenity", title, text),
@@ -507,6 +526,7 @@ export async function unsavedChangesDialog(
   title = "Unsaved changes",
   text = "This drawing has no file path yet. Save, discard, or cancel?",
 ): Promise<UnsavedDialogResult> {
+  if (isWindows()) return await winUnsavedChangesDialog(title, text);
   if (await commandExists("zenity")) {
     return await runUnsavedCommand(
       "zenity",

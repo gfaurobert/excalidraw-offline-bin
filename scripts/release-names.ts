@@ -35,3 +35,18 @@ export function artifactBasenames(version: string): {
     stagingDir: base,
   };
 }
+
+export function windowsArtifactBasenames(version: string): {
+  msi: string;
+  zip: string;
+  sums: string;
+  stagingDir: string;
+} {
+  const base = `excalidraw-offline-${version}-windows-x86_64`;
+  return {
+    msi: `${base}.msi`,
+    zip: `${base}.zip`,
+    sums: "SHA256SUMS-windows-x86_64",
+    stagingDir: base,
+  };
+}

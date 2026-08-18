@@ -1,5 +1,9 @@
 /** XDG runtime registry for single-instance file-open handoff. */
 import { join } from "./path.ts";
+import {
+  defaultRegistryDir as registryDirFromPlatform,
+  isProcessAlive,
+} from "./platform.ts";
 
 export type InstanceState = "start" | "untitled" | "pathed";
 
@@ -12,23 +16,7 @@ export interface InstanceRecord {
 }
 
 export function defaultRegistryDir(): string {
-  let xdg: string | undefined;
-  try {
-    xdg = Deno.env.get("XDG_RUNTIME_DIR");
-  } catch {
-    xdg = undefined;
-  }
-  if (xdg && xdg.length > 0) {
-    return join(xdg, "excalidraw-offline", "instances");
-  }
-  let home: string | undefined;
-  try {
-    home = Deno.env.get("HOME");
-  } catch {
-    home = undefined;
-  }
-  const base = home && home.length > 0 ? home : ".";
-  return join(base, ".cache", "excalidraw-offline", "instances");
+  return registryDirFromPlatform();
 }
 
 export function instanceFilePath(dir: string, pid: number): string {
@@ -44,16 +32,7 @@ export function deriveInstanceState(
   return "untitled";
 }
 
-export function isProcessAlive(pid: number): boolean {
-  if (pid <= 0) return false;
-  try {
-    Deno.kill(pid, 0);
-    return true;
-  } catch (err) {
-    if (err instanceof Deno.errors.PermissionDenied) return true;
-    return false;
-  }
-}
+export { isProcessAlive };
 
 function readRecord(filePath: string): InstanceRecord | null {
   try {

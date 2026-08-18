@@ -14,9 +14,9 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 ## Files
 
 - **New** (File → New / Ctrl+N)— blank Untitled drawing on the canvas
-- **Open** (File → Open / Ctrl+O) — native zenity or kdialog file pickers for `.excalidraw` files anywhere on disk
-- **Save** (File → Save / Ctrl+S) / **Save As**  (File → Save As / Ctrl+Shift+S) — native zenity or kdialog file pickers for `.excalidraw` files anywhere on disk
-- **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (persisted under XDG config). Missing or unreadable paths are removed when selected
+- **Open** (File → Open / Ctrl+O) — native file picker (zenity/kdialog on Linux, WinForms on Windows) for `.excalidraw` files anywhere on disk
+- **Save** (File → Save / Ctrl+S) / **Save As**  (File → Save As / Ctrl+Shift+S) — native file picker for `.excalidraw` files anywhere on disk
+- **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline\recent.json`). Missing or unreadable paths are removed when selected
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
 - **Quit** (File → Quit) — exits the app
 
@@ -24,7 +24,11 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 
 ```bash
 excalidraw-offline /path/to/drawing.excalidraw
-xdg-open /path/to/drawing.excalidraw   # after MIME install (package / AppImage integration)
+xdg-open /path/to/drawing.excalidraw   # Linux, after MIME install (package / AppImage integration)
+```
+
+```powershell
+excalidraw-offline C:\path\to\drawing.excalidraw
 ```
 
 If the path does not exist yet, `excalidraw-offline` creates a blank `.excalidraw` there (parent directories included) and opens it. Existing files are opened as usual.
@@ -33,13 +37,13 @@ If another Excalidraw Offline window is already open on the **start screen** or 
 
 ### Cursor / agent note
 
-Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the editor**, not in Excalidraw Offline. Agents should run `excalidraw-offline <path>` (or `xdg-open`) instead of relying on chat links.
+Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the editor**, not in Excalidraw Offline. Agents should run `excalidraw-offline <path>` (or `xdg-open` on Linux) instead of relying on chat links.
 
 ### Unsaved changes
 
 - Dirty drawing with a path: flush/autosave write, then continue
 - Dirty Untitled: native **Cancel / Save / Discard** dialog
-- If zenity/kdialog is unavailable: status error; there is no typed-path fallback
+- If zenity/kdialog (Linux) or PowerShell WinForms (Windows) is unavailable: status error; there is no typed-path fallback
 
 
 

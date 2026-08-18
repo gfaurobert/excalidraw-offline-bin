@@ -24,7 +24,7 @@ export function resolveInstallTarget(
   if (!pickedPath || !pickedPath.trim()) {
     throw new Error("picked path required for project/custom install");
   }
-  const root = pickedPath.trim().replace(/\/+$/, "") || "/";
+  const root = pickedPath.trim().replace(/[\\/]+$/, "") || "/";
   if (mode === "project") {
     return join(root, ".agents", "skills", SKILL_ID);
   }

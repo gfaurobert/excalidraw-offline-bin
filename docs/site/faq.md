@@ -15,15 +15,15 @@ No for core drawing. There is no account, sync, or collaboration in the first ve
 
 ## Which platforms are supported?
 
-The first version targets Linux (x86_64 releases; Arch `makepkg` from a local checkout). macOS and Windows are out of scope for now.
+Linux x86_64 (GitHub Releases AppImage/tarball; Arch `makepkg`) and Windows 11 x86_64 (MSI and zip). macOS is not packaged yet.
 
-## Why do I need zenity or kdialog?
+## Why do I need zenity, kdialog, or PowerShell?
 
-Open/save pickers and the unsaved Cancel / Save / Discard dialog use native zenity or kdialog. If neither is available, the app reports a status error rather than falling back to typed paths.
+Open/save pickers and the unsaved Cancel / Save / Discard dialog use native OS dialogs: zenity or kdialog on Linux, PowerShell WinForms on Windows. If they are unavailable, the app reports a status error rather than falling back to typed paths.
 
 ## Where are recent files stored?
 
-Up to 10 recent paths are persisted under XDG config on the local machine.
+Up to 10 recent paths are persisted locally: `$XDG_CONFIG_HOME/excalidraw-offline/recent.json` on Linux (fallback `~/.config/...`), and `%APPDATA%\excalidraw-offline\recent.json` on Windows.
 
 ## Why is there an `assets/` folder next to my drawing?
 

@@ -4,6 +4,7 @@ import {
   assertVersionMatchesTag,
   readDenoJsonVersion,
   stripVPrefix,
+  windowsArtifactBasenames,
 } from "./release-names.ts";
 
 Deno.test("readDenoJsonVersion parses version field", () => {
@@ -36,5 +37,14 @@ Deno.test("artifactBasenames", () => {
     tarball: "excalidraw-offline-0.1.0-linux-x86_64.tar.xz",
     sums: "SHA256SUMS",
     stagingDir: "excalidraw-offline-0.1.0-linux-x86_64",
+  });
+});
+
+Deno.test("windowsArtifactBasenames", () => {
+  assertEquals(windowsArtifactBasenames("0.3.0"), {
+    msi: "excalidraw-offline-0.3.0-windows-x86_64.msi",
+    zip: "excalidraw-offline-0.3.0-windows-x86_64.zip",
+    sums: "SHA256SUMS-windows-x86_64",
+    stagingDir: "excalidraw-offline-0.3.0-windows-x86_64",
   });
 });
