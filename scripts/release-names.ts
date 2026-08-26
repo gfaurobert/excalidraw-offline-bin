@@ -50,3 +50,18 @@ export function windowsArtifactBasenames(version: string): {
     stagingDir: base,
   };
 }
+
+export function macosArtifactBasenames(version: string): {
+  dmg: string;
+  zip: string;
+  sums: string;
+  appBundle: string;
+} {
+  const base = `excalidraw-offline-${version}-macos-arm64`;
+  return {
+    dmg: `${base}.dmg`,
+    zip: `${base}.zip`,
+    sums: "SHA256SUMS-macos-arm64",
+    appBundle: "Excalidraw Offline.app",
+  };
+}

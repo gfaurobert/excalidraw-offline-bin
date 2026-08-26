@@ -30,6 +30,20 @@ Deno.test("recentFilePathFromEnv windows APPDATA", () => {
   );
 });
 
+Deno.test("recentFilePathFromEnv darwin Application Support", () => {
+  assertEquals(
+    recentFilePathFromEnv("darwin", env({ HOME: "/Users/greg" })),
+    "/Users/greg/Library/Application Support/excalidraw-offline/recent.json",
+  );
+  assertEquals(
+    recentFilePathFromEnv(
+      "darwin",
+      env({ HOME: "/Users/greg", XDG_CONFIG_HOME: "/cfg" }),
+    ),
+    "/Users/greg/Library/Application Support/excalidraw-offline/recent.json",
+  );
+});
+
 Deno.test("recentFilePathFromEnv linux XDG then ~/.config", () => {
   assertEquals(
     recentFilePathFromEnv("linux", env({ XDG_CONFIG_HOME: "/cfg" })),
@@ -53,6 +67,14 @@ Deno.test("runtimeDirFromEnv windows TEMP vs linux XDG", () => {
   assertEquals(
     runtimeDirFromEnv("linux", env({ HOME: "/home/u" })),
     "/home/u/.cache/excalidraw-offline/instances",
+  );
+  assertEquals(
+    runtimeDirFromEnv("darwin", env({ TMPDIR: "/var/folders/xx/T/" })),
+    "/var/folders/xx/T/excalidraw-offline/instances",
+  );
+  assertEquals(
+    runtimeDirFromEnv("darwin", env({ HOME: "/Users/u" })),
+    "/Users/u/Library/Caches/excalidraw-offline/instances",
   );
 });
 
