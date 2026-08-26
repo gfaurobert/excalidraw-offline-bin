@@ -22,6 +22,16 @@ async function run(
   args: string[],
   options?: { cwd?: string },
 ): Promise<void> {
+  const code = await runAllowFail(args, options);
+  if (code !== 0) {
+    throw new Error(`command failed (${code}): ${args.join(" ")}`);
+  }
+}
+
+async function runAllowFail(
+  args: string[],
+  options?: { cwd?: string },
+): Promise<number> {
   const cmd = new Deno.Command(args[0]!, {
     args: args.slice(1),
     cwd: options?.cwd ?? ROOT,
@@ -30,9 +40,7 @@ async function run(
     stderr: "inherit",
   });
   const { code } = await cmd.output();
-  if (code !== 0) {
-    throw new Error(`command failed (${code}): ${args.join(" ")}`);
-  }
+  return code;
 }
 
 async function sha256Hex(path: string): Promise<string> {
@@ -93,8 +101,76 @@ async function zipAppBundle(appPath: string, zipPath: string): Promise<void> {
   }
 }
 
-async function adHocSign(appPath: string): Promise<void> {
-  await run(["codesign", "--force", "--deep", "--sign", "-", appPath]);
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Skip Deno update markers that break bundle codesign if left in Contents/MacOS. */
+export function shouldSignMacosNestedFile(name: string): boolean {
+  if (name.startsWith(".")) return false;
+  return !/\.(update-ok|update|backup|tmp)$/.test(name);
+}
+
+/** Sign Contents/MacOS binaries first, then the bundle (inside-out). */
+async function adHocSignBundle(appPath: string): Promise<void> {
+  const macosDir = join(appPath, "Contents", "MacOS");
+  for await (const entry of Deno.readDir(macosDir)) {
+    if (!entry.isFile || !shouldSignMacosNestedFile(entry.name)) continue;
+    const nested = join(macosDir, entry.name);
+    const code = await runAllowFail([
+      "codesign",
+      "--force",
+      "--sign",
+      "-",
+      nested,
+    ]);
+    if (code !== 0) {
+      console.warn(`==> codesign skipped ${entry.name} (exit ${code})`);
+    }
+  }
+  await run(["codesign", "--force", "--sign", "-", appPath]);
+}
+
+async function buildDesktopApp(appBuild: string): Promise<void> {
+  const args = [
+    DENO,
+    "desktop",
+    "-A",
+    "--backend=webview",
+    "--compress=xz",
+    "--target",
+    TARGET,
+    "--include=./frontend/dist",
+    "--include=./icons",
+    "--include=./skills",
+    `--output=${appBuild}`,
+    "./desktop/main.ts",
+  ];
+  const code = await runAllowFail(args);
+  if (code === 0) return;
+
+  const launcher = join(
+    appBuild,
+    "Contents",
+    "MacOS",
+    BUILD_BUNDLE_NAME.replace(/\.app$/, ""),
+  );
+  if (!await pathExists(launcher)) {
+    throw new Error(
+      `deno desktop failed (${code}) and launcher is missing: ${launcher}`,
+    );
+  }
+  // Deno 2.9.4 --compress rewrites the thin launcher after the first codesign,
+  // then `codesign` of the bundle fails ("code object is not signed at all").
+  console.warn(
+    "==> deno desktop codesign failed; ad-hoc signing launcher + bundle",
+  );
+  await adHocSignBundle(appBuild);
 }
 
 async function createDmg(appPath: string, dmgPath: string): Promise<void> {
@@ -168,20 +244,7 @@ async function main(): Promise<void> {
 
   const appBuild = join(out, BUILD_BUNDLE_NAME);
   console.log(`==> .app → ${BUILD_BUNDLE_NAME} (${TARGET})`);
-  await run([
-    DENO,
-    "desktop",
-    "-A",
-    "--backend=webview",
-    "--compress=xz",
-    "--target",
-    TARGET,
-    "--include=./frontend/dist",
-    "--include=./icons",
-    "--include=./skills",
-    `--output=${appBuild}`,
-    "./desktop/main.ts",
-  ]);
+  await buildDesktopApp(appBuild);
 
   const appDisplay = join(out, names.appBundle);
   if (appBuild !== appDisplay) {
@@ -195,7 +258,7 @@ async function main(): Promise<void> {
 
   if (isDarwin()) {
     console.log("==> ad-hoc codesign after plist patch");
-    await adHocSign(appDisplay);
+    await adHocSignBundle(appDisplay);
   } else {
     console.warn(
       "==> skipping codesign (not Darwin); signature is invalid after plist patch",
