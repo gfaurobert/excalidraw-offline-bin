@@ -1,6 +1,6 @@
 # Excalidraw Offline
 
-Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux and Windows 11. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
+Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux, Windows 11, and Apple Silicon macOS. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
@@ -9,10 +9,10 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - Launch an offline Excalidraw desktop app
 - Start screen on launch (New / Open / Recent); canvas opens after a choice
 - File → Close returns to the start screen; Quit exits
-- Native zenity/kdialog (Linux) or PowerShell WinForms (Windows 11) for open/save and unsaved Cancel/Save/Discard
+- Native zenity/kdialog (Linux), PowerShell WinForms (Windows 11), or osascript (macOS) for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
 - CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
-- OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe
+- OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe; macOS `Info.plist` UTI on the packaged `.app` (Finder double-click still needs Deno Desktop to deliver Apple Events — use CLI argv until then)
 - File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
@@ -26,6 +26,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - Deno **≥ 2.9** (`deno desktop`)
 - Linux runtime: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`)
 - Windows 11 runtime: WebView2 (preinstalled), PowerShell 5.1 (WinForms dialogs)
+- macOS runtime: Apple Silicon (arm64), WKWebView, `osascript` (system)
 
 ## Install
 
@@ -52,6 +53,25 @@ Runtime: WebView2 (included on Windows 11) and PowerShell for native dialogs. Un
 The packaged exe registers a per-user `.excalidraw` association on first launch (HKCU). CLI: `excalidraw-offline C:\path\to\file.excalidraw`.
 
 Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml) (cross-compiled from Linux). Local dry-run: `deno task package:windows:release`.
+
+### macOS Apple Silicon (GitHub Releases)
+
+Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+
+- **DMG** — `excalidraw-offline-<version>-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
+- **Zip** — `excalidraw-offline-<version>-macos-arm64.zip` (extract the `.app`)
+
+Runtime: WKWebView (system) and `osascript` for native dialogs. Ad-hoc signed builds hit Gatekeeper; right-click the app → **Open**, or remove quarantine with `xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"`.
+
+CLI (argv is the reliable file-open path):
+
+```bash
+open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
+# or
+"/Applications/Excalidraw Offline.app/Contents/MacOS/Excalidraw Offline" ~/drawings/demo.excalidraw
+```
+
+Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-macos.yml`](.github/workflows/release-macos.yml) on `macos-latest`. Local dry-run on a Mac: `deno task package:macos:release`.
 
 ### Arch Linux (makepkg)
 
@@ -96,6 +116,8 @@ deno task test:release
 deno task package:linux
 deno task package:windows
 deno task package:windows:release
+deno task package:macos
+deno task package:macos:release
 deno task package:release
 ```
 
@@ -119,6 +141,6 @@ The `.excalidraw` JSON stores relative `assets/...` references. On open, the wra
 | `scripts/` | Release packaging and naming helpers |
 | `packaging/` | Local/AUR PKGBUILD + `.desktop` |
 | `docs/site/` | Public GitHub Pages docs (Jekyll + Just the Docs) |
-| `.github/workflows/` | CI: `release-linux.yml`, `release-windows.yml`, `jekyll-gh-pages.yml` |
+| `.github/workflows/` | CI: `release-linux.yml`, `release-windows.yml`, `release-macos.yml`, `jekyll-gh-pages.yml` |
 | `use-cases.md` | Product scope and clarifications |
 | `docs/research/2026-07-31-agent-skills-locations.md` | Where AI tools store user/project skills |

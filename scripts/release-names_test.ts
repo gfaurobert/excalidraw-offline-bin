@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
   artifactBasenames,
   assertVersionMatchesTag,
+  macosArtifactBasenames,
   readDenoJsonVersion,
   stripVPrefix,
   windowsArtifactBasenames,
@@ -46,5 +47,14 @@ Deno.test("windowsArtifactBasenames", () => {
     zip: "excalidraw-offline-0.3.0-windows-x86_64.zip",
     sums: "SHA256SUMS-windows-x86_64",
     stagingDir: "excalidraw-offline-0.3.0-windows-x86_64",
+  });
+});
+
+Deno.test("macosArtifactBasenames", () => {
+  assertEquals(macosArtifactBasenames("0.3.0"), {
+    dmg: "excalidraw-offline-0.3.0-macos-arm64.dmg",
+    zip: "excalidraw-offline-0.3.0-macos-arm64.zip",
+    sums: "SHA256SUMS-macos-arm64",
+    appBundle: "Excalidraw Offline.app",
   });
 });

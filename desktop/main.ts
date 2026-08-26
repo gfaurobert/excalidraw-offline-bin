@@ -1,8 +1,9 @@
 /**
  * Deno Desktop entry: filesystem + File menu command queue.
  *
- * UI talks over local HTTP (bindings hang). Native zenity/kdialog run only
- * from the Deno menu handler; the UI then writes via POST /api/write.
+ * UI talks over local HTTP (bindings hang). Native pickers (zenity/kdialog,
+ * PowerShell, osascript) run only from the Deno menu handler; the UI then
+ * writes via POST /api/write.
  */
 /// <reference path="./desktop-types.d.ts" />
 import { join, fromFileUrl } from "./path.ts";
@@ -56,6 +57,7 @@ import {
 import { ensureExcalidrawFile } from "./open-path.ts";
 import { homeDir } from "./platform.ts";
 import { registerExcalidrawFileAssociation } from "./file-association-win.ts";
+import { registerMacExcalidrawFileAssociation } from "./file-association-macos.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -805,7 +807,7 @@ applyMenu(recentStore.list());
 
 /**
  * Native pickers run here (Deno menu), then we enqueue a path for the UI.
- * UI writes over HTTP — never zenity inside a webview round-trip.
+ * UI writes over HTTP — never a picker inside a webview round-trip.
  */
 win.addEventListener("menuclick", (e: Event) => {
   const id = (e as CustomEvent<{ id: string }>).detail.id;
@@ -983,6 +985,7 @@ win.addEventListener("close", (e: Event) => {
 dialogBackend = await describeDialogBackend();
 console.log("[desktop] http api ready; dialog backend:", dialogBackend);
 void registerExcalidrawFileAssociation();
+void registerMacExcalidrawFileAssociation();
 
 await syncInstanceRegistry();
 

@@ -69,3 +69,17 @@ deno task package:windows:release
 
 Runtime on the target PC: WebView2 + PowerShell. File dialogs use WinForms because Deno Desktop does not yet expose a native file-picker API.
 
+## macOS (Apple Silicon)
+
+GitHub Releases also publish a DMG and a zip of the `.app` (`excalidraw-offline-<ver>-macos-arm64.*`) via `.github/workflows/release-macos.yml`. Those artifacts are built on `macos-latest` (`--target aarch64-apple-darwin`) because `.dmg` needs `hdiutil` and the Info.plist patch is re-signed with ad-hoc `codesign`.
+
+```bash
+deno task package:macos
+# → dist/macos/Excalidraw Offline.app
+
+deno task package:macos:release
+# → dist/release-macos/  (DMG + zip + SHA256SUMS-macos-arm64; DMG only on Darwin)
+```
+
+Runtime on the Mac: WKWebView + `osascript`. File dialogs use AppleScript because Deno Desktop does not yet expose a native file-picker API. Unsigned/ad-hoc builds show a Gatekeeper warning.
+

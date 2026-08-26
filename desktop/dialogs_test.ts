@@ -223,10 +223,10 @@ Deno.test("parseUnsavedDialogOutcome kdialog", () => {
 });
 
 Deno.test("pickerUnavailableMessage is OS-specific", () => {
-  const msg = pickerUnavailableMessage();
-  if (Deno.build.os === "windows") {
-    assertEquals(msg.includes("PowerShell"), true);
-  } else {
-    assertEquals(msg.includes("zenity"), true);
-  }
+  assertEquals(
+    pickerUnavailableMessage("windows").includes("PowerShell"),
+    true,
+  );
+  assertEquals(pickerUnavailableMessage("darwin").includes("osascript"), true);
+  assertEquals(pickerUnavailableMessage("linux").includes("zenity"), true);
 });

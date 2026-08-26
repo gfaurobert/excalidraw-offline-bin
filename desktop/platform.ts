@@ -40,6 +40,14 @@ export function configDirFromEnv(os: string, env: EnvLike): string {
     }
     return join(homeDirFromEnv(env), "AppData", "Roaming", "excalidraw-offline");
   }
+  if (os === "darwin") {
+    return join(
+      homeDirFromEnv(env),
+      "Library",
+      "Application Support",
+      "excalidraw-offline",
+    );
+  }
   const xdg = env.get("XDG_CONFIG_HOME");
   if (xdg && xdg.length > 0) return join(slash(xdg), "excalidraw-offline");
   return join(homeDirFromEnv(env), ".config", "excalidraw-offline");
@@ -60,6 +68,19 @@ export function runtimeDirFromEnv(os: string, env: EnvLike): string {
       "AppData",
       "Local",
       "Temp",
+      "excalidraw-offline",
+      "instances",
+    );
+  }
+  if (os === "darwin") {
+    const tmp = env.get("TMPDIR") ?? env.get("TMP");
+    if (tmp && tmp.length > 0) {
+      return join(slash(tmp), "excalidraw-offline", "instances");
+    }
+    return join(
+      homeDirFromEnv(env),
+      "Library",
+      "Caches",
       "excalidraw-offline",
       "instances",
     );

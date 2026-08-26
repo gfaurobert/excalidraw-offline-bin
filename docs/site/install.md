@@ -51,6 +51,23 @@ excalidraw-offline C:\path\to\drawing.excalidraw
 
 Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-windows.yml`. Local dry-run: `deno task package:windows:release`.
 
+## macOS Apple Silicon (GitHub Releases)
+
+Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+
+- **DMG** — `excalidraw-offline-<version>-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
+- **Zip** — `excalidraw-offline-<version>-macos-arm64.zip` (extract the `.app`)
+
+Runtime: WKWebView and `osascript` for open/save/unsaved dialogs. Ad-hoc signed builds hit Gatekeeper (right-click → **Open**, or `xattr -d com.apple.quarantine` on the `.app`).
+
+CLI (pass the drawing as argv; Finder double-click currently only launches the app):
+
+```bash
+open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
+```
+
+Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-macos.yml`. Local dry-run on a Mac: `deno task package:macos:release`.
+
 ## Arch Linux (makepkg)
 
 Install from a local git checkout with `packaging/PKGBUILD.local`:
