@@ -14,7 +14,8 @@ import {
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DENO = Deno.execPath();
-const APP_BUNDLE_NAME = "Excalidraw Offline.app";
+/** Space-free basename: `deno desktop` ad-hoc codesign fails if the .app name has spaces. */
+const BUILD_BUNDLE_NAME = "excalidraw-offline.app";
 const TARGET = "aarch64-apple-darwin";
 
 async function run(
@@ -165,8 +166,8 @@ async function main(): Promise<void> {
   console.log("==> building frontend");
   await run([DENO, "task", "build:frontend"]);
 
-  const appBuild = join(out, APP_BUNDLE_NAME);
-  console.log(`==> .app → ${APP_BUNDLE_NAME} (${TARGET})`);
+  const appBuild = join(out, BUILD_BUNDLE_NAME);
+  console.log(`==> .app → ${BUILD_BUNDLE_NAME} (${TARGET})`);
   await run([
     DENO,
     "desktop",
@@ -182,12 +183,19 @@ async function main(): Promise<void> {
     "./desktop/main.ts",
   ]);
 
+  const appDisplay = join(out, names.appBundle);
+  if (appBuild !== appDisplay) {
+    console.log(`==> rename ${BUILD_BUNDLE_NAME} → ${names.appBundle}`);
+    await Deno.remove(appDisplay, { recursive: true }).catch(() => {});
+    await Deno.rename(appBuild, appDisplay);
+  }
+
   console.log("==> patch Info.plist document types");
-  await patchAppPlist(appBuild, version);
+  await patchAppPlist(appDisplay, version);
 
   if (isDarwin()) {
     console.log("==> ad-hoc codesign after plist patch");
-    await adHocSign(appBuild);
+    await adHocSign(appDisplay);
   } else {
     console.warn(
       "==> skipping codesign (not Darwin); signature is invalid after plist patch",
@@ -196,7 +204,7 @@ async function main(): Promise<void> {
 
   const zipPath = join(out, names.zip);
   console.log(`==> zip → ${names.zip}`);
-  await zipAppBundle(appBuild, zipPath);
+  await zipAppBundle(appDisplay, zipPath);
 
   const hashes: { file: string; hash: string }[] = [];
   hashes.push({ file: names.zip, hash: await sha256Hex(zipPath) });
@@ -204,7 +212,7 @@ async function main(): Promise<void> {
   if (isDarwin()) {
     const dmgPath = join(out, names.dmg);
     console.log(`==> DMG → ${names.dmg}`);
-    await createDmg(appBuild, dmgPath);
+    await createDmg(appDisplay, dmgPath);
     hashes.push({ file: names.dmg, hash: await sha256Hex(dmgPath) });
   } else {
     console.warn("==> skipping DMG (hdiutil requires macOS)");

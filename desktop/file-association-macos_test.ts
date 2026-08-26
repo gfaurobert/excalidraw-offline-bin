@@ -12,6 +12,12 @@ Deno.test("appBundleFromExecPath finds .app from MacOS executable", () => {
     ),
     "/Applications/Excalidraw Offline.app",
   );
+  assertEquals(
+    appBundleFromExecPath(
+      "/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline",
+    ),
+    "/Applications/Excalidraw Offline.app",
+  );
   assertEquals(appBundleFromExecPath("/usr/local/bin/deno"), null);
   assertEquals(
     appBundleFromExecPath("C:/Program Files/excalidraw-offline.exe"),

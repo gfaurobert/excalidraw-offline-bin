@@ -33,7 +33,7 @@ excalidraw-offline C:\path\to\drawing.excalidraw
 
 ```bash
 open -a "Excalidraw Offline" --args /path/to/drawing.excalidraw   # macOS
-"/Applications/Excalidraw Offline.app/Contents/MacOS/Excalidraw Offline" /path/to/drawing.excalidraw
+"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" /path/to/drawing.excalidraw
 ```
 
 If the path does not exist yet, `excalidraw-offline` creates a blank `.excalidraw` there (parent directories included) and opens it. Existing files are opened as usual.

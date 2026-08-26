@@ -42,7 +42,7 @@ deno task start
 8. Recents file: `~/Library/Application Support/excalidraw-offline/recent.json`
 9. Optional: `deno task package:macos` then open the `.app`; Gatekeeper: right-click → Open
 10. Optional: `open -a "Excalidraw Offline" --args ~/Desktop/demo.excalidraw` (argv). Finder double-click is expected to **launch only** until Deno Desktop delivers Apple Events.
-11. Info.plist on the packaged app contains `CFBundleDocumentTypes` / `dev.excalidraw.offline.drawing`
+11. Info.plist on the packaged app contains `CFBundleDocumentTypes` / `dev.excalidraw.offline.drawing`. Inner binary is `Contents/MacOS/excalidraw-offline` (space-free; `deno desktop` cannot ad-hoc-sign a `.app` whose name contains spaces).
 
 ## CI / release
 

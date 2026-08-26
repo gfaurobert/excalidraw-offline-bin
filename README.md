@@ -68,7 +68,7 @@ CLI (argv is the reliable file-open path):
 ```bash
 open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
 # or
-"/Applications/Excalidraw Offline.app/Contents/MacOS/Excalidraw Offline" ~/drawings/demo.excalidraw
+"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw
 ```
 
 Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-macos.yml`](.github/workflows/release-macos.yml) on `macos-latest`. Local dry-run on a Mac: `deno task package:macos:release`.

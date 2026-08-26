@@ -75,7 +75,7 @@ GitHub Releases also publish a DMG and a zip of the `.app` (`excalidraw-offline-
 
 ```bash
 deno task package:macos
-# → dist/macos/Excalidraw Offline.app
+# → dist/macos/excalidraw-offline.app
 
 deno task package:macos:release
 # → dist/release-macos/  (DMG + zip + SHA256SUMS-macos-arm64; DMG only on Darwin)
