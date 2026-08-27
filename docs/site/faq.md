@@ -35,11 +35,15 @@ Use the Skills menu: Global (`~/.agents/skills`), Project (`<root>/.agents/skill
 
 ## macOS says the app is damaged or cannot be opened
 
-Release builds are ad-hoc signed, not notarized. Gatekeeper may block the first launch. Right-click the app → **Open**, or:
+Release builds are **ad-hoc signed**, not Developer ID–signed or notarized. After a download, Gatekeeper attaches a quarantine flag. Double-clicking then often shows *“[App] is damaged and can’t be opened”* / *« Impossible d’ouvrir l’application… car elle est peut-être endommagée ou incomplète »*, and the Dock/Finder icon can show a prohibitory (circle-with-slash) badge. The DMG is usually fine — macOS is refusing an unsigned/ad-hoc app from the internet.
+
+Clear quarantine once (preferred over right-click → Open for the “damaged” dialog):
 
 ```bash
-xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"
+xattr -cr "/Applications/Excalidraw Offline.app"
 ```
+
+Then launch from Applications. If System Settings → Privacy & Security offers **Open Anyway** after a blocked launch, that also works. Confirm you are on **Apple Silicon**; Intel Macs cannot run the arm64 build.
 
 ## Does Finder double-click open a drawing on macOS?
 

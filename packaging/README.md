@@ -81,5 +81,5 @@ deno task package:macos:release
 # → dist/release-macos/  (DMG + zip + SHA256SUMS-macos-arm64; DMG only on Darwin)
 ```
 
-Runtime on the Mac: WKWebView + `osascript`. File dialogs use AppleScript because Deno Desktop does not yet expose a native file-picker API. Unsigned/ad-hoc builds show a Gatekeeper warning.
+Runtime on the Mac: WKWebView + `osascript`. File dialogs use AppleScript because Deno Desktop does not yet expose a native file-picker API. Ad-hoc builds hit Gatekeeper (“damaged” dialog / quarantine); users clear it with `xattr -cr` on the `.app` (see README / docs FAQ).
 
