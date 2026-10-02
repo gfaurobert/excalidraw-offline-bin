@@ -44,3 +44,7 @@ xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"
 ## Does Finder double-click open a drawing on macOS?
 
 The `.app` declares a `.excalidraw` UTI so the file type is associated, but Deno Desktop does not yet deliver macOS Open Documents Apple Events into the app. Use File → Open, or pass the path as argv (`open -a "Excalidraw Offline" --args ~/drawing.excalidraw`).
+
+## An agent (or another app) changed my `.excalidraw` on disk — why doesn’t the canvas update?
+
+The app does not continuously watch every path for external edits (file watchers are unreliable on some setups, e.g. WSL paths under `/mnt/`). With a **saved** file open, use **File → Reload** or **Ctrl+R** (⌘R on macOS) to re-read the file and `assets/` folder from disk. If you have unsaved local edits, Reload asks **Cancel / Save / Discard** instead of silently autosaving over the on-disk file.
