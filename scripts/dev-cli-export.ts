@@ -4,16 +4,34 @@
  */
 import { fromFileUrl, join } from "../desktop/path.ts";
 
-const ROOT = join(fromFileUrl(import.meta.url), "..");
+const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const LAUNCHER = join(ROOT, "dist/linux/excalidraw-offline/excalidraw-offline");
 
 /** Args from `deno task export -- …`, minus a forwarded `--`. */
 export function normalizeDevExportUserArgs(args: readonly string[]): string[] {
-  return args.map((a) => a.trim()).filter((a) => a.length > 0 && a !== "--");
+  return args
+    .map((a) => a.trim())
+    .filter((a) => a.length > 0 && a !== "--" && a !== "''" && a !== '""');
 }
 
 export function devExportLauncherArgs(userArgs: readonly string[]): string[] {
   return ["export", ...normalizeDevExportUserArgs(userArgs)];
+}
+
+async function ensureFrontendDist(): Promise<void> {
+  const indexHtml = join(ROOT, "frontend/dist/index.html");
+  try {
+    await Deno.stat(indexHtml);
+  } catch {
+    const cmd = new Deno.Command("deno", {
+      args: ["task", "build:frontend"],
+      cwd: ROOT,
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const status = await cmd.spawn().status;
+    if (!status.success) Deno.exit(status.code ?? 1);
+  }
 }
 
 async function launcherNeedsRebuild(): Promise<boolean> {
@@ -40,6 +58,7 @@ async function launcherNeedsRebuild(): Promise<boolean> {
 }
 
 async function ensureDevLauncher(): Promise<void> {
+  await ensureFrontendDist();
   if (!(await launcherNeedsRebuild())) return;
 
   const cmd = new Deno.Command("deno", {

@@ -98,6 +98,11 @@ export async function renderSceneExportPng(
     mimeType: MIME_TYPES.png,
     exportPadding: 10,
     exportingFrame: exportingFrame ?? undefined,
+    getDimensions: (width: number, height: number) => ({
+      width: Math.round(width * scale),
+      height: Math.round(height * scale),
+      scale,
+    }),
   });
 
   const timestamp = formatExportTimestamp(input.now ?? new Date());

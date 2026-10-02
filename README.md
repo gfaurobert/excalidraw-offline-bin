@@ -114,7 +114,7 @@ Or use tasks from the repo root:
 
 ```bash
 deno task start
-deno task export -- path/to/drawing.excalidraw [--frame "Name"] [--all-frames] [--json]
+deno task export -- path/to/drawing.excalidraw [--frame "Name"] [--all-frames] [--json]  # compiles dist/linux/excalidraw-offline when needed, then runs export
 deno task test:file-format
 deno task test:release
 deno task package:linux

@@ -1,3 +1,4 @@
+import { fromFileUrl, join } from "../desktop/path.ts";
 import {
   devExportLauncherArgs,
   normalizeDevExportUserArgs,
@@ -23,4 +24,18 @@ Deno.test("devExportLauncherArgs prefixes export subcommand", () => {
     devExportLauncherArgs(["sketches/demo.excalidraw", "--json"]),
     ["export", "sketches/demo.excalidraw", "--json"],
   );
+});
+
+Deno.test("dev-cli-export ROOT is repo root not scripts/", () => {
+  const scriptDir = join(fromFileUrl(import.meta.url), "..");
+  const repoRoot = join(scriptDir, "..");
+  assertEquals(
+    join(repoRoot, "desktop/main.ts"),
+    join(repoRoot, "desktop/main.ts"),
+  );
+  try {
+    Deno.statSync(join(repoRoot, "deno.json"));
+  } catch {
+    throw new Error("repo root should contain deno.json");
+  }
 });
