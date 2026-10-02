@@ -7,6 +7,9 @@
     <title>Excalidraw Offline</title>
     <!-- Classic script: bare `bindings` resolves in main world; ESM cannot. -->
     <script>
+      try {
+        delete window.showSaveFilePicker;
+      } catch (_) {}
       window.__eoGetBindings = function () {
         try {
           if (typeof bindings !== "undefined") return bindings;

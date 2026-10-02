@@ -12,7 +12,8 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - Native zenity/kdialog (Linux), PowerShell WinForms (Windows 11), or osascript (macOS) for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
 - File → Reload (Ctrl+R / ⌘R) re-reads the open file from disk (e.g. after an agent edits it)
-- File → Export Selection as PNG (Ctrl+Shift+Alt+P / ⌘⇧⌥P) writes a PNG next to the drawing under `export/` (whole scene when nothing is selected; named single-frame clip when exactly one named frame is selected)
+- Excalidraw **Export image** dialog (Ctrl+Shift+E / ⌘⇧E or hamburger menu) with native save for PNG/SVG into `export/` by default
+- File → Export Selection as PNG (Ctrl+Shift+Alt+P / ⌘⇧⌥P) — quick one-click PNG to `export/` without a picker (agents / snapshots)
 - CLI **export** (headless hidden webview, same renderer as the GUI): `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png] [--scale N] [--json]` — prints written path(s) to stdout; does not participate in single-instance file-open handoff
 - CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
 - OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe; macOS `Info.plist` UTI on the packaged `.app` (Finder double-click still needs Deno Desktop to deliver Apple Events — use CLI argv until then)

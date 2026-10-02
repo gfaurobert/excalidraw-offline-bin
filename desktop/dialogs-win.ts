@@ -91,6 +91,7 @@ export function buildWinSaveFileScript(
   title: string,
   filter: string,
   defaultPath: string,
+  defaultExt = "excalidraw",
 ): string {
   const slash = defaultPath.replace(/\\/g, "/");
   const last = slash.lastIndexOf("/");
@@ -105,7 +106,7 @@ $d.Filter = ${psSingleQuote(filter)}
 $d.FilterIndex = 1
 $d.OverwritePrompt = $true
 $d.AddExtension = $true
-$d.DefaultExt = 'excalidraw'
+$d.DefaultExt = '${defaultExt}'
 $d.FileName = ${psSingleQuote(name || "drawing.excalidraw")}
 $d.RestoreDirectory = $true
 ${dirLine}if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
@@ -340,6 +341,17 @@ export async function winSaveExcalidrawDialog(
   const result = mapPathResult(code, stdout, stderr);
   if (result.ok) return { ok: true, path: ensureExcalidrawExt(result.path) };
   return result;
+}
+
+export async function winSaveImageExportDialog(
+  defaultPath: string,
+  filter: string,
+  defaultExt: string,
+): Promise<DialogResult> {
+  const { code, stdout, stderr } = await runPowerShell(
+    buildWinSaveFileScript("Export image", filter, defaultPath, defaultExt),
+  );
+  return mapPathResult(code, stdout, stderr);
 }
 
 export async function winOpenImageDialog(): Promise<DialogResult> {

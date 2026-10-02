@@ -14,6 +14,10 @@ import {
 } from "../../desktop/reload-guard.ts";
 import { planExportSelectionPng } from "../../desktop/export-png.ts";
 import { renderExportSelectionPng } from "./export-selection-png.ts";
+import {
+  installOfflineExportDownloadHook,
+  saveExportBlobViaApi,
+} from "./offline-export-download-hook.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -629,6 +633,17 @@ export default function App() {
     refreshRecent,
   ]);
 
+  const openExportImageDialog = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) {
+      setStatus("Canvas not ready for export");
+      return;
+    }
+    api.updateScene({
+      appState: { openDialog: { name: "imageExport" } },
+    });
+  }, []);
+
   const runExportSelectionPng = useCallback(async () => {
     await apiLog(
       "info",
@@ -819,6 +834,29 @@ export default function App() {
     }
   }, [ensureCleanForNavigation]);
 
+  useEffect(() => {
+    installOfflineExportDownloadHook({
+      saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
+      onSaved: (path) => setStatus(`Exported ${path}`),
+      onError: (message) => setStatus(`Export failed: ${message}`),
+    });
+  }, []);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || mode !== "canvas") return;
+    return api.onStateChange("errorMessage", (msg) => {
+      const text = typeof msg === "string" ? msg.trim() : "";
+      if (!text) return;
+      if (
+        text.toLowerCase().includes("clipboard") ||
+        text.toLowerCase().includes("copy")
+      ) {
+        setStatus(`Export failed: ${text}`);
+      }
+    });
+  }, [mode, docKey]);
+
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
     let cancelled = false;
@@ -941,8 +979,17 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      if (!mod || e.altKey) return;
+      if (!mod) return;
       const key = e.key.toLowerCase();
+
+      if (key === "p" && e.shiftKey && e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (modeRef.current === "canvas") void runExportSelectionPng();
+        return;
+      }
+
+      if (e.altKey) return;
 
       if (key === "n" && !e.shiftKey) {
         e.preventDefault();
@@ -981,15 +1028,23 @@ export default function App() {
         void runReload();
         return;
       }
-      if (key === "p" && e.shiftKey && e.altKey) {
+      if (key === "e" && e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
-        void runExportSelectionPng();
+        openExportImageDialog();
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [runNew, runOpen, runSave, runClose, runReload, runExportSelectionPng]);
+  }, [
+    runNew,
+    runOpen,
+    runSave,
+    runClose,
+    runReload,
+    openExportImageDialog,
+    runExportSelectionPng,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1043,7 +1098,7 @@ export default function App() {
               loadScene: false,
               saveToActiveFile: false,
               export: false,
-              saveAsImage: false,
+              saveAsImage: true,
             },
           }}
         />
