@@ -54,3 +54,13 @@ Deno.test("parseExportCliCommand flags", () => {
 Deno.test("parseExportCliCommand errors on missing file", () => {
   assertEquals(parseExportCliCommand(["export"], "/work").kind, "error");
 });
+
+Deno.test("parseExportCliCommand skips standalone -- from deno task", () => {
+  const parsed = parseExportCliCommand(
+    ["export", "--", "sketches/demo.excalidraw"],
+    "/work",
+  );
+  assertEquals(parsed.kind, "export");
+  if (parsed.kind !== "export") return;
+  assertEquals(parsed.command.documentPath, "/work/sketches/demo.excalidraw");
+});

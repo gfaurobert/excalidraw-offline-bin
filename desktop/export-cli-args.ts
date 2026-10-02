@@ -94,6 +94,9 @@ export function parseExportCliCommand(
   const tokens = tail.slice(1);
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
+    if (t === "--") {
+      continue;
+    }
     if (t === "--all-frames") {
       allFrames = true;
       continue;

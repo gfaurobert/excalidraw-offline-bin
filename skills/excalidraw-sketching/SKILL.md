@@ -80,7 +80,16 @@ excalidraw-offline export sketches/<name>.excalidraw --frame "Screen name"
 excalidraw-offline export sketches/<name>.excalidraw --all-frames --json
 ```
 
-PNG files land in `export/` beside the `.excalidraw` file (same naming rules as File → Export Selection as PNG). Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
+From a repo checkout (when developing excalidraw-offline itself):
+
+```bash
+deno task export -- sketches/<name>.excalidraw
+deno task export -- sketches/<name>.excalidraw --frame "Screen name" --json
+```
+
+PNG files default to the **same folder** as the `.excalidraw` file (`{name}_{YYYYMMDD-HHMMSS}.png`, or with a frame segment when using `--frame`). Override with `--out`. Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
+
+Humans can also use Excalidraw’s **Export image…** dialog (Ctrl+Shift+E); PNG/SVG saves open a native picker starting in the drawing’s folder.
 
 **Cursor note:** Clicking a `.excalidraw` path in Cursor chat usually opens it **inside the editor**, not via the OS handler. Do not rely on chat file links for viewing — run the CLI (or `xdg-open`) instead.
 

@@ -1,7 +1,7 @@
-/** Paths and naming for upstream Excalidraw image export → native save. */
+/** Paths for upstream Excalidraw image export → native save dialog. */
 
-import { exportDirForDocument } from "./export-png.ts";
-import { join } from "./path.ts";
+import { drawingDirectoryForDocument } from "./export-png.ts";
+import { basename, join } from "./path.ts";
 
 export function sanitizeExportDownloadFilename(filename: string): string {
   const trimmed = filename.trim().replace(/[\\/:*?"<>|]/g, "_");
@@ -17,6 +17,7 @@ export function extensionFromExportFilename(filename: string): string {
   return "png";
 }
 
+/** Default native save path: same folder as the open `.excalidraw` file. */
 export function suggestedImageExportPath(input: {
   documentPath: string | null;
   homeDir: string;
@@ -24,7 +25,8 @@ export function suggestedImageExportPath(input: {
 }): string {
   const safeName = sanitizeExportDownloadFilename(input.filename);
   if (input.documentPath?.trim()) {
-    return join(exportDirForDocument(input.documentPath.trim()), safeName);
+    return join(drawingDirectoryForDocument(input.documentPath.trim()), safeName);
   }
-  return join(input.homeDir.replace(/[\\/]+$/, "") || ".", "export", safeName);
+  const home = input.homeDir.replace(/[\\/]+$/, "") || ".";
+  return join(home, safeName);
 }

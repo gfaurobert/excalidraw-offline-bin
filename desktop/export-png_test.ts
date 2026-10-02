@@ -1,9 +1,9 @@
 import {
   buildExportPngFilename,
   drawingBaseNameFromPath,
+  drawingDirectoryForDocument,
   formatExportTimestamp,
   pickUniqueExportFilename,
-  planExportSelectionPng,
   resolveExportOutputLocation,
   resolveExportPngTarget,
   sanitizeFrameNameForFilename,
@@ -33,6 +33,13 @@ Deno.test("drawingBaseNameFromPath drops .excalidraw", () => {
   assertEquals(
     drawingBaseNameFromPath("/proj/sketches/my diagram.excalidraw"),
     "my diagram",
+  );
+});
+
+Deno.test("drawingDirectoryForDocument is parent of file", () => {
+  assertEquals(
+    drawingDirectoryForDocument("/proj/sketches/demo.excalidraw"),
+    "/proj/sketches",
   );
 });
 
@@ -93,29 +100,14 @@ Deno.test("resolveExportPngTarget rules", () => {
   );
 });
 
-Deno.test("planExportSelectionPng requires saved path on canvas", () => {
-  assertEquals(
-    planExportSelectionPng({ mode: "start", documentPath: "/a.excalidraw" }),
-    { kind: "noop", reason: "start_screen" },
-  );
-  assertEquals(
-    planExportSelectionPng({ mode: "canvas", documentPath: null }),
-    { kind: "noop", reason: "untitled" },
-  );
-  assertEquals(
-    planExportSelectionPng({ mode: "canvas", documentPath: "/a.excalidraw" }),
-    { kind: "export", documentPath: "/a.excalidraw" },
-  );
-});
-
-Deno.test("resolveExportOutputLocation", () => {
+Deno.test("resolveExportOutputLocation uses drawing folder by default", () => {
   assertEquals(
     resolveExportOutputLocation({
       documentPath: "/proj/a.excalidraw",
       preferredFilename: "a_20261002-170512.png",
       jobCount: 1,
     }),
-    { ok: true, directory: "/proj/export", filename: "a_20261002-170512.png" },
+    { ok: true, directory: "/proj", filename: "a_20261002-170512.png" },
   );
   assertEquals(
     resolveExportOutputLocation({
@@ -130,14 +122,14 @@ Deno.test("resolveExportOutputLocation", () => {
 
 Deno.test("pickUniqueExportFilename skips existing files", async () => {
   const taken = new Set([
-    "/proj/export/x_20261002-170512.png",
-    "/proj/export/x_20261002-170512-2.png",
+    "/proj/sketches/x_20261002-170512.png",
+    "/proj/sketches/x_20261002-170512-2.png",
   ]);
   const picked = await pickUniqueExportFilename(
-    "/proj/export",
+    "/proj/sketches",
     "x_20261002-170512.png",
     async (p) => taken.has(p),
   );
   assertEquals(picked.filename, "x_20261002-170512-3.png");
-  assertEquals(picked.absolutePath, "/proj/export/x_20261002-170512-3.png");
+  assertEquals(picked.absolutePath, "/proj/sketches/x_20261002-170512-3.png");
 });

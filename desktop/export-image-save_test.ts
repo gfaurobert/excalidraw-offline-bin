@@ -17,14 +17,14 @@ Deno.test("extensionFromExportFilename", () => {
   assertEquals(extensionFromExportFilename("a.svg"), "svg");
 });
 
-Deno.test("suggestedImageExportPath uses export/ beside drawing", () => {
+Deno.test("suggestedImageExportPath uses drawing folder", () => {
   assertEquals(
     suggestedImageExportPath({
       documentPath: "/proj/sketch.excalidraw",
       homeDir: "/home/u",
       filename: "sketch-2026.png",
     }),
-    "/proj/export/sketch-2026.png",
+    "/proj/sketch-2026.png",
   );
   assertEquals(
     suggestedImageExportPath({
@@ -32,6 +32,6 @@ Deno.test("suggestedImageExportPath uses export/ beside drawing", () => {
       homeDir: "/home/u",
       filename: "untitled.png",
     }),
-    "/home/u/export/untitled.png",
+    "/home/u/untitled.png",
   );
 });

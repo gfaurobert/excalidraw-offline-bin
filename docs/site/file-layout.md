@@ -12,16 +12,9 @@ Drawings on disk use a portable pair: the `.excalidraw` JSON file plus a sibling
 drawing.excalidraw
 assets/
   <fileId>.png
-export/
-  drawing_20261002-170512.png
-  drawing_Login_20261002-170512.png
 ```
 
-## Export PNGs
-
-- **File → Export Selection as PNG** writes PNGs into `export/` beside the `.excalidraw` file (created automatically)
-- Filenames use the drawing basename, optional frame name, and a local timestamp (`YYYYMMDD-HHMMSS`)
-- Keep or gitignore `export/` depending on whether PNG snapshots belong in your project
+Exported PNGs from the CLI (or PNG/SVG you save via **Export image…**) can live in the same folder as the drawing or anywhere you choose in the save dialog. The CLI writes next to the `.excalidraw` file by default unless you pass `--out`.
 
 ## How attachments work
 

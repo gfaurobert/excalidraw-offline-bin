@@ -1,4 +1,4 @@
-/** Pure helpers for File → Export selection as PNG (paths + naming). */
+/** Pure helpers for CLI PNG export paths and naming. */
 
 import { basename, dirname, join } from "./path.ts";
 
@@ -14,23 +14,11 @@ export type ExportPngTarget =
   | { kind: "selection" }
   | { kind: "named_frame"; frameNameSanitized: string };
 
-export type ExportSelectionPlan =
-  | { kind: "noop"; reason: "start_screen" | "untitled" }
-  | { kind: "export"; documentPath: string };
-
 const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 const MAX_FRAME_FILENAME_PART = 80;
 
-export function planExportSelectionPng(input: {
-  mode: "start" | "canvas";
-  documentPath: string | null;
-}): ExportSelectionPlan {
-  if (input.mode !== "canvas") {
-    return { kind: "noop", reason: "start_screen" };
-  }
-  const path = input.documentPath?.trim();
-  if (!path) return { kind: "noop", reason: "untitled" };
-  return { kind: "export", documentPath: path };
+export function drawingDirectoryForDocument(documentPath: string): string {
+  return dirname(documentPath);
 }
 
 export function drawingBaseNameFromPath(documentPath: string): string {
@@ -128,18 +116,14 @@ export function withExportCollisionSuffix(
   return `${stem}-${attempt + 1}.png`;
 }
 
-export function exportDirForDocument(documentPath: string): string {
-  return join(dirname(documentPath), "export");
-}
-
 export async function pickUniqueExportFilename(
-  exportDir: string,
+  directory: string,
   preferredFilename: string,
   exists: (absolutePath: string) => Promise<boolean>,
 ): Promise<{ filename: string; absolutePath: string }> {
   for (let attempt = 0; attempt < 1000; attempt++) {
     const filename = withExportCollisionSuffix(preferredFilename, attempt);
-    const absolutePath = join(exportDir, filename);
+    const absolutePath = join(directory, filename);
     if (!(await exists(absolutePath))) {
       return { filename, absolutePath };
     }
@@ -151,7 +135,7 @@ export function isExplicitPngPath(path: string): boolean {
   return path.toLowerCase().endsWith(".png");
 }
 
-/** Where to write one export job (before collision suffix). */
+/** Where to write one CLI export job (before collision suffix). */
 export function resolveExportOutputLocation(input: {
   documentPath: string;
   preferredFilename: string;
@@ -161,7 +145,7 @@ export function resolveExportOutputLocation(input: {
   if (!input.outOverride?.trim()) {
     return {
       ok: true,
-      directory: exportDirForDocument(input.documentPath),
+      directory: drawingDirectoryForDocument(input.documentPath),
       filename: input.preferredFilename,
     };
   }
