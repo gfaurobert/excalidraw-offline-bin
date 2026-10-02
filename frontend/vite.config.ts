@@ -7,5 +7,11 @@ export default defineConfig({
   build: {
     // @excalidraw/excalidraw (+ diagram deps) legitimately exceeds the 500 kB default.
     chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        exportCli: 'export-cli.html',
+      },
+    },
   },
 })

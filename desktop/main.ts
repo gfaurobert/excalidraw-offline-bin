@@ -49,6 +49,8 @@ import {
   type InstallMode,
 } from "./install-skill.ts";
 import { openPathFromArgs } from "./cli-args.ts";
+import { parseExportCliCommand } from "./export-cli-args.ts";
+import { runCliExport } from "./cli-export-run.ts";
 import {
   createInstanceRegistry,
   deriveInstanceState,
@@ -68,6 +70,20 @@ const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
 const BUNDLED_SKILL = join(ROOT, "skills", SKILL_ID);
 const instanceRegistry = createInstanceRegistry();
+
+const exportCliParse = parseExportCliCommand(Deno.args, Deno.cwd());
+if (exportCliParse.kind === "error") {
+  console.error(exportCliParse.message);
+  Deno.exit(1);
+}
+if (exportCliParse.kind === "export") {
+  const code = await runCliExport({
+    command: exportCliParse.command,
+    distDir: DIST,
+  });
+  Deno.exit(code);
+}
+
 const startupOpenPath = openPathFromArgs(Deno.args, Deno.cwd());
 
 const INSTALL_SKILL_OPTIONS = [

@@ -70,6 +70,18 @@ If `excalidraw-offline` is not on `PATH`, say so and fall back to: open the file
 
 After OS MIME install, `xdg-open sketches/<name>.excalidraw` also works for existing files. Prefer the CLI for agent launches.
 
+### Export PNG snapshots (CLI)
+
+To generate PNGs for vision models or docs **without** a human using the menu:
+
+```bash
+excalidraw-offline export sketches/<name>.excalidraw
+excalidraw-offline export sketches/<name>.excalidraw --frame "Screen name"
+excalidraw-offline export sketches/<name>.excalidraw --all-frames --json
+```
+
+PNG files land in `export/` beside the `.excalidraw` file (same naming rules as File → Export Selection as PNG). Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
+
 **Cursor note:** Clicking a `.excalidraw` path in Cursor chat usually opens it **inside the editor**, not via the OS handler. Do not rely on chat file links for viewing — run the CLI (or `xdg-open`) instead.
 
 ## Document format

@@ -147,6 +147,45 @@ export async function pickUniqueExportFilename(
   throw new Error("too many export PNG name collisions");
 }
 
+export function isExplicitPngPath(path: string): boolean {
+  return path.toLowerCase().endsWith(".png");
+}
+
+/** Where to write one export job (before collision suffix). */
+export function resolveExportOutputLocation(input: {
+  documentPath: string;
+  preferredFilename: string;
+  outOverride?: string;
+  jobCount: number;
+}): { ok: true; directory: string; filename: string } | { ok: false; error: string } {
+  if (!input.outOverride?.trim()) {
+    return {
+      ok: true,
+      directory: exportDirForDocument(input.documentPath),
+      filename: input.preferredFilename,
+    };
+  }
+  const out = input.outOverride.trim();
+  if (isExplicitPngPath(out)) {
+    if (input.jobCount !== 1) {
+      return {
+        ok: false,
+        error: "--out <file.png> requires exactly one export job",
+      };
+    }
+    return {
+      ok: true,
+      directory: dirname(out),
+      filename: basename(out),
+    };
+  }
+  return {
+    ok: true,
+    directory: out,
+    filename: input.preferredFilename,
+  };
+}
+
 export function decodePngBase64(base64: string): Uint8Array {
   const trimmed = base64.trim();
   if (!trimmed) throw new Error("empty PNG payload");

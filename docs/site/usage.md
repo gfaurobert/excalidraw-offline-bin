@@ -20,6 +20,32 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
 - **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Use this when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
 - **Export Selection as PNG** (File → Export Selection as PNG / Ctrl+Shift+Alt+P or ⌘⇧⌥P) — renders the current selection to a PNG under `export/` next to the saved `.excalidraw` file (no file picker). Disabled on the start screen and for Untitled drawings (save first). With **no selection**, exports the **whole scene** (useful for agents). With **exactly one named frame** selected and nothing else, exports that frame clipped like Excalidraw’s frame export and adds the frame name to the filename. Multiple frames or a frame plus other shapes exports the selected elements only (no frame name in the filename). Embedded `assets/` images are included; output is 2× scale with background. Filename pattern: `<drawing>_<YYYYMMDD-HHMMSS>.png` or `<drawing>_<frame>_<YYYYMMDD-HHMMSS>.png`; duplicate exports in the same second get `-2`, `-3`, … before `.png`. Upstream Excalidraw uses Ctrl+Shift+E for its own export dialog (hidden in this wrapper); this shortcut avoids that clash
+
+### CLI export (agents)
+
+Run PNG export without opening the interactive window (uses a short-lived hidden webview with the same `exportToBlob` path as the GUI). This command **does not** hand off to an already-running instance.
+
+```bash
+excalidraw-offline export sketches/demo.excalidraw
+excalidraw-offline export sketches/demo.excalidraw --frame "Login screen"
+excalidraw-offline export sketches/demo.excalidraw --all-frames
+excalidraw-offline export sketches/demo.excalidraw --element abc123 --element def456
+excalidraw-offline export sketches/demo.excalidraw --bbox 0,0,800,600 --scale 2
+excalidraw-offline export sketches/demo.excalidraw --out ./export --json
+```
+
+| Flag | Meaning |
+|------|---------|
+| *(none)* | Whole scene (default) |
+| `--frame "Name"` | Repeatable; exact frame name match; one PNG per match |
+| `--all-frames` | One PNG per **named** frame |
+| `--element <id>` | Repeatable; one PNG with all listed elements selected |
+| `--bbox x,y,w,h` | Scene coordinates; exports elements intersecting the box |
+| `--out <path>` | Directory (default: `export/` next to the file) or a single `.png` when there is exactly one job |
+| `--scale N` | Export scale (default `2`) |
+| `--json` | Print `{"paths":["…"]}` instead of one path per line |
+
+Stdout lists written file paths; stderr has diagnostics. Exit code `1` with a clear message if the file, frame, or element is missing. **Headless export requires `deno desktop` / the packaged app webview** (same as the GUI). Pure WSL without a Windows/macOS/Linux GUI webview may fail — run the command on the host OS or use File → Export in the GUI.
 - **Quit** (File → Quit) — exits the app
 
 ### Open from CLI or file manager

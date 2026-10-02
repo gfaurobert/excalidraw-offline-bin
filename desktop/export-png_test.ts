@@ -4,6 +4,7 @@ import {
   formatExportTimestamp,
   pickUniqueExportFilename,
   planExportSelectionPng,
+  resolveExportOutputLocation,
   resolveExportPngTarget,
   sanitizeFrameNameForFilename,
   withExportCollisionSuffix,
@@ -104,6 +105,26 @@ Deno.test("planExportSelectionPng requires saved path on canvas", () => {
   assertEquals(
     planExportSelectionPng({ mode: "canvas", documentPath: "/a.excalidraw" }),
     { kind: "export", documentPath: "/a.excalidraw" },
+  );
+});
+
+Deno.test("resolveExportOutputLocation", () => {
+  assertEquals(
+    resolveExportOutputLocation({
+      documentPath: "/proj/a.excalidraw",
+      preferredFilename: "a_20261002-170512.png",
+      jobCount: 1,
+    }),
+    { ok: true, directory: "/proj/export", filename: "a_20261002-170512.png" },
+  );
+  assertEquals(
+    resolveExportOutputLocation({
+      documentPath: "/proj/a.excalidraw",
+      preferredFilename: "a_20261002-170512.png",
+      outOverride: "/tmp/out",
+      jobCount: 2,
+    }),
+    { ok: true, directory: "/tmp/out", filename: "a_20261002-170512.png" },
   );
 });
 
