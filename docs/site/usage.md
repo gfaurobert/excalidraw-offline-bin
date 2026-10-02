@@ -36,12 +36,14 @@ excalidraw-offline export sketches/demo.excalidraw --bbox 0,0,800,600 --scale 2
 excalidraw-offline export sketches/demo.excalidraw --out /tmp/custom --json
 ```
 
-**From a repo checkout** (builds frontend, then runs the same CLI via Deno Desktop):
+**From a repo checkout** (builds frontend, compiles the local `dist/linux/excalidraw-offline` bundle if needed, then execs it — same argv as the packaged app):
 
 ```bash
 deno task export -- sketches/demo.excalidraw
 deno task export -- sketches/demo.excalidraw --frame "Login screen" --json
 ```
+
+Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging launcher argv.
 
 | Flag | Meaning |
 |------|---------|

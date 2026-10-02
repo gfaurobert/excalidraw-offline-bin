@@ -2,6 +2,18 @@
 
 import { resolveOpenPath } from "./cli-args.ts";
 import type { ExportBBox } from "./export-selectors.ts";
+import {
+  findExportSubcommandIndex,
+  isRuntimeArgvNoise,
+  preferredExcalidrawDocumentArg,
+  stripLeadingDesktopArgv,
+} from "./process-argv.ts";
+
+export {
+  findExportSubcommandIndex,
+  isRuntimeArgvNoise,
+  stripLeadingDesktopArgv,
+} from "./process-argv.ts";
 
 export interface ParsedExportCli {
   documentPath: string;
@@ -18,32 +30,6 @@ export type ParseExportCliResult =
   | { kind: "none" }
   | { kind: "export"; command: ParsedExportCli }
   | { kind: "error"; message: string };
-
-/** Skip Deno Desktop / deno flags and the main.ts script path. */
-export function stripLeadingDesktopArgv(args: readonly string[]): string[] {
-  let i = 0;
-  while (i < args.length) {
-    const a = args[i]!;
-    if (a === "--") {
-      i += 1;
-      break;
-    }
-    if (a.startsWith("-")) {
-      i += 1;
-      continue;
-    }
-    break;
-  }
-  const tail = args.slice(i).map((a) => a.trim()).filter((a) => a.length > 0);
-  while (
-    tail.length > 0 &&
-    (tail[0]!.endsWith(".ts") || tail[0]!.endsWith(".js")) &&
-    !tail[0]!.toLowerCase().endsWith(".excalidraw")
-  ) {
-    tail.shift();
-  }
-  return tail;
-}
 
 function parseBbox(value: string): ExportBBox | { error: string } {
   const parts = value.split(",").map((p) => p.trim());
@@ -77,12 +63,18 @@ export function parseExportCliCommand(
   args: readonly string[],
   cwd: string,
 ): ParseExportCliResult {
-  const tail = stripLeadingDesktopArgv(args);
-  if (tail.length === 0 || tail[0] !== "export") {
+  const exportIdx = findExportSubcommandIndex(args);
+  if (exportIdx < 0) {
     return { kind: "none" };
   }
 
-  let documentRaw: string | null = null;
+  const tail = stripLeadingDesktopArgv(args);
+  const exportAt = tail.indexOf("export");
+  if (exportAt < 0) {
+    return { kind: "none" };
+  }
+
+  let documentCandidates: string[] = [];
   const frames: string[] = [];
   const elementIds: string[] = [];
   let allFrames = false;
@@ -91,7 +83,7 @@ export function parseExportCliCommand(
   let scale = 2;
   let json = false;
 
-  const tokens = tail.slice(1);
+  const tokens = tail.slice(exportAt + 1);
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
     if (t === "--") {
@@ -149,19 +141,24 @@ export function parseExportCliCommand(
     if (t.startsWith("-")) {
       return { kind: "error", message: `Unknown export flag: ${t}` };
     }
-    if (!documentRaw) {
-      documentRaw = t;
+    if (t.toLowerCase().endsWith(".excalidraw")) {
+      documentCandidates.push(t);
+      continue;
+    }
+    if (isRuntimeArgvNoise(t)) {
       continue;
     }
     return { kind: "error", message: `Unexpected argument: ${t}` };
   }
 
-  if (!documentRaw) {
+  if (documentCandidates.length === 0) {
     return {
       kind: "error",
       message: "Usage: excalidraw-offline export <file.excalidraw> [options]",
     };
   }
+
+  const documentRaw = preferredExcalidrawDocumentArg(documentCandidates, cwd);
   if (!documentRaw.toLowerCase().endsWith(".excalidraw")) {
     return { kind: "error", message: "Export path must end with .excalidraw" };
   }

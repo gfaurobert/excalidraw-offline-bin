@@ -72,6 +72,10 @@ const DIST = join(ROOT, "frontend", "dist");
 const BUNDLED_SKILL = join(ROOT, "skills", SKILL_ID);
 const instanceRegistry = createInstanceRegistry();
 
+if (Deno.env.get("EXCALIDRAW_DEBUG_ARGV") === "1") {
+  console.error("[argv] Deno.args:", JSON.stringify(Deno.args));
+}
+
 const exportCliParse = parseExportCliCommand(Deno.args, Deno.cwd());
 if (exportCliParse.kind === "error") {
   console.error(exportCliParse.message);

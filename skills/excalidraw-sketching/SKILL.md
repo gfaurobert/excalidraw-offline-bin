@@ -80,7 +80,7 @@ excalidraw-offline export sketches/<name>.excalidraw --frame "Screen name"
 excalidraw-offline export sketches/<name>.excalidraw --all-frames --json
 ```
 
-From a repo checkout (when developing excalidraw-offline itself):
+From a repo checkout (when developing excalidraw-offline itself; compiles `dist/linux/excalidraw-offline` if needed, then runs the same `export` CLI as the packaged app):
 
 ```bash
 deno task export -- sketches/<name>.excalidraw

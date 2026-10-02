@@ -64,3 +64,30 @@ Deno.test("parseExportCliCommand skips standalone -- from deno task", () => {
   if (parsed.kind !== "export") return;
   assertEquals(parsed.command.documentPath, "/work/sketches/demo.excalidraw");
 });
+
+Deno.test("parseExportCliCommand packaged duplicate absolute paths", () => {
+  const path = "/home/gregoire/Development/1dIAlog/sketches/wireframes.excalidraw";
+  const parsed = parseExportCliCommand(["export", path, path], "/work");
+  assertEquals(parsed.kind, "export");
+  if (parsed.kind !== "export") return;
+  assertEquals(parsed.command.documentPath, path);
+});
+
+Deno.test("parseExportCliCommand basename then absolute path", () => {
+  const full = "/home/u/sketches/wireframes.excalidraw";
+  const parsed = parseExportCliCommand(
+    ["export", "wireframes.excalidraw", full],
+    "/work",
+  );
+  assertEquals(parsed.kind, "export");
+  if (parsed.kind !== "export") return;
+  assertEquals(parsed.command.documentPath, full);
+});
+
+Deno.test("parseExportCliCommand drawing path before export subcommand", () => {
+  const full = "/home/u/sketches/wireframes.excalidraw";
+  const parsed = parseExportCliCommand([full, "export", full], "/work");
+  assertEquals(parsed.kind, "export");
+  if (parsed.kind !== "export") return;
+  assertEquals(parsed.command.documentPath, full);
+});

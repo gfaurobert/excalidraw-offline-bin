@@ -107,7 +107,7 @@ Uninstall: `sudo pacman -Rns excalidraw-offline`.
 cd frontend && deno install && deno task build && cd ..
 
 # Desktop (serves frontend/dist)
-deno desktop --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts
+deno desktop -A --hmr --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts
 ```
 
 Or use tasks from the repo root:
