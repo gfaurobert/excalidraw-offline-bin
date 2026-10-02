@@ -18,6 +18,7 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 - **Save** (File → Save / Ctrl+S or ⌘S) / **Save As**  (File → Save As / Ctrl+Shift+S or ⌘⇧S) — native file picker for `.excalidraw` files anywhere on disk
 - **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline\recent.json`; macOS: `~/Library/Application Support/excalidraw-offline/recent.json`). Missing or unreadable paths are removed when selected
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
+- **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Use this when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
 - **Quit** (File → Quit) — exits the app
 
 ### Open from CLI or file manager
@@ -46,7 +47,8 @@ Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the
 
 ### Unsaved changes
 
-- Dirty drawing with a path: flush/autosave write, then continue
+- Dirty drawing with a path (Open, Close, New, Quit): flush/autosave write, then continue
+- Dirty drawing with a path (**Reload**): native **Cancel / Save / Discard** — Discard drops local edits and loads disk; Save writes your version first, then reloads
 - Dirty Untitled: native **Cancel / Save / Discard** dialog
 - If zenity/kdialog (Linux), PowerShell WinForms (Windows), or osascript (macOS) is unavailable: status error; there is no typed-path fallback
 

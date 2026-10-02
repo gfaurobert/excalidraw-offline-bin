@@ -98,6 +98,7 @@ type UiCommand =
   | { type: "new" }
   | { type: "open"; path?: string }
   | { type: "save"; forcePicker: boolean; path?: string }
+  | { type: "reload" }
   | { type: "close" }
   | { type: "quit" };
 
@@ -644,6 +645,14 @@ function applyMenu(recentPaths: string[]): void {
               enabled: true,
             },
           },
+          {
+            item: {
+              label: "Reload",
+              id: "reload",
+              accelerator: "CmdOrCtrl+R",
+              enabled: uiMode === "canvas" && currentPath !== null,
+            },
+          },
           "separator",
           {
             item: {
@@ -891,6 +900,11 @@ win.addEventListener("menuclick", (e: Event) => {
       }
       case "close":
         enqueueUi({ type: "close" });
+        break;
+      case "reload":
+        if (currentPath) {
+          enqueueUi({ type: "reload" });
+        }
         break;
       case "quit":
         enqueueQuit();

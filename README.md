@@ -11,6 +11,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - File → Close returns to the start screen; Quit exits
 - Native zenity/kdialog (Linux), PowerShell WinForms (Windows 11), or osascript (macOS) for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
+- File → Reload (Ctrl+R / ⌘R) re-reads the open file from disk (e.g. after an agent edits it)
 - CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
 - OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe; macOS `Info.plist` UTI on the packaged `.app` (Finder double-click still needs Deno Desktop to deliver Apple Events — use CLI argv until then)
 - File → Open Recent (up to 10 paths, persisted locally)

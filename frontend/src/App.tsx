@@ -8,6 +8,10 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { StartScreen } from "./StartScreen";
+import {
+  planReload,
+  reloadActionAfterUnsavedChoice,
+} from "../../desktop/reload-guard.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -16,7 +20,7 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save" | "close" | "quit";
+  type: "status" | "new" | "open" | "save" | "close" | "quit" | "reload";
   message?: string;
   forcePicker?: boolean;
   path?: string;
@@ -219,6 +223,13 @@ export default function App() {
     }
   }, []);
   updateTitleRef.current = updateTitle;
+
+  const cancelPendingAutosave = useCallback(() => {
+    if (autosaveTimer.current !== null) {
+      window.clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = null;
+    }
+  }, []);
 
   const scheduleAutosave = useCallback(() => {
     if (!pathRef.current) return;
@@ -479,6 +490,135 @@ export default function App() {
     return await writeSceneToPath(path);
   }, [pickSavePath, writeSceneToPath]);
 
+  const applyDocumentFromDisk = useCallback(
+    async (
+      doc: {
+        path: string;
+        elements: ExcalidrawElement[];
+        appState: Partial<AppState>;
+        files: BinaryFiles;
+      },
+      statusMessage: string,
+    ) => {
+      pathRef.current = doc.path;
+      dirtyRef.current = false;
+      sceneRef.current = {
+        elements: doc.elements,
+        appState: doc.appState,
+        files: doc.files,
+      };
+      savedSceneKeyRef.current = JSON.stringify(sceneRef.current);
+      setInitialData({
+        elements: doc.elements,
+        appState: doc.appState,
+        files: doc.files,
+      });
+      setDocKey((k) => k + 1);
+      enterCanvas();
+      await refreshRecent();
+      await updateTitleRef.current(doc.path, false);
+      setStatus(statusMessage);
+    },
+    [enterCanvas, refreshRecent],
+  );
+
+  const promptUnsavedForReload = useCallback(async (): Promise<
+    "proceed" | "abort"
+  > => {
+    let choice: "save" | "discard" | "cancel";
+    nativeDialogBusyRef.current = true;
+    try {
+      const result = await apiJson<{ choice: "save" | "discard" | "cancel" }>(
+        "/api/unsaved",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      choice = result.choice;
+    } catch (err) {
+      setStatus(`Unsaved dialog failed: ${String(err)}`);
+      await apiLog("error", `unsaved dialog failed: ${String(err)}`);
+      return "abort";
+    } finally {
+      nativeDialogBusyRef.current = false;
+    }
+
+    const action = reloadActionAfterUnsavedChoice(choice);
+    if (action.kind === "abort") return "abort";
+    if (action.kind === "save_then_reload") {
+      const path = pathRef.current;
+      if (!path) return "abort";
+      const saved = await writeSceneToPath(path);
+      return saved ? "proceed" : "abort";
+    }
+    return "proceed";
+  }, [writeSceneToPath]);
+
+  const runReload = useCallback(async () => {
+    await apiLog(
+      "info",
+      `runReload start busy=${busyRef.current} path=${pathRef.current ?? ""}`,
+    );
+    if (busyRef.current) {
+      await apiLog("info", "runReload skipped: busy");
+      return;
+    }
+
+    const plan = planReload({
+      mode: modeRef.current,
+      path: pathRef.current,
+      dirty: dirtyRef.current,
+    });
+    if (plan.kind === "noop") {
+      await apiLog("info", "runReload noop: no saved path on canvas");
+      return;
+    }
+
+    cancelPendingAutosave();
+
+    if (plan.kind === "prompt_unsaved") {
+      const gate = await promptUnsavedForReload();
+      if (gate === "abort") {
+        await apiLog("info", "runReload cancelled at unsaved prompt");
+        return;
+      }
+    }
+
+    const path = pathRef.current;
+    if (!path) return;
+
+    busyRef.current = true;
+    try {
+      setStatus("Reloading…");
+      await apiLog("info", `runReload read ${path}`);
+      const doc = await apiJson<{
+        path: string;
+        elements: ExcalidrawElement[];
+        appState: Partial<AppState>;
+        files: BinaryFiles;
+      }>("/api/read", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+      await applyDocumentFromDisk(doc, "Reloaded");
+      await apiLog("info", `runReload done ${path}`);
+    } catch (err) {
+      await apiLog("error", `reload failed: ${String(err)}`);
+      setStatus(`Reload failed: ${String(err)}`);
+      await refreshRecent();
+    } finally {
+      busyRef.current = false;
+    }
+  }, [
+    applyDocumentFromDisk,
+    cancelPendingAutosave,
+    promptUnsavedForReload,
+    refreshRecent,
+  ]);
+
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
       "info",
@@ -523,24 +663,7 @@ export default function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ path }),
       });
-      pathRef.current = doc.path;
-      dirtyRef.current = false;
-      sceneRef.current = {
-        elements: doc.elements,
-        appState: doc.appState,
-        files: doc.files,
-      };
-      savedSceneKeyRef.current = JSON.stringify(sceneRef.current);
-      setInitialData({
-        elements: doc.elements,
-        appState: doc.appState,
-        files: doc.files,
-      });
-      setDocKey((k) => k + 1);
-      enterCanvas();
-      await refreshRecent();
-      await updateTitleRef.current(doc.path, false);
-      setStatus(`Opened ${doc.path}`);
+      await applyDocumentFromDisk(doc, `Opened ${doc.path}`);
       await apiLog("info", `runOpen done ${doc.path}`);
     } catch (err) {
       await apiLog("error", `open failed: ${String(err)}`);
@@ -551,7 +674,12 @@ export default function App() {
     } finally {
       busyRef.current = false;
     }
-  }, [ensureCleanForNavigation, enterCanvas, pickOpenPath, refreshRecent]);
+  }, [
+    applyDocumentFromDisk,
+    ensureCleanForNavigation,
+    pickOpenPath,
+    refreshRecent,
+  ]);
 
   const runClose = useCallback(async () => {
     await apiLog("info", `runClose start mode=${modeRef.current}`);
@@ -716,6 +844,9 @@ export default function App() {
             case "quit":
               setTimeout(() => void runQuit(), 0);
               break;
+            case "reload":
+              setTimeout(() => void runReload(), 0);
+              break;
           }
         }
       } catch (err) {
@@ -728,7 +859,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, runClose, runQuit]);
+  }, [runNew, runOpen, runSave, runClose, runQuit, runReload]);
 
   // Webview steals focus from native menu accelerators — handle file shortcuts here.
   useEffect(() => {
@@ -766,11 +897,17 @@ export default function App() {
         e.preventDefault();
         e.stopPropagation();
         void runSave(false);
+        return;
+      }
+      if (key === "r" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runReload();
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [runNew, runOpen, runSave, runClose]);
+  }, [runNew, runOpen, runSave, runClose, runReload]);
 
   useEffect(() => {
     return () => {
