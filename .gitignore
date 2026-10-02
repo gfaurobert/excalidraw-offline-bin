@@ -15,7 +15,7 @@ packaging/*.pkg.tar*
 packaging/*.log
 *.excalidraw
 !examples/**/*.excalidraw
-!test-fixtures/e2e-export/matrix-demo.excalidraw
+!test-fixtures/**/*.excalidraw
 test-fixtures/e2e-export/*.png
 .worktrees/
 

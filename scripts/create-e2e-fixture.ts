@@ -43,6 +43,8 @@ export const E2E_IDS = {
   rectOutside: "rect-outside-id",
   textOutside: "text-outside-id",
   rectLogin: "rect-login-inner-id",
+  rectDashboard: "rect-dashboard-inner-id",
+  textDashboard: "text-dashboard-inner-id",
   imageId: "img-file-id",
 } as const;
 
@@ -82,6 +84,24 @@ export async function createE2eExportFixture(): Promise<string> {
       ...base(E2E_IDS.rectLogin, "rectangle", 60, 80, 140, 70),
       backgroundColor: "#b2f2bb",
       frameId: E2E_IDS.frameLogin,
+    },
+    {
+      ...base(E2E_IDS.rectDashboard, "rectangle", 510, 60, 120, 60),
+      backgroundColor: "#ffec99",
+      frameId: E2E_IDS.frameDashboard,
+    },
+    {
+      ...base(E2E_IDS.textDashboard, "text", 510, 140, 200, 36),
+      backgroundColor: "transparent",
+      text: "Inside Dashboard",
+      fontSize: 18,
+      fontFamily: 1,
+      textAlign: "left",
+      verticalAlign: "top",
+      containerId: null,
+      originalText: "Inside Dashboard",
+      lineHeight: 1.25,
+      frameId: E2E_IDS.frameDashboard,
     },
     {
       id: E2E_IDS.imageId,
