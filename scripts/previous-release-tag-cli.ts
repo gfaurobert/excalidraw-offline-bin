@@ -1,13 +1,11 @@
-/** Print the semver tag before `current` (one tag per line on stdin). */
+/** Print the semver tag before `current` (remaining args are all tags). */
 import { previousVersionTag } from "./release-names.ts";
 
-const current = Deno.args[0]?.trim();
-if (!current) {
-  console.error("usage: previous-release-tag-cli.ts <current-tag>");
+const [current, ...allTags] = Deno.args;
+if (!current?.trim()) {
+  console.error("usage: previous-release-tag-cli.ts <current-tag> [other-tags...]");
   Deno.exit(2);
 }
 
-const text = new TextDecoder().decode(await Deno.readAll(Deno.stdin));
-const list = text.trim().split(/\n+/).filter(Boolean);
-const prev = previousVersionTag(list, current);
+const prev = previousVersionTag(allTags, current.trim());
 if (prev) console.log(prev);

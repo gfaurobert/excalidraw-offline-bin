@@ -55,7 +55,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PREV=$(git tag -l 'v*' | deno run -A ./scripts/previous-release-tag-cli.ts "${{ github.ref_name }}")
+          PREV=$(deno run -A ./scripts/previous-release-tag-cli.ts "${{ github.ref_name }}" $(git tag -l 'v*'))
           if [[ -z "$PREV" ]]; then
             echo "No previous release tag for ${{ github.ref_name }}"
             exit 1
