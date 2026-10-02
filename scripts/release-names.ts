@@ -10,6 +10,36 @@ export function stripVPrefix(tagOrVersion: string): string {
   return tagOrVersion.startsWith("v") ? tagOrVersion.slice(1) : tagOrVersion;
 }
 
+/** Semver-ish sort key for `vX.Y.Z` tags (ignores non-numeric suffixes). */
+function releaseTagKey(tag: string): [number, number, number, string] {
+  const raw = stripVPrefix(tag);
+  const [maj = "0", min = "0", patchRest = "0"] = raw.split(".");
+  const patch = patchRest.replace(/[^0-9].*$/, "");
+  return [Number(maj), Number(min), Number(patch), tag];
+}
+
+export function compareReleaseTags(a: string, b: string): number {
+  const [ma, mi, pa, ta] = releaseTagKey(a);
+  const [mb, mj, pb, tb] = releaseTagKey(b);
+  if (ma !== mb) return ma - mb;
+  if (mi !== mj) return mi - mj;
+  if (pa !== pb) return pa - pb;
+  return ta.localeCompare(tb);
+}
+
+/** Previous tag when releasing `currentTag` (e.g. v0.4.0 before v0.5.0). */
+export function previousVersionTag(
+  allTags: readonly string[],
+  currentTag: string,
+): string | undefined {
+  const versionTags = allTags
+    .filter((t) => /^v\d/.test(t))
+    .sort(compareReleaseTags);
+  const idx = versionTags.indexOf(currentTag);
+  if (idx <= 0) return undefined;
+  return versionTags[idx - 1];
+}
+
 export function assertVersionMatchesTag(version: string, gitRef: string): void {
   const prefix = "refs/tags/v";
   if (!gitRef.startsWith(prefix)) return;

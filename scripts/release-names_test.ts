@@ -3,6 +3,7 @@ import {
   artifactBasenames,
   assertVersionMatchesTag,
   macosArtifactBasenames,
+  previousVersionTag,
   readDenoJsonVersion,
   stripVPrefix,
   windowsArtifactBasenames,
@@ -48,6 +49,13 @@ Deno.test("windowsArtifactBasenames", () => {
     sums: "SHA256SUMS-windows-x86_64",
     stagingDir: "excalidraw-offline-0.3.0-windows-x86_64",
   });
+});
+
+Deno.test("previousVersionTag picks semver predecessor", () => {
+  const tags = ["v0.3.0", "v0.3.1", "v0.4.0", "v0.5.0"];
+  assertEquals(previousVersionTag(tags, "v0.5.0"), "v0.4.0");
+  assertEquals(previousVersionTag(tags, "v0.4.0"), "v0.3.1");
+  assertEquals(previousVersionTag(tags, "v0.3.0"), undefined);
 });
 
 Deno.test("macosArtifactBasenames", () => {

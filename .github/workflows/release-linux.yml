@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
@@ -47,6 +49,31 @@ jobs:
             dist/release/*.tar.xz
             dist/release/SHA256SUMS
 
+      - name: Write release notes
+        if: github.ref_type == 'tag'
+        id: relnotes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV=$(git tag -l 'v*' | deno run -A ./scripts/previous-release-tag-cli.ts "${{ github.ref_name }}")
+          if [[ -z "$PREV" ]]; then
+            echo "No previous release tag for ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "previous_tag=$PREV" >> "$GITHUB_OUTPUT"
+          GENERATED=$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f "tag_name=${{ github.ref_name }}" \
+            -f "previous_tag_name=${PREV}" \
+            -f "target_commitish=${{ github.ref_name }}" \
+            --jq .body)
+          if [[ -f packaging/release-notes-prepend.md ]]; then
+            cat packaging/release-notes-prepend.md > dist/RELEASE_BODY.md
+            echo >> dist/RELEASE_BODY.md
+          else
+            : > dist/RELEASE_BODY.md
+          fi
+          echo "$GENERATED" >> dist/RELEASE_BODY.md
+
       - name: Publish GitHub Release (tags only)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
@@ -55,14 +82,7 @@ jobs:
             dist/release/*.AppImage
             dist/release/*.tar.xz
             dist/release/SHA256SUMS
-          body: |
-            ## Highlights
-
-            - **File → Reload** (Ctrl+R / ⌘R) — re-read the open `.excalidraw` from disk (including `assets/`) after external edits, e.g. from a coding agent
-            - **Apple Silicon macOS** — DMG and zip of the `.app` (WKWebView, osascript dialogs)
-
-            ## Full changelog
-
-          generate_release_notes: true
+          body_path: dist/RELEASE_BODY.md
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
