@@ -55,6 +55,6 @@ jobs:
             dist/release-windows/*.msi
             dist/release-windows/*.zip
             dist/release-windows/SHA256SUMS-windows-x86_64
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

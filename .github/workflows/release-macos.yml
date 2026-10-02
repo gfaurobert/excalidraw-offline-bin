@@ -56,6 +56,6 @@ jobs:
             dist/release-macos/*.dmg
             dist/release-macos/*.zip
             dist/release-macos/SHA256SUMS-macos-arm64
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
