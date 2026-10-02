@@ -58,6 +58,11 @@ import { ensureExcalidrawFile } from "./open-path.ts";
 import { homeDir } from "./platform.ts";
 import { registerExcalidrawFileAssociation } from "./file-association-win.ts";
 import { registerMacExcalidrawFileAssociation } from "./file-association-macos.ts";
+import {
+  decodePngBase64,
+  exportDirForDocument,
+  pickUniqueExportFilename,
+} from "./export-png.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
@@ -99,6 +104,7 @@ type UiCommand =
   | { type: "open"; path?: string }
   | { type: "save"; forcePicker: boolean; path?: string }
   | { type: "reload" }
+  | { type: "export-selection-png" }
   | { type: "close" }
   | { type: "quit" };
 
@@ -446,6 +452,60 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     }
   }
 
+  if (pathname === "/api/export-png" && method === "POST") {
+    const body = await readJson<{
+      documentPath?: string;
+      preferredFilename?: string;
+      pngBase64?: string;
+    }>(req);
+    const documentPath = body.documentPath?.trim();
+    const preferredFilename = body.preferredFilename?.trim();
+    if (!documentPath) {
+      return json({ ok: false, error: "missing documentPath" }, 400);
+    }
+    if (!preferredFilename) {
+      return json({ ok: false, error: "missing preferredFilename" }, 400);
+    }
+    if (!body.pngBase64?.trim()) {
+      return json({ ok: false, error: "missing pngBase64" }, 400);
+    }
+    if (currentPath && documentPath !== currentPath) {
+      console.warn(
+        "[export-png] documentPath differs from currentPath",
+        documentPath,
+        currentPath,
+      );
+    }
+    let pngBytes: Uint8Array;
+    try {
+      pngBytes = decodePngBase64(body.pngBase64);
+    } catch (err) {
+      return json({ ok: false, error: `invalid pngBase64: ${String(err)}` }, 400);
+    }
+    const exportDir = exportDirForDocument(documentPath);
+    try {
+      await Deno.mkdir(exportDir, { recursive: true });
+      const picked = await pickUniqueExportFilename(
+        exportDir,
+        preferredFilename,
+        async (absolutePath) => {
+          try {
+            await Deno.stat(absolutePath);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+      );
+      await Deno.writeFile(picked.absolutePath, pngBytes);
+      console.log("[export-png] wrote", picked.absolutePath, pngBytes.length, "bytes");
+      return json({ ok: true, path: picked.absolutePath });
+    } catch (err) {
+      console.error("[export-png] error", err);
+      return json({ ok: false, error: String(err) }, 500);
+    }
+  }
+
   if (pathname === "/api/set-title" && method === "POST") {
     const body = await readJson<{ title?: string }>(req);
     if (body.title) win.setTitle(body.title);
@@ -668,6 +728,14 @@ function applyMenu(recentPaths: string[]): void {
               id: "save-as",
               accelerator: "CmdOrCtrl+Shift+S",
               enabled: uiMode === "canvas",
+            },
+          },
+          {
+            item: {
+              label: "Export Selection as PNG",
+              id: "export-selection-png",
+              accelerator: "CmdOrCtrl+Shift+Alt+P",
+              enabled: uiMode === "canvas" && currentPath !== null,
             },
           },
           "separator",
@@ -904,6 +972,16 @@ win.addEventListener("menuclick", (e: Event) => {
       case "reload":
         if (currentPath) {
           enqueueUi({ type: "reload" });
+        }
+        break;
+      case "export-selection-png":
+        if (currentPath) {
+          enqueueUi({ type: "export-selection-png" });
+        } else {
+          enqueueUi({
+            type: "status",
+            message: "Save the drawing before exporting PNG",
+          });
         }
         break;
       case "quit":

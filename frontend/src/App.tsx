@@ -12,6 +12,8 @@ import {
   planReload,
   reloadActionAfterUnsavedChoice,
 } from "../../desktop/reload-guard.ts";
+import { planExportSelectionPng } from "../../desktop/export-png.ts";
+import { renderExportSelectionPng } from "./export-selection-png.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -20,7 +22,15 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save" | "close" | "quit" | "reload";
+  type:
+    | "status"
+    | "new"
+    | "open"
+    | "save"
+    | "close"
+    | "quit"
+    | "reload"
+    | "export-selection-png";
   message?: string;
   forcePicker?: boolean;
   path?: string;
@@ -619,6 +629,61 @@ export default function App() {
     refreshRecent,
   ]);
 
+  const runExportSelectionPng = useCallback(async () => {
+    await apiLog(
+      "info",
+      `runExportSelectionPng start busy=${busyRef.current} path=${pathRef.current ?? ""}`,
+    );
+    if (busyRef.current) {
+      await apiLog("info", "runExportSelectionPng skipped: busy");
+      return;
+    }
+
+    const plan = planExportSelectionPng({
+      mode: modeRef.current,
+      documentPath: pathRef.current,
+    });
+    if (plan.kind === "noop") {
+      const message = plan.reason === "untitled"
+        ? "Save the drawing before exporting PNG"
+        : "Export PNG is only available on the canvas with a saved file";
+      setStatus(message);
+      await apiLog("info", `runExportSelectionPng noop: ${plan.reason}`);
+      return;
+    }
+
+    const api = apiRef.current;
+    if (!api) {
+      setStatus("Canvas not ready for export");
+      return;
+    }
+
+    busyRef.current = true;
+    try {
+      setStatus("Exporting PNG…");
+      const rendered = await renderExportSelectionPng({
+        api,
+        documentPath: plan.documentPath,
+      });
+      const result = await apiJson<{ path: string }>("/api/export-png", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentPath: plan.documentPath,
+          preferredFilename: rendered.preferredFilename,
+          pngBase64: rendered.pngBase64,
+        }),
+      });
+      setStatus(`Exported PNG ${result.path}`);
+      await apiLog("info", `runExportSelectionPng done ${result.path}`);
+    } catch (err) {
+      await apiLog("error", `export PNG failed: ${String(err)}`);
+      setStatus(`Export PNG failed: ${String(err)}`);
+    } finally {
+      busyRef.current = false;
+    }
+  }, []);
+
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
       "info",
@@ -847,6 +912,9 @@ export default function App() {
             case "reload":
               setTimeout(() => void runReload(), 0);
               break;
+            case "export-selection-png":
+              setTimeout(() => void runExportSelectionPng(), 0);
+              break;
           }
         }
       } catch (err) {
@@ -859,7 +927,15 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, runClose, runQuit, runReload]);
+  }, [
+    runNew,
+    runOpen,
+    runSave,
+    runClose,
+    runQuit,
+    runReload,
+    runExportSelectionPng,
+  ]);
 
   // Webview steals focus from native menu accelerators — handle file shortcuts here.
   useEffect(() => {
@@ -903,11 +979,17 @@ export default function App() {
         e.preventDefault();
         e.stopPropagation();
         void runReload();
+        return;
+      }
+      if (key === "p" && e.shiftKey && e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runExportSelectionPng();
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [runNew, runOpen, runSave, runClose, runReload]);
+  }, [runNew, runOpen, runSave, runClose, runReload, runExportSelectionPng]);
 
   useEffect(() => {
     return () => {
