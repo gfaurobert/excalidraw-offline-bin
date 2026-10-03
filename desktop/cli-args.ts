@@ -1,30 +1,27 @@
 /** Parse file-open paths from process argv for CLI / MIME launches. */
 import { isAbsolutePath, join } from "./path.ts";
+import {
+  findExportSubcommandIndex,
+  isRuntimeArgvNoise,
+  stripLeadingDesktopArgv,
+} from "./process-argv.ts";
 
 /**
  * Pick the first openable path from argv-like strings.
- * Skips leading flags (`-…`, `--…`) and non-`.excalidraw` tokens
- * (so `deno desktop … ./desktop/main.ts file.excalidraw` still works).
+ * Skips leading flags (`-…`, `--…`), runtime noise, and `export` subcommands.
  */
 export function parseOpenPathArg(args: readonly string[]): string | null {
-  let i = 0;
-  while (i < args.length) {
-    const a = args[i]!;
-    if (a === "--") {
-      i += 1;
-      break;
-    }
-    if (a.startsWith("-")) {
-      i += 1;
-      continue;
-    }
-    break;
+  if (findExportSubcommandIndex(args) >= 0) {
+    return null;
   }
-  for (; i < args.length; i++) {
-    const a = args[i]!.trim();
-    if (a.length === 0) continue;
-    if (!a.toLowerCase().endsWith(".excalidraw")) continue;
-    return a;
+
+  const tail = stripLeadingDesktopArgv(args);
+  for (const a of tail) {
+    const trimmed = a.trim();
+    if (trimmed.length === 0) continue;
+    if (isRuntimeArgvNoise(trimmed)) continue;
+    if (!trimmed.toLowerCase().endsWith(".excalidraw")) continue;
+    return trimmed;
   }
   return null;
 }

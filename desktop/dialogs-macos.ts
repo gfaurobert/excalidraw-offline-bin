@@ -256,6 +256,19 @@ export async function macSaveExcalidrawDialog(
   }
 }
 
+export async function macSaveImageExportDialog(
+  defaultPath: string,
+): Promise<DialogResult> {
+  try {
+    const { code, stdout, stderr } = await runOsascript(
+      buildMacSaveFileScript("Export image", defaultPath),
+    );
+    return mapPathResult(code, stdout, stderr);
+  } catch (err) {
+    return { ok: false, reason: "unavailable", detail: String(err) };
+  }
+}
+
 export async function macOpenImageDialog(): Promise<DialogResult> {
   try {
     const { code, stdout, stderr } = await runOsascript(

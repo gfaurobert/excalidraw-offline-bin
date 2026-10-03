@@ -65,3 +65,19 @@ Deno.test("openPathFromArgs combines parse and resolve", () => {
   );
   assertEquals(openPathFromArgs(["-A"], "/work"), null);
 });
+
+Deno.test("parseOpenPathArg ignores export subcommand argv", () => {
+  const path = "/home/u/sketches/wireframes.excalidraw";
+  assertEquals(parseOpenPathArg(["export", path, path]), null);
+  assertEquals(parseOpenPathArg([path, "export", path]), null);
+});
+
+Deno.test("parseOpenPathArg skips runtime noise before drawing", () => {
+  assertEquals(
+    parseOpenPathArg([
+      "./dist/linux/excalidraw-offline/excalidraw-offline",
+      "/tmp/sketch.excalidraw",
+    ]),
+    "/tmp/sketch.excalidraw",
+  );
+});

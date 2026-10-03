@@ -15,6 +15,7 @@ import {
   winOpenExcalidrawDialog,
   winOpenImageDialog,
   winSaveExcalidrawDialog,
+  winSaveImageExportDialog,
   winUnsavedChangesDialog,
 } from "./dialogs-win.ts";
 import {
@@ -26,6 +27,7 @@ import {
   macOpenExcalidrawDialog,
   macOpenImageDialog,
   macSaveExcalidrawDialog,
+  macSaveImageExportDialog,
   macUnsavedChangesDialog,
 } from "./dialogs-macos.ts";
 
@@ -210,6 +212,85 @@ export async function openExcalidrawDialog(): Promise<DialogResult> {
   }
 
   return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
+}
+
+function imageExportFilterForExtension(ext: string): {
+  zenity: string;
+  kdialog: string;
+  winFilter: string;
+  defaultExt: string;
+} {
+  switch (ext) {
+    case "svg":
+    case "excalidraw.svg":
+      return {
+        zenity: "SVG | *.svg",
+        kdialog: "*.svg",
+        winFilter: "SVG (*.svg)|*.svg|All files (*.*)|*.*",
+        defaultExt: "svg",
+      };
+    case "excalidraw.png":
+      return {
+        zenity: "PNG | *.png",
+        kdialog: "*.png",
+        winFilter: "PNG (*.png)|*.png|All files (*.*)|*.*",
+        defaultExt: "png",
+      };
+    default:
+      return {
+        zenity: "PNG | *.png",
+        kdialog: "*.png",
+        winFilter: "PNG (*.png)|*.png|All files (*.*)|*.*",
+        defaultExt: "png",
+      };
+  }
+}
+
+export async function saveImageExportDialog(
+  suggestedPath: string,
+  extension: string,
+): Promise<DialogResult> {
+  const filters = imageExportFilterForExtension(extension);
+  const defaultPath = suggestedPath.replace(/\\/g, "/");
+
+  if (isWindows()) {
+    return await winSaveImageExportDialog(
+      defaultPath,
+      filters.winFilter,
+      filters.defaultExt,
+    );
+  }
+  if (isDarwin()) {
+    return await macSaveImageExportDialog(defaultPath);
+  }
+
+  if (await commandExists("zenity")) {
+    const result = await runDialog([
+      "zenity",
+      "--file-selection",
+      "--save",
+      "--confirm-overwrite",
+      "--title=Export image",
+      `--filename=${defaultPath}`,
+      `--file-filter=${filters.zenity}`,
+      "--file-filter=All files | *",
+    ]);
+    if (result.ok) return { ok: true, path: result.path };
+    return result;
+  }
+
+  if (await commandExists("kdialog")) {
+    const result = await runDialog([
+      "kdialog",
+      "--getsavefilename",
+      defaultPath,
+      filters.kdialog,
+    ]);
+    if (result.ok) return { ok: true, path: result.path };
+    return result;
+  }
+
+  return { ok: false, reason: "unavailable", detail: "no file picker available" };
 }
 
 export async function saveExcalidrawDialog(

@@ -14,6 +14,8 @@ assets/
   <fileId>.png
 ```
 
+Exported PNGs from the CLI (or PNG/SVG you save via **Export image…**) can live in the same folder as the drawing or anywhere you choose in the save dialog. The CLI writes next to the `.excalidraw` file by default unless you pass `--out`.
+
 ## How attachments work
 
 - On image import, the wrapper copies the file into the sibling `assets/` folder next to the `.excalidraw` file

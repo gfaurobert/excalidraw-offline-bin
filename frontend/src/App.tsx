@@ -12,6 +12,10 @@ import {
   planReload,
   reloadActionAfterUnsavedChoice,
 } from "../../desktop/reload-guard.ts";
+import {
+  installOfflineExportDownloadHook,
+  saveExportBlobViaApi,
+} from "./offline-export-download-hook.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -20,7 +24,14 @@ interface ScenePayload {
 }
 
 interface UiCommand {
-  type: "status" | "new" | "open" | "save" | "close" | "quit" | "reload";
+  type:
+    | "status"
+    | "new"
+    | "open"
+    | "save"
+    | "close"
+    | "quit"
+    | "reload";
   message?: string;
   forcePicker?: boolean;
   path?: string;
@@ -619,6 +630,17 @@ export default function App() {
     refreshRecent,
   ]);
 
+  const openExportImageDialog = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) {
+      setStatus("Canvas not ready for export");
+      return;
+    }
+    api.updateScene({
+      appState: { openDialog: { name: "imageExport" } },
+    });
+  }, []);
+
   const runOpen = useCallback(async (presetPath?: string) => {
     await apiLog(
       "info",
@@ -754,6 +776,29 @@ export default function App() {
     }
   }, [ensureCleanForNavigation]);
 
+  useEffect(() => {
+    installOfflineExportDownloadHook({
+      saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
+      onSaved: (path) => setStatus(`Exported ${path}`),
+      onError: (message) => setStatus(`Export failed: ${message}`),
+    });
+  }, []);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || mode !== "canvas") return;
+    return api.onStateChange("errorMessage", (msg) => {
+      const text = typeof msg === "string" ? msg.trim() : "";
+      if (!text) return;
+      if (
+        text.toLowerCase().includes("clipboard") ||
+        text.toLowerCase().includes("copy")
+      ) {
+        setStatus(`Export failed: ${text}`);
+      }
+    });
+  }, [mode, docKey]);
+
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
     let cancelled = false;
@@ -859,14 +904,23 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [runNew, runOpen, runSave, runClose, runQuit, runReload]);
+  }, [
+    runNew,
+    runOpen,
+    runSave,
+    runClose,
+    runQuit,
+    runReload,
+  ]);
 
   // Webview steals focus from native menu accelerators — handle file shortcuts here.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      if (!mod || e.altKey) return;
+      if (!mod) return;
       const key = e.key.toLowerCase();
+
+      if (e.altKey) return;
 
       if (key === "n" && !e.shiftKey) {
         e.preventDefault();
@@ -903,11 +957,24 @@ export default function App() {
         e.preventDefault();
         e.stopPropagation();
         void runReload();
+        return;
+      }
+      if (key === "e" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        openExportImageDialog();
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [runNew, runOpen, runSave, runClose, runReload]);
+  }, [
+    runNew,
+    runOpen,
+    runSave,
+    runClose,
+    runReload,
+    openExportImageDialog,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -961,7 +1028,7 @@ export default function App() {
               loadScene: false,
               saveToActiveFile: false,
               export: false,
-              saveAsImage: false,
+              saveAsImage: true,
             },
           }}
         />

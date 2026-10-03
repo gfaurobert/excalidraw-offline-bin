@@ -6,7 +6,7 @@
  * writes via POST /api/write.
  */
 /// <reference path="./desktop-types.d.ts" />
-import { join, fromFileUrl } from "./path.ts";
+import { dirname, join, fromFileUrl } from "./path.ts";
 import {
   choiceDialog,
   confirmDialog,
@@ -17,6 +17,7 @@ import {
   openImageDialog,
   pickerUnavailableMessage,
   saveExcalidrawDialog,
+  saveImageExportDialog,
   unsavedChangesDialog,
 } from "./dialogs.ts";
 import {
@@ -50,6 +51,13 @@ import {
 } from "./install-skill.ts";
 import { openPathFromArgs } from "./cli-args.ts";
 import {
+  printExportHelp,
+  printTopLevelHelp,
+  wantsTopLevelHelp,
+} from "./cli-help.ts";
+import { parseExportCliCommand } from "./export-cli-args.ts";
+import { runCliExport } from "./cli-export-run.ts";
+import {
   createInstanceRegistry,
   deriveInstanceState,
   type InstanceState,
@@ -58,11 +66,43 @@ import { ensureExcalidrawFile } from "./open-path.ts";
 import { homeDir } from "./platform.ts";
 import { registerExcalidrawFileAssociation } from "./file-association-win.ts";
 import { registerMacExcalidrawFileAssociation } from "./file-association-macos.ts";
+import {
+  extensionFromExportFilename,
+  suggestedImageExportPath,
+} from "./export-image-save.ts";
+import { decodePngBase64 } from "./export-png.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
 const DIST = join(ROOT, "frontend", "dist");
 const BUNDLED_SKILL = join(ROOT, "skills", SKILL_ID);
 const instanceRegistry = createInstanceRegistry();
+
+if (Deno.env.get("EXCALIDRAW_DEBUG_ARGV") === "1") {
+  console.error("[argv] Deno.args:", JSON.stringify(Deno.args));
+}
+
+if (wantsTopLevelHelp(Deno.args)) {
+  printTopLevelHelp();
+  Deno.exit(0);
+}
+
+const exportCliParse = parseExportCliCommand(Deno.args, Deno.cwd());
+if (exportCliParse.kind === "help") {
+  printExportHelp();
+  Deno.exit(0);
+}
+if (exportCliParse.kind === "error") {
+  console.error(exportCliParse.message);
+  Deno.exit(1);
+}
+if (exportCliParse.kind === "export") {
+  const code = await runCliExport({
+    command: exportCliParse.command,
+    distDir: DIST,
+  });
+  Deno.exit(code);
+}
+
 const startupOpenPath = openPathFromArgs(Deno.args, Deno.cwd());
 
 const INSTALL_SKILL_OPTIONS = [
@@ -446,6 +486,51 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     }
   }
 
+  if (pathname === "/api/pick-save-image-export" && method === "POST") {
+    const body = await readJson<{ filename?: string }>(req);
+    const filename = body.filename?.trim();
+    if (!filename) return json({ ok: false, error: "missing filename" }, 400);
+    const suggested = suggestedImageExportPath({
+      documentPath: currentPath,
+      homeDir: homeDir(),
+      filename,
+    });
+    const ext = extensionFromExportFilename(filename);
+    const picked = await saveImageExportDialog(suggested, ext);
+    if (picked.ok) return json({ ok: true, path: picked.path });
+    if (picked.reason === "cancelled") {
+      return json({ ok: true, cancelled: true });
+    }
+    if (picked.reason === "unavailable") {
+      return json({ ok: false, error: "no file picker available" }, 501);
+    }
+    return json({ ok: false, error: picked.detail ?? picked.reason }, 500);
+  }
+
+  if (pathname === "/api/write-binary" && method === "POST") {
+    const body = await readJson<{ path?: string; dataBase64?: string }>(req);
+    const path = body.path?.trim();
+    if (!path) return json({ ok: false, error: "missing path" }, 400);
+    if (!body.dataBase64?.trim()) {
+      return json({ ok: false, error: "missing dataBase64" }, 400);
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = decodePngBase64(body.dataBase64);
+    } catch (err) {
+      return json({ ok: false, error: `invalid dataBase64: ${String(err)}` }, 400);
+    }
+    try {
+      await Deno.mkdir(dirname(path), { recursive: true });
+      await Deno.writeFile(path, bytes);
+      console.log("[write-binary] wrote", path, bytes.length, "bytes");
+      return json({ ok: true, path });
+    } catch (err) {
+      console.error("[write-binary] error", err);
+      return json({ ok: false, error: String(err) }, 500);
+    }
+  }
+
   if (pathname === "/api/set-title" && method === "POST") {
     const body = await readJson<{ title?: string }>(req);
     if (body.title) win.setTitle(body.title);
@@ -670,7 +755,6 @@ function applyMenu(recentPaths: string[]): void {
               enabled: uiMode === "canvas",
             },
           },
-          "separator",
           {
             item: {
               label: "Quit",
