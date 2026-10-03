@@ -84,6 +84,16 @@ api_inspect() {
   curl -sf "$BASE/api/e2e/inspect"
 }
 
+stop_app() {
+  if [[ -n "${BASE:-}" ]]; then
+    curl -sf -X POST "$BASE/api/quit" >/dev/null 2>&1 || true
+    sleep 1.2
+  fi
+  kill "$APP_PID" 2>/dev/null || true
+  wait "$APP_PID" 2>/dev/null || true
+  sleep 0.8
+}
+
 wait_zenity() {
   local tries="${1:-40}"
   for _ in $(seq 1 "$tries"); do
@@ -227,9 +237,7 @@ else
 fi
 shot "02-after-ctrl-s"
 
-kill "$APP_PID" 2>/dev/null || true
-wait "$APP_PID" 2>/dev/null || true
-sleep 1
+stop_app
 APP_LOG="$ARTIFACTS/logs/app-reopen.stdout"
 bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
 APP_PID=$!
@@ -386,9 +394,7 @@ json_file_has "$EDITED" 'stickynote' && HAS_STICKY=1
 shot "10-sticky-note"
 if [[ "$EXPECT_STICKY" == "1" ]]; then
   if [[ "$HAS_STICKY" -eq 1 ]]; then
-    kill "$APP_PID" 2>/dev/null || true
-    wait "$APP_PID" 2>/dev/null || true
-    sleep 1
+    stop_app
     APP_LOG="$ARTIFACTS/logs/app-sticky-reopen.stdout"
     bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
     APP_PID=$!
@@ -436,8 +442,7 @@ else
   awk -v d="$DELTA" 'BEGIN{exit !(d+0 < 1.0)}' && record right-click-pan PASS "no pan on old pin delta=$DELTA" || record right-click-pan FAIL "unexpected pan delta=$DELTA on old"
 fi
 
-kill "$APP_PID" 2>/dev/null || true
-wait "$APP_PID" 2>/dev/null || true
+stop_app
 trap - EXIT
 
 {
