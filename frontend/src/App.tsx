@@ -830,6 +830,7 @@ export default function App() {
       getPathLabel: () => pathLabelRef.current,
       getDirty: () => dirtyRef.current,
       syncSceneFromApi,
+      saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
       excalidrawPackageVersion: excalidrawVersionRef.current,
     });
   }, [syncSceneFromApi]);
@@ -855,6 +856,7 @@ export default function App() {
             getPathLabel: () => pathLabelRef.current,
             getDirty: () => dirtyRef.current,
             syncSceneFromApi,
+            saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
             excalidrawPackageVersion: excalidrawVersionRef.current,
           });
           await apiLog("info", `api/info ok home=${homeRef.current}`);

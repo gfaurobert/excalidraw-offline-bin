@@ -6,8 +6,8 @@
     {
       "id": "frame-login-id",
       "type": "frame",
-      "x": 20,
-      "y": 20,
+      "x": 90,
+      "y": 70,
       "width": 420,
       "height": 320,
       "angle": 0,
@@ -18,19 +18,20 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1106508288,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019310682,
       "link": null,
       "locked": false,
       "name": "UI \"mock\" / v2",
-      "index": "a0"
+      "index": "a0",
+      "created": null
     },
     {
       "id": "frame-dash-id",
@@ -54,12 +55,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1,
       "link": null,
       "locked": false,
       "name": "Dashboard",
-      "index": "a1"
+      "index": "a1",
+      "created": null
     },
     {
       "id": "rect-outside-id",
@@ -76,8 +78,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1978419994,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -85,10 +87,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019287831,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a2",
+      "created": null
     },
     {
       "id": "text-outside-id",
@@ -105,15 +109,15 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1713703814,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019287831,
       "link": null,
       "locked": false,
       "text": "Outside all frames",
@@ -123,13 +127,18 @@
       "verticalAlign": "top",
       "containerId": null,
       "originalText": "Outside all frames",
-      "lineHeight": 1.25
+      "lineHeight": 1.25,
+      "index": "a3",
+      "created": null,
+      "autoResize": true,
+      "labelPosition": null,
+      "baseFontSize": null
     },
     {
       "id": "rect-login-inner-id",
       "type": "rectangle",
-      "x": 60,
-      "y": 80,
+      "x": 130,
+      "y": 130,
       "width": 140,
       "height": 70,
       "angle": 0,
@@ -140,8 +149,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 143,
+      "versionNonce": 358922752,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -149,10 +158,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019310682,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a4",
+      "created": null
     },
     {
       "id": "rect-dashboard-inner-id",
@@ -169,8 +180,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1170582214,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -178,10 +189,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019287831,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a5",
+      "created": null
     },
     {
       "id": "text-dashboard-inner-id",
@@ -198,15 +211,15 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 584305818,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
       "frameId": "frame-dash-id",
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019287831,
       "link": null,
       "locked": false,
       "text": "Inside Dashboard",
@@ -216,13 +229,18 @@
       "verticalAlign": "top",
       "containerId": null,
       "originalText": "Inside Dashboard",
-      "lineHeight": 1.25
+      "lineHeight": 1.25,
+      "index": "a6",
+      "created": null,
+      "autoResize": true,
+      "labelPosition": null,
+      "baseFontSize": null
     },
     {
       "id": "img-file-id",
       "type": "image",
-      "x": 240,
-      "y": 100,
+      "x": 310,
+      "y": 150,
       "width": 64,
       "height": 64,
       "angle": 0,
@@ -233,15 +251,15 @@
       "strokeStyle": "solid",
       "roughness": 0,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 2,
+      "version": 143,
+      "versionNonce": 1019050496,
       "isDeleted": false,
       "seed": 2,
       "groupIds": [],
       "frameId": "frame-login-id",
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791019310682,
       "link": null,
       "locked": false,
       "status": "saved",
@@ -249,20 +267,25 @@
       "scale": [
         1,
         1
-      ]
+      ],
+      "index": "a7",
+      "created": null,
+      "crop": null
     }
   ],
   "appState": {
     "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": 20,
+    "theme": "light",
+    "name": "Untitled-2026-10-03-0921"
   },
   "files": {
     "img-file-id": {
       "mimeType": "image/png",
       "id": "img-file-id",
       "path": "assets/img-file-id.png",
-      "created": 1791027591365,
-      "lastRetrieved": 1791027591365
+      "created": 1791019286500,
+      "lastRetrieved": 1791019286500
     }
   }
 }

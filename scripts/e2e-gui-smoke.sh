@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED: use scripts/e2e-gui-v2.sh (real assertions + zenity completion).
 # GUI smoke E2E for Excalidraw Offline (xvfb-run + xdotool + import).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

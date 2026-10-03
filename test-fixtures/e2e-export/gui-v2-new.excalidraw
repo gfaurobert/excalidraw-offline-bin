@@ -25,12 +25,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1,
       "link": null,
       "locked": false,
       "name": "UI \"mock\" / v2",
-      "index": "a0"
+      "index": "a0",
+      "created": null
     },
     {
       "id": "frame-dash-id",
@@ -54,12 +55,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1,
       "link": null,
       "locked": false,
       "name": "Dashboard",
-      "index": "a1"
+      "index": "a1",
+      "created": null
     },
     {
       "id": "rect-outside-id",
@@ -76,8 +78,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1533401368,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -85,10 +87,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a2",
+      "created": null
     },
     {
       "id": "text-outside-id",
@@ -105,15 +109,15 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1498539112,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
       "locked": false,
       "text": "Outside all frames",
@@ -123,7 +127,12 @@
       "verticalAlign": "top",
       "containerId": null,
       "originalText": "Outside all frames",
-      "lineHeight": 1.25
+      "lineHeight": 1.25,
+      "index": "a3",
+      "created": null,
+      "autoResize": true,
+      "labelPosition": null,
+      "baseFontSize": null
     },
     {
       "id": "rect-login-inner-id",
@@ -140,8 +149,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 142276120,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -149,10 +158,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a4",
+      "created": null
     },
     {
       "id": "rect-dashboard-inner-id",
@@ -169,8 +180,8 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 157882216,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
@@ -178,10 +189,12 @@
       "roundness": {
         "type": 3
       },
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
-      "locked": false
+      "locked": false,
+      "index": "a5",
+      "created": null
     },
     {
       "id": "text-dashboard-inner-id",
@@ -198,15 +211,15 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 1,
+      "version": 142,
+      "versionNonce": 1860465432,
       "isDeleted": false,
       "seed": 1,
       "groupIds": [],
       "frameId": "frame-dash-id",
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
       "locked": false,
       "text": "Inside Dashboard",
@@ -216,7 +229,12 @@
       "verticalAlign": "top",
       "containerId": null,
       "originalText": "Inside Dashboard",
-      "lineHeight": 1.25
+      "lineHeight": 1.25,
+      "index": "a6",
+      "created": null,
+      "autoResize": true,
+      "labelPosition": null,
+      "baseFontSize": null
     },
     {
       "id": "img-file-id",
@@ -233,15 +251,15 @@
       "strokeStyle": "solid",
       "roughness": 0,
       "opacity": 100,
-      "version": 141,
-      "versionNonce": 2,
+      "version": 142,
+      "versionNonce": 908192360,
       "isDeleted": false,
       "seed": 2,
       "groupIds": [],
       "frameId": "frame-login-id",
       "roundness": null,
-      "boundElements": null,
-      "updated": 1,
+      "boundElements": [],
+      "updated": 1791027597813,
       "link": null,
       "locked": false,
       "status": "saved",
@@ -249,12 +267,57 @@
       "scale": [
         1,
         1
-      ]
+      ],
+      "index": "a7",
+      "created": null,
+      "crop": null
+    },
+    {
+      "type": "text",
+      "id": "e2e-marker-1791027618471",
+      "x": 120,
+      "y": 200,
+      "width": 280,
+      "height": 40,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "version": 2,
+      "versionNonce": 925397096,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "boundElements": [],
+      "updated": 1791027618475,
+      "link": null,
+      "locked": false,
+      "text": "E2E_EDIT_new",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "E2E_EDIT_new",
+      "lineHeight": 1.25,
+      "index": "a8",
+      "created": null,
+      "autoResize": true,
+      "labelPosition": null,
+      "baseFontSize": null
     }
   ],
   "appState": {
     "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": 20,
+    "theme": "light",
+    "name": "Untitled-2026-10-03-1139"
   },
   "files": {
     "img-file-id": {

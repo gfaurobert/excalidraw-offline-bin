@@ -1,3 +1,4 @@
+import { exportToBlob, MIME_TYPES } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
@@ -34,6 +35,9 @@ export interface ExcalidrawOfflineE2eBridge {
   placeStickyNote: (text: string) => { ok: boolean; elementId?: string };
   toggleDarkModeViaMenu: () => { theme: string };
   simulateRightClickPan: (dx: number, dy: number) => { ok: boolean };
+  exportPngViaNativePicker: (
+    filename: string,
+  ) => Promise<{ ok: boolean; path?: string; cancelled?: boolean }>;
 }
 
 declare global {
@@ -53,6 +57,12 @@ export function installExcalidrawOfflineE2eBridge(deps: {
   getPathLabel: () => string;
   getDirty?: () => boolean;
   syncSceneFromApi?: () => void;
+  saveExportBlob?: (input: {
+    filename: string;
+    blob: Blob;
+  }) => Promise<
+    { ok: true; path: string } | { ok: false; cancelled: boolean; message?: string }
+  >;
   excalidrawPackageVersion: string;
 }): void {
   const bridge: ExcalidrawOfflineE2eBridge = {
@@ -278,6 +288,28 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       canvas.dispatchEvent(mkMouse("mouseup", x1, y1));
       void api;
       return { ok: true };
+    },
+
+    async exportPngViaNativePicker(filename) {
+      const api = deps.getApi();
+      const save = deps.saveExportBlob;
+      if (!api || !save) return { ok: false, cancelled: true };
+      const appState = api.getAppState() as AppState;
+      const blob = await exportToBlob({
+        elements: api.getSceneElements(),
+        appState: {
+          ...appState,
+          exportBackground: true,
+          exportScale: 1,
+          exportWithDarkMode: appState.theme === "dark",
+        },
+        files: api.getFiles(),
+        mimeType: MIME_TYPES.png,
+        exportPadding: 10,
+      });
+      const result = await save({ filename, blob });
+      if (result.ok) return { ok: true, path: result.path };
+      return { ok: false, cancelled: result.cancelled, path: result.message };
     },
   };
 

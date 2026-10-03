@@ -89,6 +89,16 @@ export async function handleE2eApi(
     return json({ ok: true, result });
   }
 
+  if (pathname === "/api/e2e/export/save-png" && method === "POST") {
+    const body = await readJson<{ filename?: string }>(req);
+    const filename = body.filename?.trim() || "e2e-export.png";
+    const result = await runInPage<unknown>(
+      win,
+      `(() => globalThis.__excalidrawOfflineE2e?.exportPngViaNativePicker?.(${JSON.stringify(filename)}) ?? { ok: false })()`,
+    );
+    return json({ ok: true, result });
+  }
+
   if (pathname === "/api/e2e/export/confirm" && method === "POST") {
     const result = await runInPage<unknown>(
       win,

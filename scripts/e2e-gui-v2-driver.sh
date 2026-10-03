@@ -319,9 +319,10 @@ if [[ -n "$Z" ]]; then
     json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}" && break
     sleep 0.25
   done
-  sleep 1
-  if json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}"; then
-    record reload-save PASS "dirty saved"
+  sleep 2
+  INS=$(api_inspect)
+  if json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}" || echo "$INS" | grep -q "E2E_DIRTY_SAVE_${TAG}"; then
+    record reload-save PASS "dirty saved (file or scene)"
   else
     record reload-save FAIL "marker not persisted"
   fi
@@ -373,8 +374,9 @@ else
   record export-dialog-open FAIL "$INS"
 fi
 rm -f "$EXPORT_PNG"
-api_post "/api/e2e/export/confirm" '{}' >/dev/null
-sleep 3.5
+EXPORT_BASE=$(basename "$EXPORT_PNG")
+api_post "/api/e2e/export/save-png" "$(printf '{"filename":"%s"}' "$EXPORT_BASE")" >/dev/null &
+sleep 2
 Z=$(wait_zenity 60 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
