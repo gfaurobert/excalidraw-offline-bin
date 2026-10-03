@@ -257,12 +257,17 @@ shot "03-reopen-after-save"
 # --- Save As ---
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"s","ctrlKey":true,"shiftKey":true}'
-sleep 0.8
+sleep 1.5
 Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "04-save-as-zenity-dialog"
-  api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" >/dev/null
-  wait_zenity_gone 40 || true
+  for _ in $(seq 1 24); do
+    PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" || true)
+    echo "$PICK_RESP" | grep -q '"completed":true' && break
+    sleep 0.25
+  done
+  pkill -f 'zenity --file-selection' 2>/dev/null || true
+  wait_zenity_gone 25 || true
   for _ in $(seq 1 40); do
     [[ -f "$SAVE_AS" ]] && break
     sleep 0.25
@@ -354,8 +359,13 @@ sleep 0.8
 Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
-  api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$EXPORT_PNG")" >/dev/null
-  wait_zenity_gone 40 || true
+  for _ in $(seq 1 24); do
+    PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$EXPORT_PNG")" || true)
+    echo "$PICK_RESP" | grep -q '"completed":true' && break
+    sleep 0.25
+  done
+  pkill -f 'zenity --file-selection' 2>/dev/null || true
+  wait_zenity_gone 25 || true
   for _ in $(seq 1 40); do
     [[ -f "$EXPORT_PNG" ]] && break
     sleep 0.25
@@ -428,8 +438,16 @@ fi
 # --- Right-click pan (scroll delta) ---
 SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
-api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
-sleep 0.6
+if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
+  xdotool mousemove --window "$WID" 640 450
+  xdotool mousedown 3
+  xdotool mousemove --window "$WID" 820 540
+  xdotool mouseup 3
+  api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
+else
+  api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
+fi
+sleep 0.8
 SCROLL2=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 shot "11-right-click-pan"
 DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")
