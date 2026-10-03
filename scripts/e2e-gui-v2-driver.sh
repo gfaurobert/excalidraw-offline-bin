@@ -41,8 +41,10 @@ json_file_has() {
   grep -q "$pattern" "$file" 2>/dev/null
 }
 
+DENO_EVAL=(deno eval --allow-read)
+
 element_count() {
-  deno eval -A --unstable-detect-cjs \
+  "${DENO_EVAL[@]}" \
     "const t=await Deno.readTextFile('$1'); const j=JSON.parse(t); console.log((j.elements||[]).filter(e=>!e.isDeleted).length);"
 }
 
@@ -110,10 +112,19 @@ zenity_click_save() {
 zenity_save_path() {
   local z="$1" path="$2"
   xdotool windowactivate "$z" 2>/dev/null || true
+  sleep 0.25
+  xdotool key --window "$z" --clearmodifiers ctrl+a BackSpace 2>/dev/null || true
+  sleep 0.1
+  xdotool type --delay 10 --window "$z" "$path"
   sleep 0.2
-  xdotool type --delay 12 --window "$z" "$path"
-  sleep 0.15
   xdotool key --window "$z" Return
+  sleep 0.35
+  local z2
+  z2=$(wait_zenity 12 || true)
+  if [[ -n "$z2" ]]; then
+    xdotool key --window "$z2" Return
+    sleep 0.25
+  fi
 }
 
 exec > >(tee -a "$LOG") 2>&1
@@ -121,9 +132,10 @@ echo "=== GUI v2 $TAG $(date -Iseconds) ==="
 
 deno run -A "$ROOT/scripts/create-e2e-fixture.ts" >/dev/null
 WORK="$ROOT/test-fixtures/e2e-export"
-EDITED="$WORK/gui-v2-${TAG}.excalidraw"
-SAVE_AS="$WORK/gui-v2-save-as-${TAG}.excalidraw"
-EXPORT_PNG="$WORK/gui-v2-export-${TAG}.png"
+WORK_ABS="$(cd "$WORK" && pwd)"
+EDITED="$WORK_ABS/gui-v2-${TAG}.excalidraw"
+SAVE_AS="$WORK_ABS/gui-v2-save-as-${TAG}.excalidraw"
+EXPORT_PNG="$WORK_ABS/gui-v2-export-${TAG}.png"
 MARKER="E2E_EDIT_${TAG}"
 EXT_MARKER="E2E_EXTERNAL_${TAG}"
 STICKY_MARKER="E2E_STICKY_${TAG}"
@@ -232,7 +244,7 @@ api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 2
 INS=$(api_inspect)
-RELOAD_CLEAN_OK=$(echo "$INS" | deno eval -A "
+RELOAD_CLEAN_OK=$(echo "$INS" | "${DENO_EVAL[@]}" "
 const j=JSON.parse(await Deno.readText(Deno.stdin));
 const st=j.state??{};
 const texts=st.elementTexts??[];
@@ -272,7 +284,7 @@ sleep 0.8
 Z=$(wait_zenity 30 || true)
 if [[ -n "$Z" ]]; then
   zenity_click_save "$Z"
-  sleep 2.5
+  sleep 4
   if json_file_has "$EDITED" "E2E_DIRTY_SAVE_${TAG}"; then
     record reload-save PASS "dirty saved"
   else
@@ -318,7 +330,7 @@ sleep 0.8
 shot "09-dark-mode"
 MEAN_DARK=$(img_mean "$ARTIFACTS/screenshots/09-dark-mode.png")
 INS=$(api_inspect)
-THEME=$(echo "$INS" | deno eval -A "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log(j.state?.theme??'');" 2>/dev/null || echo "")
+THEME=$(echo "$INS" | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log(j.state?.theme??'');" 2>/dev/null || echo "")
 if [[ "$THEME" == "dark" ]] && awk -v a="$MEAN_DARK" -v b="$MEAN_LIGHT" 'BEGIN{exit !(a+0 < b+0 - 500)}'; then
   record dark-mode PASS "theme=$THEME mean_dark=$MEAN_DARK mean_light=$MEAN_LIGHT"
 else
@@ -350,7 +362,7 @@ if [[ "$EXPECT_STICKY" == "1" ]]; then
     BASE="http://127.0.0.1:$PORT"
     wait_api "$BASE"
     sleep 2
-    STICKY_RENDER=$(api_inspect | deno eval -A "
+    STICKY_RENDER=$(api_inspect | "${DENO_EVAL[@]}" "
 const j=JSON.parse(await Deno.readText(Deno.stdin));
 const types=j.state?.elementTypes??[];
 console.log(types.includes('stickynote')?1:0);
@@ -373,16 +385,16 @@ else
 fi
 
 # --- Right-click pan (scroll delta) ---
-SCROLL1=$(api_inspect | deno eval -A "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
+SCROLL1=$(api_inspect | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 xdotool mousemove --window "$WID" 640 450
 xdotool mousedown 3
 xdotool mousemove --window "$WID" 760 520
 xdotool mouseup 3
 sleep 0.5
-SCROLL2=$(api_inspect | deno eval -A "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
+SCROLL2=$(api_inspect | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
 shot "11-right-click-pan"
-DELTA=$(deno eval -A "const [a,b]='$SCROLL1'.split(',').map(Number); const [c,d]='$SCROLL2'.split(',').map(Number); console.log(Math.abs(c-a)+Math.abs(d-b));")
+DELTA=$("${DENO_EVAL[@]}" "const [a,b]='$SCROLL1'.split(',').map(Number); const [c,d]='$SCROLL2'.split(',').map(Number); console.log(Math.abs(c-a)+Math.abs(d-b));")
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
   awk -v d="$DELTA" 'BEGIN{exit !(d+0 > 0.5)}' && record right-click-pan PASS "scroll delta=$DELTA ($SCROLL1 -> $SCROLL2)" || record right-click-pan FAIL "delta=$DELTA"
 else

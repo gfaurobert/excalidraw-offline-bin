@@ -24,7 +24,11 @@ async function runInPage<T>(
   expression: string,
 ): Promise<T> {
   if (win.isClosed()) throw new Error("browser window closed");
-  return await win.executeJs(expression) as T;
+  const raw = await win.executeJs(expression);
+  if (raw && typeof raw === "object" && "value" in raw) {
+    return (raw as { value: T }).value;
+  }
+  return raw as T;
 }
 
 export async function handleE2eApi(
