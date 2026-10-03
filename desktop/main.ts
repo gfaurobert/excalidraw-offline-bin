@@ -50,6 +50,11 @@ import {
   type InstallMode,
 } from "./install-skill.ts";
 import { openPathFromArgs } from "./cli-args.ts";
+import {
+  printExportHelp,
+  printTopLevelHelp,
+  wantsTopLevelHelp,
+} from "./cli-help.ts";
 import { parseExportCliCommand } from "./export-cli-args.ts";
 import { runCliExport } from "./cli-export-run.ts";
 import {
@@ -76,7 +81,16 @@ if (Deno.env.get("EXCALIDRAW_DEBUG_ARGV") === "1") {
   console.error("[argv] Deno.args:", JSON.stringify(Deno.args));
 }
 
+if (wantsTopLevelHelp(Deno.args)) {
+  printTopLevelHelp();
+  Deno.exit(0);
+}
+
 const exportCliParse = parseExportCliCommand(Deno.args, Deno.cwd());
+if (exportCliParse.kind === "help") {
+  printExportHelp();
+  Deno.exit(0);
+}
 if (exportCliParse.kind === "error") {
   console.error(exportCliParse.message);
   Deno.exit(1);

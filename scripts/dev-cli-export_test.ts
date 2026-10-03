@@ -1,6 +1,7 @@
 import { fromFileUrl, join } from "../desktop/path.ts";
 import {
   devExportLauncherArgs,
+  devExportUserArgsWantHelp,
   normalizeDevExportUserArgs,
 } from "./dev-cli-export.ts";
 
@@ -17,6 +18,12 @@ Deno.test("normalizeDevExportUserArgs drops forwarded --", () => {
     normalizeDevExportUserArgs(["--", "/tmp/a.excalidraw", "--json"]),
     ["/tmp/a.excalidraw", "--json"],
   );
+});
+
+Deno.test("devExportUserArgsWantHelp", () => {
+  assertEquals(devExportUserArgsWantHelp(["--help"]), true);
+  assertEquals(devExportUserArgsWantHelp(["-h"]), true);
+  assertEquals(devExportUserArgsWantHelp(["a.excalidraw"]), false);
 });
 
 Deno.test("devExportLauncherArgs prefixes export subcommand", () => {

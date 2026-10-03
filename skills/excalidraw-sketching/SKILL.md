@@ -75,19 +75,23 @@ After OS MIME install, `xdg-open sketches/<name>.excalidraw` also works for exis
 To generate PNGs for vision models or docs **without** a human using the menu:
 
 ```bash
+excalidraw-offline --help
+excalidraw-offline export --help
 excalidraw-offline export sketches/<name>.excalidraw
 excalidraw-offline export sketches/<name>.excalidraw --frame "Screen name"
-excalidraw-offline export sketches/<name>.excalidraw --all-frames --json
+excalidraw-offline export sketches/<name>.excalidraw --all-frames -d sketches/export --json
 ```
 
 From a repo checkout (when developing excalidraw-offline itself; compiles `dist/linux/excalidraw-offline` if needed, then runs the same `export` CLI as the packaged app):
 
 ```bash
+deno task export -- --help
 deno task export -- sketches/<name>.excalidraw
 deno task export -- sketches/<name>.excalidraw --frame "Screen name" --json
+deno task export -- sketches/<name>.excalidraw --all-frames -d ./png-out
 ```
 
-PNG files default to the **same folder** as the `.excalidraw` file (`{name}_{YYYYMMDD-HHMMSS}.png`, or with a frame segment when using `--frame`). Override with `--out`. Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
+PNG files default to the **same folder** as the `.excalidraw` file (`{name}_{YYYYMMDD-HHMMSS}.png`, or with a frame segment when using `--frame`). Override with **`--out`** or **`-d`** (directory; created if missing). Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
 
 Humans can also use Excalidraw’s **Export image…** dialog (Ctrl+Shift+E); PNG/SVG saves open a native picker starting in the drawing’s folder.
 

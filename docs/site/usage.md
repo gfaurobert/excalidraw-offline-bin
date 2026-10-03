@@ -25,6 +25,16 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 
 Run PNG export without opening the interactive window (uses a short-lived hidden webview with the same `exportToBlob` path as the GUI). This command **does not** hand off to an already-running instance.
 
+**Help** (stdout, exit 0, no GUI window):
+
+```bash
+excalidraw-offline --help
+excalidraw-offline -h
+excalidraw-offline export --help
+excalidraw-offline export -h
+deno task export -- --help
+```
+
 **Packaged app:**
 
 ```bash
@@ -34,6 +44,7 @@ excalidraw-offline export sketches/demo.excalidraw --all-frames
 excalidraw-offline export sketches/demo.excalidraw --element abc123 --element def456
 excalidraw-offline export sketches/demo.excalidraw --bbox 0,0,800,600 --scale 2
 excalidraw-offline export sketches/demo.excalidraw --out /tmp/custom --json
+excalidraw-offline export sketches/demo.excalidraw --all-frames -d ~/sketches/export
 ```
 
 **From a repo checkout** (builds frontend, compiles the local `dist/linux/excalidraw-offline` bundle if needed, then execs it — same argv as the packaged app):
@@ -41,6 +52,7 @@ excalidraw-offline export sketches/demo.excalidraw --out /tmp/custom --json
 ```bash
 deno task export -- sketches/demo.excalidraw
 deno task export -- sketches/demo.excalidraw --frame "Login screen" --json
+deno task export -- sketches/demo.excalidraw --all-frames -d ./exports
 ```
 
 Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging launcher argv.
@@ -52,7 +64,7 @@ Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging laun
 | `--all-frames` | One PNG per **named** frame |
 | `--element <id>` | Repeatable; one PNG with all listed elements selected |
 | `--bbox x,y,w,h` | Scene coordinates; exports elements intersecting the box |
-| `--out <path>` | Directory (default: folder containing the `.excalidraw` file) or a single `.png` when there is exactly one job |
+| `--out <path>`, `-d <dir>` | Destination directory (created if missing) or a single `.png` when there is exactly one job (default: folder containing the `.excalidraw` file) |
 | `--scale N` | Export scale (default `2`) |
 | `--json` | Print `{"paths":["…"]}` instead of one path per line |
 

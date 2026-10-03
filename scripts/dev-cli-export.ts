@@ -2,6 +2,7 @@
  * Dev checkout: build (if needed) the local desktop bundle, then exec it with
  * `export …` args. `deno desktop … export file` only compiles; it does not run.
  */
+import { printExportHelp } from "../desktop/cli-help.ts";
 import { fromFileUrl, join } from "../desktop/path.ts";
 
 const ROOT = join(fromFileUrl(import.meta.url), "..", "..");
@@ -82,11 +83,21 @@ async function ensureDevLauncher(): Promise<void> {
   }
 }
 
+export function devExportUserArgsWantHelp(
+  userArgs: readonly string[],
+): boolean {
+  return userArgs.some((a) => a === "--help" || a === "-h");
+}
+
 if (import.meta.main) {
   const userArgs = normalizeDevExportUserArgs(Deno.args);
+  if (devExportUserArgsWantHelp(userArgs)) {
+    printExportHelp();
+    Deno.exit(0);
+  }
   if (userArgs.length === 0) {
     console.error(
-      "Usage: deno task export -- <file.excalidraw> [--frame NAME …] [--all-frames] [--json] [--out path]",
+      "Usage: deno task export -- <file.excalidraw> [options]\nRun: deno task export -- --help",
     );
     Deno.exit(1);
   }

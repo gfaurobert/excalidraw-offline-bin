@@ -2,6 +2,7 @@
 
 import { resolveOpenPath } from "./cli-args.ts";
 import type { ExportBBox } from "./export-selectors.ts";
+import { wantsExportHelp } from "./cli-help.ts";
 import {
   findExportSubcommandIndex,
   isRuntimeArgvNoise,
@@ -28,6 +29,7 @@ export interface ParsedExportCli {
 
 export type ParseExportCliResult =
   | { kind: "none" }
+  | { kind: "help" }
   | { kind: "export"; command: ParsedExportCli }
   | { kind: "error"; message: string };
 
@@ -84,6 +86,10 @@ export function parseExportCliCommand(
   let json = false;
 
   const tokens = tail.slice(exportAt + 1);
+  if (wantsExportHelp(args)) {
+    return { kind: "help" };
+  }
+
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
     if (t === "--") {
@@ -120,8 +126,9 @@ export function parseExportCliCommand(
       i = next.nextIndex;
       continue;
     }
-    if (t === "--out") {
-      const next = takeValue(tokens, i, "--out");
+    if (t === "--out" || t === "-d") {
+      const flagName = t === "-d" ? "-d" : "--out";
+      const next = takeValue(tokens, i, flagName);
       if ("error" in next) return { kind: "error", message: next.error };
       out = next.value;
       i = next.nextIndex;
