@@ -535,8 +535,13 @@ fi
 
 # --- Right-click pan (real X11 input; upstream threshold 5px, Linux contextmenu on press) ---
 force_dismiss_zenity
-api_shortcut '{"key":"Escape"}' 2>/dev/null || true
+api_shortcut '{"key":"Escape"}'
 sleep 0.3
+THEME_NOW=$(api_inspect | inspect_py "print(s.get('theme',''), end='')")
+if [[ "$THEME_NOW" == "dark" ]]; then
+  api_post "/api/e2e/toggle-dark" '{}' >/dev/null
+  sleep 0.5
+fi
 SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
   api_shortcut '{"key":"v"}'
