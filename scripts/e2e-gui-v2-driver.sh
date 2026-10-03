@@ -254,38 +254,10 @@ WID=$(xdotool search --name "Excalidraw Offline" 2>/dev/null | head -1 || true)
 json_file_has "$EDITED" "$MARKER" && record reopen-shows-edit PASS "$MARKER" || record reopen-shows-edit FAIL "marker missing"
 shot "03-reopen-after-save"
 
-# --- Save As ---
-api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
-api_shortcut '{"key":"s","ctrlKey":true,"shiftKey":true}'
-sleep 1.5
-Z=$(wait_zenity 40 || true)
-if [[ -n "$Z" ]]; then
-  shot "04-save-as-zenity-dialog"
-  for _ in $(seq 1 24); do
-    PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" || true)
-    echo "$PICK_RESP" | grep -q '"completed":true' && break
-    sleep 0.25
-  done
-  pkill -f 'zenity --file-selection' 2>/dev/null || true
-  wait_zenity_gone 25 || true
-  for _ in $(seq 1 40); do
-    [[ -f "$SAVE_AS" ]] && break
-    sleep 0.25
-  done
-  sleep 1
-  TITLE=$(xdotool getwindowname "$WID" 2>/dev/null || true)
-  if [[ -f "$SAVE_AS" ]]; then
-    record save-as PASS "file=$SAVE_AS title=$TITLE"
-  else
-    record save-as FAIL "zenity ok but file missing"
-  fi
-else
-  shot "04-save-as-no-zenity"
-  record save-as FAIL "zenity not shown"
-fi
+OPEN_FILE="$EDITED"
 
-# --- Reload clean (external edit) ---
-deno run -A "$ROOT/scripts/e2e-patch-external-marker.ts" "$EDITED" "$EXT_MARKER" >/dev/null
+# --- Reload clean (external edit) — before Save As changes the active path ---
+deno run -A "$ROOT/scripts/e2e-patch-external-marker.ts" "$OPEN_FILE" "$EXT_MARKER" >/dev/null
 sleep 0.3
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"r","ctrlKey":true}'
@@ -336,17 +308,48 @@ if [[ -n "$Z" ]]; then
   zenity_click_save "$Z"
   wait_zenity_gone 40 || true
   for _ in $(seq 1 40); do
-    json_file_has "$EDITED" "E2E_DIRTY_SAVE_${TAG}" && break
+    json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}" && break
     sleep 0.25
   done
   sleep 1
-  if json_file_has "$EDITED" "E2E_DIRTY_SAVE_${TAG}"; then
+  if json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}"; then
     record reload-save PASS "dirty saved"
   else
     record reload-save FAIL "marker not persisted"
   fi
 else
   record reload-save FAIL "no prompt"
+fi
+
+# --- Save As (after reload tests; updates active document path) ---
+api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
+api_shortcut '{"key":"s","ctrlKey":true,"shiftKey":true}'
+sleep 1.5
+Z=$(wait_zenity 40 || true)
+if [[ -n "$Z" ]]; then
+  shot "04-save-as-zenity-dialog"
+  for _ in $(seq 1 24); do
+    PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" || true)
+    echo "$PICK_RESP" | grep -q '"completed":true' && break
+    sleep 0.25
+  done
+  pkill -f 'zenity --file-selection' 2>/dev/null || true
+  wait_zenity_gone 25 || true
+  for _ in $(seq 1 40); do
+    [[ -f "$SAVE_AS" ]] && break
+    sleep 0.25
+  done
+  sleep 1
+  TITLE=$(xdotool getwindowname "$WID" 2>/dev/null || true)
+  if [[ -f "$SAVE_AS" ]]; then
+    OPEN_FILE="$SAVE_AS"
+    record save-as PASS "file=$SAVE_AS title=$TITLE"
+  else
+    record save-as FAIL "zenity ok but file missing"
+  fi
+else
+  shot "04-save-as-no-zenity"
+  record save-as FAIL "zenity not shown"
 fi
 
 # --- Export image + native PNG picker ---
@@ -363,8 +366,8 @@ else
 fi
 rm -f "$EXPORT_PNG"
 api_post "/api/e2e/export/confirm" '{}' >/dev/null
-sleep 0.8
-Z=$(wait_zenity 40 || true)
+sleep 1.8
+Z=$(wait_zenity 60 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
   for _ in $(seq 1 24); do
@@ -407,14 +410,14 @@ STICKY_RESULT=$(api_post "/api/e2e/sticky-note" "$(printf '{"text":"%s"}' "$STIC
 api_shortcut '{"key":"s","ctrlKey":true}'
 sleep 2
 HAS_STICKY=0
-json_file_has "$EDITED" '"type": "stickynote"' && HAS_STICKY=1
-json_file_has "$EDITED" 'stickynote' && HAS_STICKY=1
+json_file_has "$OPEN_FILE" '"type": "stickynote"' && HAS_STICKY=1
+json_file_has "$OPEN_FILE" 'stickynote' && HAS_STICKY=1
 shot "10-sticky-note"
 if [[ "$EXPECT_STICKY" == "1" ]]; then
   if [[ "$HAS_STICKY" -eq 1 ]]; then
     stop_app
     APP_LOG="$ARTIFACTS/logs/app-sticky-reopen.stdout"
-    bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
+    bash "$LAUNCHER" "$OPEN_FILE" >"$APP_LOG" 2>&1 &
     APP_PID=$!
     PORT=""
     for _ in $(seq 1 80); do
