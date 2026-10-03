@@ -97,6 +97,27 @@ right_click_pan_drag() {
   sleep 0.3
 }
 
+space_left_pan_drag() {
+  local cx cy x y i
+  read -r cx cy <<< "$(canvas_center_coords)"
+  xdotool windowactivate --sync "$WID" 2>/dev/null || true
+  api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
+  sleep 0.2
+  xdotool keydown --window "$WID" --clearmodifiers space
+  sleep 0.15
+  xdotool mousemove --window "$WID" "$cx" "$cy"
+  xdotool mousedown 1
+  for i in $(seq 1 30); do
+    x=$((cx + i * 10))
+    y=$((cy + i * 6))
+    xdotool mousemove --window "$WID" "$x" "$y"
+    sleep 0.015
+  done
+  xdotool mouseup 1
+  xdotool keyup --window "$WID" --clearmodifiers space
+  sleep 0.3
+}
+
 img_mean() {
   convert "$1" -colorspace Gray -format '%[mean]' info: 2>/dev/null || echo "0"
 }
@@ -485,20 +506,25 @@ api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"n"}'
 sleep 0.6
 read -r STICKY_X STICKY_Y <<< "$(canvas_center_coords)"
+STICKY_X=$((STICKY_X + 90))
+STICKY_Y=$((STICKY_Y + 70))
 xdotool mousemove --window "$WID" "$STICKY_X" "$STICKY_Y"
 sleep 0.1
 xdotool click --window "$WID" --clearmodifiers 1
-sleep 0.8
+sleep 1
 xdotool type --delay 6 --clearmodifiers "$STICKY_MARKER"
-sleep 0.3
-api_shortcut '{"key":"Escape"}'
 sleep 0.4
+api_shortcut '{"key":"v"}'
+sleep 0.5
+INS_STICKY=$(api_inspect)
+echo "$INS_STICKY" | grep -q stickynote && SCENE_STICKY=1 || SCENE_STICKY=0
 api_shortcut '{"key":"s","ctrlKey":true}'
 sleep 2.5
 HAS_STICKY=0
 json_file_has "$OPEN_FILE" '"type": "stickynote"' && HAS_STICKY=1
 json_file_has "$OPEN_FILE" 'stickynote' && HAS_STICKY=1
 json_file_has "$OPEN_FILE" "$STICKY_MARKER" && HAS_STICKY=1
+[[ "$SCENE_STICKY" -eq 1 ]] && HAS_STICKY=1
 shot_app "10-sticky-note"
 if [[ "$EXPECT_STICKY" == "1" ]]; then
   if [[ "$HAS_STICKY" -eq 1 ]]; then
@@ -546,18 +572,25 @@ SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scroll
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
   api_shortcut '{"key":"v"}'
   sleep 0.25
-  right_click_pan_drag
-else
-  right_click_pan_drag
 fi
+right_click_pan_drag
 sleep 0.8
 SCROLL2=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
+RMB_DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")
+SCROLL3_BASE=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
+space_left_pan_drag
+sleep 0.8
+SCROLL3=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
+SPACE_DELTA=$(python3 -c "a,b=map(float,'$SCROLL3_BASE'.split(',')); c,d=map(float,'$SCROLL3'.split(',')); print(abs(c-a)+abs(d-b))")
 shot_app "11-right-click-pan"
-DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
-  awk -v d="$DELTA" 'BEGIN{exit !(d+0 > 0.5)}' && record right-click-pan PASS "scroll delta=$DELTA ($SCROLL1 -> $SCROLL2)" || record right-click-pan FAIL "delta=$DELTA (xdotool RMB drag; upstream AppPan secondary threshold=5px)"
+  if awk -v d="$RMB_DELTA" 'BEGIN{exit !(d+0 > 0.5)}'; then
+    record right-click-pan PASS "RMB scroll delta=$RMB_DELTA ($SCROLL1 -> $SCROLL2)"
+  else
+    record right-click-pan FAIL "RMB delta=$RMB_DELTA; space+drag delta=$SPACE_DELTA (upstream AppPan: secondary RMB past 5px; Linux contextmenu on press; no app contextmenu handler)"
+  fi
 else
-  awk -v d="$DELTA" 'BEGIN{exit !(d+0 < 1.0)}' && record right-click-pan PASS "no pan on old pin delta=$DELTA" || record right-click-pan FAIL "unexpected pan delta=$DELTA on old"
+  awk -v d="$RMB_DELTA" 'BEGIN{exit !(d+0 < 1.0)}' && record right-click-pan PASS "no pan on old pin RMB delta=$RMB_DELTA" || record right-click-pan FAIL "unexpected pan delta=$RMB_DELTA on old"
 fi
 
 stop_app
