@@ -41,11 +41,21 @@ json_file_has() {
   grep -q "$pattern" "$file" 2>/dev/null
 }
 
-DENO_EVAL=(deno eval --allow-read)
+inspect_py() {
+  python3 -c "
+import json, sys
+j = json.load(sys.stdin)
+s = j.get('state') or {}
+$1
+"
+}
 
 element_count() {
-  "${DENO_EVAL[@]}" \
-    "const t=await Deno.readTextFile('$1'); const j=JSON.parse(t); console.log((j.elements||[]).filter(e=>!e.isDeleted).length);"
+  python3 -c "
+import json
+j=json.load(open('$1'))
+print(len([e for e in j.get('elements',[]) if not e.get('isDeleted')]))
+"
 }
 
 wait_api() {
@@ -88,6 +98,17 @@ wait_zenity() {
   return 1
 }
 
+wait_zenity_gone() {
+  local tries="${1:-50}"
+  for _ in $(seq 1 "$tries"); do
+    local z
+    z=$(xdotool search --class "Zenity" 2>/dev/null | head -1 || true)
+    [[ -z "$z" ]] && return 0
+    sleep 0.2
+  done
+  return 1
+}
+
 zenity_click_discard() {
   local z="$1"
   xdotool windowactivate "$z" 2>/dev/null || true
@@ -111,19 +132,27 @@ zenity_click_save() {
 
 zenity_save_path() {
   local z="$1" path="$2"
-  xdotool windowactivate "$z" 2>/dev/null || true
-  sleep 0.25
-  xdotool key --window "$z" --clearmodifiers ctrl+a BackSpace 2>/dev/null || true
+  local base
+  base=$(basename "$path")
+  xdotool windowactivate --sync "$z" 2>/dev/null || xdotool windowactivate "$z" 2>/dev/null || true
+  sleep 0.45
+  xdotool key --window "$z" --clearmodifiers ctrl+l 2>/dev/null || true
+  sleep 0.15
+  xdotool key --window "$z" --clearmodifiers ctrl+a 2>/dev/null || true
   sleep 0.1
-  xdotool type --delay 10 --window "$z" "$path"
-  sleep 0.2
-  xdotool key --window "$z" Return
-  sleep 0.35
+  if [[ "$(dirname "$path")" == "$(dirname "$EDITED")" ]]; then
+    xdotool type --delay 8 --clearmodifiers --window "$z" "$base"
+  else
+    xdotool type --delay 8 --clearmodifiers --window "$z" "$path"
+  fi
+  sleep 0.25
+  xdotool key --window "$z" --clearmodifiers Return
+  sleep 0.5
   local z2
-  z2=$(wait_zenity 12 || true)
-  if [[ -n "$z2" ]]; then
-    xdotool key --window "$z2" Return
-    sleep 0.25
+  z2=$(wait_zenity 15 || true)
+  if [[ -n "$z2" && "$z2" != "$z" ]]; then
+    xdotool key --window "$z2" --clearmodifiers Return
+    sleep 0.35
   fi
 }
 
@@ -225,7 +254,12 @@ Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "04-save-as-zenity-dialog"
   zenity_save_path "$Z" "$SAVE_AS"
-  sleep 2
+  wait_zenity_gone 40 || true
+  for _ in $(seq 1 40); do
+    [[ -f "$SAVE_AS" ]] && break
+    sleep 0.25
+  done
+  sleep 1
   TITLE=$(xdotool getwindowname "$WID" 2>/dev/null || true)
   if [[ -f "$SAVE_AS" ]]; then
     record save-as PASS "file=$SAVE_AS title=$TITLE"
@@ -244,14 +278,7 @@ api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 2
 INS=$(api_inspect)
-RELOAD_CLEAN_OK=$(echo "$INS" | "${DENO_EVAL[@]}" "
-const j=JSON.parse(await Deno.readText(Deno.stdin));
-const st=j.state??{};
-const texts=st.elementTexts??[];
-const hit=texts.some((t)=>String(t).includes('$EXT_MARKER')) || JSON.stringify(st).includes('$EXT_MARKER');
-console.log(hit?1:0);
-" 2>/dev/null || echo "0")
-if [[ "$RELOAD_CLEAN_OK" == "1" ]]; then
+if echo "$INS" | grep -q "$EXT_MARKER"; then
   record reload-clean PASS "visible after reload"
 else
   record reload-clean FAIL "inspect=$INS"
@@ -267,6 +294,7 @@ Z=$(wait_zenity 30 || true)
 if [[ -n "$Z" ]]; then
   shot "06-reload-unsaved-prompt"
   zenity_click_discard "$Z"
+  wait_zenity_gone 40 || true
   sleep 2
   record reload-unsaved-prompt PASS "zenity shown"
   record reload-discard PASS "clicked discard"
@@ -277,14 +305,20 @@ else
 fi
 
 # --- Reload dirty + Save (separate marker) ---
+sleep 1.5
 api_post "/api/e2e/edit-marker" "$(printf '{"marker":"%s"}' "E2E_DIRTY_SAVE_${TAG}")" >/dev/null
-sleep 0.3
+sleep 0.5
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)
 if [[ -n "$Z" ]]; then
   zenity_click_save "$Z"
-  sleep 4
+  wait_zenity_gone 40 || true
+  for _ in $(seq 1 40); do
+    json_file_has "$EDITED" "E2E_DIRTY_SAVE_${TAG}" && break
+    sleep 0.25
+  done
+  sleep 1
   if json_file_has "$EDITED" "E2E_DIRTY_SAVE_${TAG}"; then
     record reload-save PASS "dirty saved"
   else
@@ -313,7 +347,12 @@ Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
   zenity_save_path "$Z" "$EXPORT_PNG"
-  sleep 2
+  wait_zenity_gone 40 || true
+  for _ in $(seq 1 40); do
+    [[ -f "$EXPORT_PNG" ]] && break
+    sleep 0.25
+  done
+  sleep 1
   if [[ -f "$EXPORT_PNG" ]]; then
     record export-png-save PASS "$EXPORT_PNG"
   else
@@ -330,7 +369,7 @@ sleep 0.8
 shot "09-dark-mode"
 MEAN_DARK=$(img_mean "$ARTIFACTS/screenshots/09-dark-mode.png")
 INS=$(api_inspect)
-THEME=$(echo "$INS" | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log(j.state?.theme??'');" 2>/dev/null || echo "")
+THEME=$(echo "$INS" | inspect_py "print(s.get('theme',''), end='')")
 if [[ "$THEME" == "dark" ]] && awk -v a="$MEAN_DARK" -v b="$MEAN_LIGHT" 'BEGIN{exit !(a+0 < b+0 - 500)}'; then
   record dark-mode PASS "theme=$THEME mean_dark=$MEAN_DARK mean_light=$MEAN_LIGHT"
 else
@@ -362,11 +401,7 @@ if [[ "$EXPECT_STICKY" == "1" ]]; then
     BASE="http://127.0.0.1:$PORT"
     wait_api "$BASE"
     sleep 2
-    STICKY_RENDER=$(api_inspect | "${DENO_EVAL[@]}" "
-const j=JSON.parse(await Deno.readText(Deno.stdin));
-const types=j.state?.elementTypes??[];
-console.log(types.includes('stickynote')?1:0);
-" 2>/dev/null || echo "0")
+    STICKY_RENDER=$(api_inspect | inspect_py "types=s.get('elementTypes') or []; print(1 if 'stickynote' in types else 0)")
     shot "10b-sticky-after-reopen"
     if [[ "$STICKY_RENDER" == "1" ]]; then
       record sticky-note PASS "stickynote in file + renders after reopen"
@@ -385,16 +420,16 @@ else
 fi
 
 # --- Right-click pan (scroll delta) ---
-SCROLL1=$(api_inspect | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
+SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 xdotool mousemove --window "$WID" 640 450
 xdotool mousedown 3
 xdotool mousemove --window "$WID" 760 520
 xdotool mouseup 3
 sleep 0.5
-SCROLL2=$(api_inspect | "${DENO_EVAL[@]}" "const j=JSON.parse(await Deno.readText(Deno.stdin)); console.log((j.state?.scrollX??0)+','+(j.state?.scrollY??0));")
+SCROLL2=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 shot "11-right-click-pan"
-DELTA=$("${DENO_EVAL[@]}" "const [a,b]='$SCROLL1'.split(',').map(Number); const [c,d]='$SCROLL2'.split(',').map(Number); console.log(Math.abs(c-a)+Math.abs(d-b));")
+DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
   awk -v d="$DELTA" 'BEGIN{exit !(d+0 > 0.5)}' && record right-click-pan PASS "scroll delta=$DELTA ($SCROLL1 -> $SCROLL2)" || record right-click-pan FAIL "delta=$DELTA"
 else

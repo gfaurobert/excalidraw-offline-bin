@@ -10,6 +10,10 @@ ART_ROOT="/opt/cursor/artifacts/excalidraw-upgrade/gui-v2"
 
 build_at_pin() {
   local pin="$1" out="$2"
+  if [[ "${SKIP_BUILD:-0}" == "1" && -f "$out/excalidraw-offline" ]]; then
+    echo "==> skip build (SKIP_BUILD=1) $out"
+    return 0
+  fi
   echo "==> build excalidraw pin $pin -> $out"
   sed -i "s/\"@excalidraw\\/excalidraw\": \"[^\"]*\"/\"@excalidraw\\/excalidraw\": \"$pin\"/" frontend/package.json
   sed -i "s/export const EXCALIDRAW_VERSION = \"[^\"]*\"/export const EXCALIDRAW_VERSION = \"$pin\"/" desktop/versions.ts
