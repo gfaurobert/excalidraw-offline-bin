@@ -28,6 +28,7 @@ import {
 } from "./file-format.ts";
 import type { ScenePayload } from "./types.ts";
 import { createCloseGuard } from "./close-guard.ts";
+import { handleE2eApi, isE2eMode } from "./e2e-desktop.ts";
 import {
   CLEAR_RECENT_ID,
   createRecentFilesStore,
@@ -122,7 +123,13 @@ function readDevUrl(): string | undefined {
 const DEV_URL = readDevUrl();
 
 let currentPath: string | null = null;
-let win: Deno.BrowserWindow;
+let win: Deno.BrowserWindow | null = null;
+
+function requireWin(): Deno.BrowserWindow {
+  if (win === null) throw new Error("BrowserWindow not initialized");
+  return win;
+}
+
 const closeGuard = createCloseGuard();
 const recentStore = createRecentFilesStore({
   filePath: defaultRecentFilePath(),
@@ -281,6 +288,9 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     console.log("[http]", method, pathname);
   }
 
+  const e2eResponse = await handleE2eApi(req, pathname, win);
+  if (e2eResponse) return e2eResponse;
+
   if (pathname === "/api/health" && method === "GET") {
     return json({ ok: true, path: currentPath, queue: uiQueue.length });
   }
@@ -309,7 +319,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     }
     await enqueueOpenPath(path);
     try {
-      win.focus();
+      requireWin().focus();
     } catch (err) {
       console.warn("[open-external] focus failed", err);
     }
@@ -348,6 +358,8 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
       bindings: false,
       path: currentPath,
       home: homeDir(),
+      excalidrawVersion: getExcalidrawVersion(),
+      e2e: isE2eMode(),
     });
   }
 
@@ -432,7 +444,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     try {
       await writeScene(path, payload);
       currentPath = path;
-      win.setTitle(`Excalidraw Offline — ${path}`);
+      requireWin().setTitle(`Excalidraw Offline — ${path}`);
       console.log("[write] done", path);
       await syncInstanceRegistry();
       try {
@@ -456,7 +468,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     try {
       const scene = await readScene(path);
       currentPath = path;
-      win.setTitle(`Excalidraw Offline — ${path}`);
+      requireWin().setTitle(`Excalidraw Offline — ${path}`);
       console.log(
         "[read] done",
         path,
@@ -533,14 +545,14 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
 
   if (pathname === "/api/set-title" && method === "POST") {
     const body = await readJson<{ title?: string }>(req);
-    if (body.title) win.setTitle(body.title);
+    if (body.title) requireWin().setTitle(body.title);
     return json({ ok: true });
   }
 
   if (pathname === "/api/set-path" && method === "POST") {
     const body = await readJson<{ path?: string | null }>(req);
     currentPath = body.path ?? null;
-    win.setTitle(
+    requireWin().setTitle(
       currentPath
         ? `Excalidraw Offline — ${currentPath}`
         : uiMode === "start"
@@ -587,7 +599,7 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
     closeGuard.grantClose();
     await unregisterInstance();
     try {
-      win.close();
+      requireWin().close();
     } catch (err) {
       console.error("[quit] win.close error", err);
     }
@@ -695,7 +707,7 @@ function applyMenu(recentPaths: string[]): void {
     },
   });
 
-  win.setApplicationMenu([
+  requireWin().setApplicationMenu([
     {
       submenu: {
         label: "File",
@@ -902,7 +914,7 @@ applyMenu(recentStore.list());
  * Native pickers run here (Deno menu), then we enqueue a path for the UI.
  * UI writes over HTTP — never a picker inside a webview round-trip.
  */
-win.addEventListener("menuclick", (e: Event) => {
+requireWin().addEventListener("menuclick", (e: Event) => {
   const id = (e as CustomEvent<{ id: string }>).detail.id;
   console.log("[menu]", id);
   void (async () => {
@@ -1069,7 +1081,7 @@ win.addEventListener("menuclick", (e: Event) => {
   })();
 });
 
-win.addEventListener("close", (e: Event) => {
+requireWin().addEventListener("close", (e: Event) => {
   if (closeGuard.shouldDeferClose()) {
     e.preventDefault();
     console.log("[close] deferred → enqueue quit");
@@ -1100,7 +1112,7 @@ try {
 
 const target = DEV_URL ?? appUrl;
 console.log("[desktop] navigate", target);
-win.navigate(target);
+requireWin().navigate(target);
 
 if (startupOpenPath) {
   await enqueueOpenPath(startupOpenPath);

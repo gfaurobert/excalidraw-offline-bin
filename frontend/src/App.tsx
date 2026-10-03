@@ -16,6 +16,7 @@ import {
   installOfflineExportDownloadHook,
   saveExportBlobViaApi,
 } from "./offline-export-download-hook.ts";
+import { installExcalidrawOfflineE2eBridge } from "./e2e-bridge.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -165,7 +166,10 @@ export default function App() {
   });
   const [pathLabel, setPathLabel] = useState<string>("Untitled");
   const [status, setStatus] = useState<string>("Starting…");
+  const pathLabelRef = useRef(pathLabel);
+  const excalidrawVersionRef = useRef("unknown");
 
+  pathLabelRef.current = pathLabel;
   modeRef.current = mode;
 
   const enterCanvas = useCallback(() => {
@@ -799,6 +803,14 @@ export default function App() {
     });
   }, [mode, docKey]);
 
+  useEffect(() => {
+    installExcalidrawOfflineE2eBridge({
+      getApi: () => apiRef.current,
+      getPathLabel: () => pathLabelRef.current,
+      excalidrawPackageVersion: excalidrawVersionRef.current,
+    });
+  }, []);
+
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
     let cancelled = false;
@@ -808,9 +820,18 @@ export default function App() {
           const info = await apiJson<{
             home: string;
             dialogBackend: string;
+            excalidrawVersion?: string;
           }>("/api/info");
           if (cancelled) return;
           homeRef.current = info.home || ".";
+          if (info.excalidrawVersion) {
+            excalidrawVersionRef.current = info.excalidrawVersion;
+          }
+          installExcalidrawOfflineE2eBridge({
+            getApi: () => apiRef.current,
+            getPathLabel: () => pathLabelRef.current,
+            excalidrawPackageVersion: excalidrawVersionRef.current,
+          });
           await apiLog("info", `api/info ok home=${homeRef.current}`);
           await refreshRecent();
           await notifyMode("start");
