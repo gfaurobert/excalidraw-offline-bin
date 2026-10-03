@@ -19,6 +19,8 @@ import {
   saveExcalidrawDialog,
   saveImageExportDialog,
   unsavedChangesDialog,
+  unsavedChangesDialogCopy,
+  type UnsavedDialogReason,
 } from "./dialogs.ts";
 import {
   bytesToDataURL,
@@ -410,9 +412,14 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
   }
 
   if (pathname === "/api/unsaved" && method === "POST") {
-    const body = await readJson<{ reason?: string }>(req).catch(() => ({}));
-    const reason = body.reason === "reload" || body.reason === "navigation" ||
-        body.reason === "untitled"
+    let body: { reason?: string } = {};
+    try {
+      body = await readJson<{ reason?: string }>(req);
+    } catch {
+      // empty POST body
+    }
+    const reason: UnsavedDialogReason = body.reason === "reload" ||
+        body.reason === "navigation" || body.reason === "untitled"
       ? body.reason
       : "untitled";
     const { title, text } = unsavedChangesDialogCopy(reason);
