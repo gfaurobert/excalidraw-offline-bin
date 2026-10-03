@@ -17,6 +17,9 @@ packaging/*.log
 !examples/**/*.excalidraw
 !test-fixtures/**/*.excalidraw
 test-fixtures/e2e-export/*.png
+test-fixtures/e2e-export/gui-v2-*.excalidraw
+test-fixtures/e2e-export/gui-edited.excalidraw
+test-fixtures/e2e-export/sticky-check.excalidraw
 .worktrees/
 
 # Jekyll local build
