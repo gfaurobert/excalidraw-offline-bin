@@ -300,7 +300,11 @@ shot "05-after-reload-clean"
 
 # --- Reload dirty + Discard ---
 api_post "/api/e2e/edit-marker" "$(printf '{"marker":"%s"}' "E2E_DIRTY_${TAG}")" >/dev/null
-sleep 1.2
+for _ in $(seq 1 30); do
+  D=$(api_inspect | inspect_py "print(1 if s.get('dirty') else 0)")
+  [[ "$D" == "1" ]] && break
+  sleep 0.15
+done
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)
@@ -320,7 +324,11 @@ fi
 # --- Reload dirty + Save (separate marker) ---
 sleep 1.5
 api_post "/api/e2e/edit-marker" "$(printf '{"marker":"%s"}' "E2E_DIRTY_SAVE_${TAG}")" >/dev/null
-sleep 1.2
+for _ in $(seq 1 30); do
+  D=$(api_inspect | inspect_py "print(1 if s.get('dirty') else 0)")
+  [[ "$D" == "1" ]] && break
+  sleep 0.15
+done
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)

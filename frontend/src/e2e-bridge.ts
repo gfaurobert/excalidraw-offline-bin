@@ -21,6 +21,7 @@ export interface E2eInspectState {
   pathLabel?: string;
   excalidrawVersion?: string;
   hasStickynoteTool?: boolean;
+  dirty?: boolean;
 }
 
 export interface ExcalidrawOfflineE2eBridge {
@@ -50,6 +51,7 @@ function keyCodeFor(key: string): string {
 export function installExcalidrawOfflineE2eBridge(deps: {
   getApi: () => ExcalidrawImperativeAPI | null;
   getPathLabel: () => string;
+  getDirty?: () => boolean;
   excalidrawPackageVersion: string;
 }): void {
   const bridge: ExcalidrawOfflineE2eBridge = {
@@ -94,6 +96,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
         hasStickynoteTool: elements.some((el) =>
           (el.type as string) === "stickynote"
         ),
+        dirty: deps.getDirty?.() ?? false,
       };
     },
 

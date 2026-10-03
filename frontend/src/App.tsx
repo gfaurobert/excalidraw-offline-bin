@@ -807,6 +807,7 @@ export default function App() {
     installExcalidrawOfflineE2eBridge({
       getApi: () => apiRef.current,
       getPathLabel: () => pathLabelRef.current,
+      getDirty: () => dirtyRef.current,
       excalidrawPackageVersion: excalidrawVersionRef.current,
     });
   }, []);
@@ -830,6 +831,7 @@ export default function App() {
           installExcalidrawOfflineE2eBridge({
             getApi: () => apiRef.current,
             getPathLabel: () => pathLabelRef.current,
+            getDirty: () => dirtyRef.current,
             excalidrawPackageVersion: excalidrawVersionRef.current,
           });
           await apiLog("info", `api/info ok home=${homeRef.current}`);
