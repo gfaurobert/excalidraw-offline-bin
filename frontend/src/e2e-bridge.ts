@@ -28,7 +28,7 @@ export interface E2eInspectState {
 export interface ExcalidrawOfflineE2eBridge {
   dispatchShortcut: (input: E2eShortcutInput) => { dispatched: boolean };
   getInspect: () => E2eInspectState;
-  focusCanvas: () => void;
+  focusCanvas: (options?: { click?: boolean }) => void;
   addEditMarker: (marker: string) => { added: boolean; elementId?: string };
   confirmImageExport: () => { clicked: boolean };
   toggleDarkModeViaMenu: () => { theme: string };
@@ -64,6 +64,24 @@ export function installExcalidrawOfflineE2eBridge(deps: {
 }): void {
   const bridge: ExcalidrawOfflineE2eBridge = {
     dispatchShortcut(input) {
+      const keyLower = input.key.length === 1 ? input.key.toLowerCase() : input.key;
+      if (
+        keyLower === "n" && !input.ctrlKey && !input.shiftKey && !input.altKey &&
+        !input.metaKey
+      ) {
+        const stickyBtn = document.querySelector(
+          '[data-testid="toolbar-stickynote"]',
+        ) as HTMLButtonElement | null;
+        if (stickyBtn && !stickyBtn.disabled) {
+          stickyBtn.click();
+          return { dispatched: true };
+        }
+        const api = deps.getApi();
+        if (api && deps.excalidrawPackageVersion.includes("4ce38fb")) {
+          api.setActiveTool({ type: "stickynote" });
+          return { dispatched: true };
+        }
+      }
       const opts: KeyboardEventInit = {
         key: input.key,
         code: keyCodeFor(input.key),
@@ -75,8 +93,11 @@ export function installExcalidrawOfflineE2eBridge(deps: {
         cancelable: true,
         composed: true,
       };
-      window.dispatchEvent(new KeyboardEvent("keydown", opts));
-      window.dispatchEvent(new KeyboardEvent("keyup", opts));
+      const targets = [window, document, document.body];
+      for (const target of targets) {
+        target.dispatchEvent(new KeyboardEvent("keydown", opts));
+        target.dispatchEvent(new KeyboardEvent("keyup", opts));
+      }
       return { dispatched: true };
     },
 
@@ -108,12 +129,44 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       };
     },
 
-    focusCanvas() {
+    focusCanvas(options) {
       const canvas = document.querySelector(
         ".excalidraw canvas",
       ) as HTMLCanvasElement | null;
-      canvas?.focus();
-      canvas?.click();
+      if (!canvas) return;
+      canvas.focus();
+      if (!options?.click) {
+        canvas.click();
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const x = rect.left + rect.width * 0.55;
+      const y = rect.top + rect.height * 0.55;
+      const ptr = (type: string, buttons: number) =>
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: y,
+          button: 0,
+          buttons,
+          bubbles: true,
+          cancelable: true,
+          pointerType: "mouse",
+          pointerId: 1,
+          isPrimary: true,
+        });
+      const mouse = (type: string, buttons: number) =>
+        new MouseEvent(type, {
+          clientX: x,
+          clientY: y,
+          button: 0,
+          buttons,
+          bubbles: true,
+          cancelable: true,
+        });
+      canvas.dispatchEvent(ptr("pointerdown", 1));
+      canvas.dispatchEvent(mouse("mousedown", 1));
+      canvas.dispatchEvent(ptr("pointerup", 0));
+      canvas.dispatchEvent(mouse("mouseup", 0));
     },
 
     addEditMarker(marker: string) {

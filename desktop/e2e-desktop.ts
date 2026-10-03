@@ -74,9 +74,11 @@ export async function handleE2eApi(
   }
 
   if (pathname === "/api/e2e/focus-canvas" && method === "POST") {
+    const body = await readJson<{ click?: boolean }>(req).catch(() => ({}));
+    const payload = JSON.stringify(body);
     await runInPage(
       win,
-      `(() => { globalThis.__excalidrawOfflineE2e?.focusCanvas?.(); return { ok: true }; })()`,
+      `(() => { globalThis.__excalidrawOfflineE2e?.focusCanvas?.(${payload}); return { ok: true }; })()`,
     );
     return json({ ok: true });
   }

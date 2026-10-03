@@ -511,6 +511,7 @@ STICKY_Y=$((STICKY_Y + 70))
 xdotool mousemove --window "$WID" "$STICKY_X" "$STICKY_Y"
 sleep 0.1
 xdotool click --window "$WID" --clearmodifiers 1
+api_post "/api/e2e/focus-canvas" '{"click":true}' >/dev/null || true
 sleep 1
 xdotool type --delay 6 --clearmodifiers "$STICKY_MARKER"
 sleep 0.4
