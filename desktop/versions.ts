@@ -5,7 +5,7 @@
  */
 
 export const APP_VERSION = "0.6.0";
-export const EXCALIDRAW_VERSION = "0.18.0-4872083";
+export const EXCALIDRAW_VERSION = "0.18.0-4ce38fb";
 
 export const APP_REPO_URL =
   "https://github.com/gfaurobert/excalidraw-offline-bin";
