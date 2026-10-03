@@ -142,7 +142,7 @@ export MESA_GL_VERSION_OVERRIDE=3.3
 
 APP_LOG="$ARTIFACTS/logs/app.stdout"
 rm -f "$APP_LOG"
-"$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
+bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
 APP_PID=$!
 
 cleanup() {
@@ -190,7 +190,7 @@ kill "$APP_PID" 2>/dev/null || true
 wait "$APP_PID" 2>/dev/null || true
 sleep 1
 APP_LOG="$ARTIFACTS/logs/app-reopen.stdout"
-"$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
+bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
 APP_PID=$!
 PORT=""
 for _ in $(seq 1 80); do
@@ -339,7 +339,7 @@ if [[ "$EXPECT_STICKY" == "1" ]]; then
     wait "$APP_PID" 2>/dev/null || true
     sleep 1
     APP_LOG="$ARTIFACTS/logs/app-sticky-reopen.stdout"
-    "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
+    bash "$LAUNCHER" "$EDITED" >"$APP_LOG" 2>&1 &
     APP_PID=$!
     PORT=""
     for _ in $(seq 1 80); do
