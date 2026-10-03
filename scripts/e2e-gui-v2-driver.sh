@@ -136,7 +136,14 @@ zenity_click_discard() {
 zenity_click_save() {
   local z="$1"
   xdotool windowactivate "$z" 2>/dev/null || true
-  sleep 0.15
+  sleep 0.2
+  local btn
+  btn=$(xdotool search --onlyvisible --name "Save" 2>/dev/null | head -1 || true)
+  if [[ -n "$btn" ]]; then
+    xdotool windowactivate "$btn" 2>/dev/null || true
+    xdotool click --clearmodifiers 1
+    return 0
+  fi
   xdotool key --window "$z" Return
 }
 
@@ -287,6 +294,7 @@ if [[ -n "$Z" ]]; then
   sleep 2
   record reload-unsaved-prompt PASS "zenity shown"
   record reload-discard PASS "clicked discard"
+  sleep 2.5
 else
   shot "06-reload-no-prompt"
   record reload-unsaved-prompt FAIL "no zenity"

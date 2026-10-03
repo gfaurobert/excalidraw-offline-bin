@@ -155,10 +155,18 @@ export function installExcalidrawOfflineE2eBridge(deps: {
     },
 
     confirmImageExport() {
-      const buttons = [...document.querySelectorAll("button")];
+      const dialog = document.querySelector(
+        ".Modal, [role='dialog'], .Dialog",
+      );
+      const scope = dialog ?? document.body;
+      const buttons = [...scope.querySelectorAll("button")];
       const exportBtn = buttons.find((btn) => {
         const label = btn.textContent?.trim().toLowerCase() ?? "";
-        return label === "export" || label.includes("export to png");
+        return label === "export" || label.includes("export to png") ||
+          label.includes("export image") || label === "export to png";
+      }) ?? buttons.find((btn) => {
+        const label = btn.textContent?.trim().toLowerCase() ?? "";
+        return label.includes("export") && !label.includes("cancel");
       });
       if (!exportBtn) return { clicked: false };
       exportBtn.click();
