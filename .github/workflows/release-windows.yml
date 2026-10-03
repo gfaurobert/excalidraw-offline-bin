@@ -10,7 +10,26 @@ permissions:
   contents: write
 
 jobs:
+  linux-only-tag-check:
+    runs-on: ubuntu-latest
+    outputs:
+      skip_non_linux: ${{ steps.out.outputs.skip_non_linux }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: out
+        run: |
+          SKIP=false
+          if [[ "${{ github.ref_type }}" == "tag" ]] && [[ -f packaging/linux-only-release-tags.txt ]]; then
+            if grep -qx "${{ github.ref_name }}" packaging/linux-only-release-tags.txt; then
+              SKIP=true
+              echo "Skipping Windows release upload for linux-only tag ${{ github.ref_name }}"
+            fi
+          fi
+          echo "skip_non_linux=$SKIP" >> "$GITHUB_OUTPUT"
+
   windows-x86_64:
+    needs: linux-only-tag-check
+    if: ${{ needs.linux-only-tag-check.outputs.skip_non_linux != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

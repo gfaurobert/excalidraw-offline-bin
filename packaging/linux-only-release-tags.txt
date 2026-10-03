@@ -1,0 +1,3 @@
+# Tags that publish Linux artifacts only (Windows/macOS release workflows skip upload).
+# Remove a tag from this list once Win/mac builds are validated for that version.
+v0.6.0
