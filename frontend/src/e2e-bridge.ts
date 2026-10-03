@@ -32,6 +32,7 @@ export interface ExcalidrawOfflineE2eBridge {
   setActiveTool: (tool: string) => { ok: boolean };
   placeStickyNote: (text: string) => { ok: boolean; elementId?: string };
   toggleDarkModeViaMenu: () => { theme: string };
+  simulateRightClickPan: (dx: number, dy: number) => { ok: boolean };
 }
 
 declare global {
@@ -222,6 +223,34 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       const next = appState.theme === "dark" ? "light" : "dark";
       api.updateScene({ appState: { theme: next } });
       return { theme: next };
+    },
+
+    simulateRightClickPan(dx, dy) {
+      const canvas = document.querySelector(
+        ".excalidraw canvas",
+      ) as HTMLCanvasElement | null;
+      if (!canvas) return { ok: false };
+      const rect = canvas.getBoundingClientRect();
+      const x0 = rect.left + rect.width * 0.45;
+      const y0 = rect.top + rect.height * 0.45;
+      const x1 = x0 + dx;
+      const y1 = y0 + dy;
+      const mk = (type: string, x: number, y: number) =>
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: y,
+          button: 2,
+          buttons: type === "pointerup" ? 0 : 4,
+          bubbles: true,
+          cancelable: true,
+          pointerType: "mouse",
+          pointerId: 1,
+          isPrimary: true,
+        });
+      canvas.dispatchEvent(mk("pointerdown", x0, y0));
+      canvas.dispatchEvent(mk("pointermove", x1, y1));
+      canvas.dispatchEvent(mk("pointerup", x1, y1));
+      return { ok: true };
     },
   };
 

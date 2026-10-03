@@ -18,6 +18,7 @@ import {
   winSaveImageExportDialog,
   winUnsavedChangesDialog,
 } from "./dialogs-win.ts";
+import { runDialogWithE2ePick } from "./e2e-pick.ts";
 import {
   describeMacosDialogBackend,
   macChoiceDialog,
@@ -265,7 +266,7 @@ export async function saveImageExportDialog(
   }
 
   if (await commandExists("zenity")) {
-    const result = await runDialog([
+    const result = await runDialogWithE2ePick([
       "zenity",
       "--file-selection",
       "--save",
@@ -313,7 +314,7 @@ export async function saveExcalidrawDialog(
     : `${homeDir()}/${defaultNameOrPath}`;
 
   if (await commandExists("zenity")) {
-    const result = await runDialog([
+    const result = await runDialogWithE2ePick([
       "zenity",
       "--file-selection",
       "--save",

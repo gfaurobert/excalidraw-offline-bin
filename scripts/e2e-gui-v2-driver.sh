@@ -261,7 +261,7 @@ sleep 0.8
 Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "04-save-as-zenity-dialog"
-  zenity_save_path "$Z" "$SAVE_AS"
+  api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" >/dev/null
   wait_zenity_gone 40 || true
   for _ in $(seq 1 40); do
     [[ -f "$SAVE_AS" ]] && break
@@ -295,7 +295,7 @@ shot "05-after-reload-clean"
 
 # --- Reload dirty + Discard ---
 api_post "/api/e2e/edit-marker" "$(printf '{"marker":"%s"}' "E2E_DIRTY_${TAG}")" >/dev/null
-sleep 0.3
+sleep 1.2
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)
@@ -315,7 +315,7 @@ fi
 # --- Reload dirty + Save (separate marker) ---
 sleep 1.5
 api_post "/api/e2e/edit-marker" "$(printf '{"marker":"%s"}' "E2E_DIRTY_SAVE_${TAG}")" >/dev/null
-sleep 0.5
+sleep 1.2
 api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)
@@ -354,7 +354,7 @@ sleep 0.8
 Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
-  zenity_save_path "$Z" "$EXPORT_PNG"
+  api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$EXPORT_PNG")" >/dev/null
   wait_zenity_gone 40 || true
   for _ in $(seq 1 40); do
     [[ -f "$EXPORT_PNG" ]] && break
@@ -428,11 +428,8 @@ fi
 # --- Right-click pan (scroll delta) ---
 SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
-xdotool mousemove --window "$WID" 640 450
-xdotool mousedown 3
-xdotool mousemove --window "$WID" 760 520
-xdotool mouseup 3
-sleep 0.5
+api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
+sleep 0.6
 SCROLL2=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
 shot "11-right-click-pan"
 DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")

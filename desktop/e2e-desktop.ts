@@ -1,5 +1,7 @@
 /// <reference path="./desktop-types.d.ts" />
 
+import { completeE2ePick } from "./e2e-pick.ts";
+
 export function isE2eMode(): boolean {
   try {
     return Deno.env.get("EXCALIDRAW_E2E") === "1";
@@ -99,6 +101,26 @@ export async function handleE2eApi(
     const result = await runInPage<unknown>(
       win,
       `(() => globalThis.__excalidrawOfflineE2e?.toggleDarkModeViaMenu?.() ?? { theme: "unknown" })()`,
+    );
+    return json({ ok: true, result });
+  }
+
+  if (pathname === "/api/e2e/complete-pick" && method === "POST") {
+    const body = await readJson<{ path?: string; cancelled?: boolean }>(req);
+    const completed = completeE2ePick(
+      body.path ?? null,
+      body.cancelled === true,
+    );
+    return json({ ok: true, completed });
+  }
+
+  if (pathname === "/api/e2e/rclick-pan" && method === "POST") {
+    const body = await readJson<{ dx?: number; dy?: number }>(req);
+    const dx = body.dx ?? 120;
+    const dy = body.dy ?? 70;
+    const result = await runInPage<unknown>(
+      win,
+      `(() => globalThis.__excalidrawOfflineE2e?.simulateRightClickPan?.(${dx}, ${dy}) ?? { ok: false })()`,
     );
     return json({ ok: true, result });
   }
