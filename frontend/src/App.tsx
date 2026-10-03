@@ -151,6 +151,13 @@ export default function App() {
   const updateTitleRef = useRef<
     (path: string | null, dirty: boolean) => Promise<void>
   >(async () => {});
+  const handleChangeRef = useRef<
+    (
+      elements: readonly ExcalidrawElement[],
+      appState: AppState,
+      files: BinaryFiles,
+    ) => void
+  >(() => {});
 
   const [mode, setMode] = useState<AppMode>("start");
   const [recent, setRecent] = useState<{ path: string; label: string }[]>([]);
@@ -302,6 +309,20 @@ export default function App() {
     },
     [scheduleAutosave, updateTitle],
   );
+
+  useEffect(() => {
+    handleChangeRef.current = handleChange;
+  }, [handleChange]);
+
+  const syncSceneFromApi = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    handleChangeRef.current(
+      api.getSceneElements(),
+      api.getAppState() as AppState,
+      api.getFiles(),
+    );
+  }, []);
 
   const writeSceneToPath = useCallback(async (path: string): Promise<boolean> => {
     busyRef.current = true;
@@ -808,9 +829,10 @@ export default function App() {
       getApi: () => apiRef.current,
       getPathLabel: () => pathLabelRef.current,
       getDirty: () => dirtyRef.current,
+      syncSceneFromApi,
       excalidrawPackageVersion: excalidrawVersionRef.current,
     });
-  }, []);
+  }, [syncSceneFromApi]);
 
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
@@ -832,6 +854,7 @@ export default function App() {
             getApi: () => apiRef.current,
             getPathLabel: () => pathLabelRef.current,
             getDirty: () => dirtyRef.current,
+            syncSceneFromApi,
             excalidrawPackageVersion: excalidrawVersionRef.current,
           });
           await apiLog("info", `api/info ok home=${homeRef.current}`);

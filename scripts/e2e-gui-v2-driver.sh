@@ -366,7 +366,7 @@ else
 fi
 rm -f "$EXPORT_PNG"
 api_post "/api/e2e/export/confirm" '{}' >/dev/null
-sleep 1.8
+sleep 3.5
 Z=$(wait_zenity 60 || true)
 if [[ -n "$Z" ]]; then
   shot "08-export-png-zenity"
@@ -385,7 +385,7 @@ if [[ -n "$Z" ]]; then
   if [[ -f "$EXPORT_PNG" ]]; then
     record export-png-save PASS "$EXPORT_PNG"
   else
-    record export-png-save FAIL "picker ok, file missing"
+    record export-png-save FAIL "picker ok, file missing last=$PICK_RESP"
   fi
 else
   record export-png-save FAIL "export zenity missing"

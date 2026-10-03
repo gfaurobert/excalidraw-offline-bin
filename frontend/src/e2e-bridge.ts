@@ -52,6 +52,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
   getApi: () => ExcalidrawImperativeAPI | null;
   getPathLabel: () => string;
   getDirty?: () => boolean;
+  syncSceneFromApi?: () => void;
   excalidrawPackageVersion: string;
 }): void {
   const bridge: ExcalidrawOfflineE2eBridge = {
@@ -149,6 +150,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
         lineHeight: 1.25,
       } as unknown as ExcalidrawElement;
       api.updateScene({ elements: [...elements, textEl] });
+      deps.syncSceneFromApi?.();
       return { added: true, elementId: id };
     },
 
@@ -229,6 +231,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
     },
 
     simulateRightClickPan(dx, dy) {
+      const api = deps.getApi();
       const canvas = document.querySelector(
         ".excalidraw canvas",
       ) as HTMLCanvasElement | null;
@@ -238,7 +241,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       const y0 = rect.top + rect.height * 0.45;
       const x1 = x0 + dx;
       const y1 = y0 + dy;
-      const mk = (type: string, x: number, y: number) =>
+      const mkPtr = (type: string, x: number, y: number) =>
         new PointerEvent(type, {
           clientX: x,
           clientY: y,
@@ -250,9 +253,22 @@ export function installExcalidrawOfflineE2eBridge(deps: {
           pointerId: 1,
           isPrimary: true,
         });
-      canvas.dispatchEvent(mk("pointerdown", x0, y0));
-      canvas.dispatchEvent(mk("pointermove", x1, y1));
-      canvas.dispatchEvent(mk("pointerup", x1, y1));
+      const mkMouse = (type: string, x: number, y: number) =>
+        new MouseEvent(type, {
+          clientX: x,
+          clientY: y,
+          button: 2,
+          buttons: type === "mouseup" ? 0 : 4,
+          bubbles: true,
+          cancelable: true,
+        });
+      canvas.dispatchEvent(mkPtr("pointerdown", x0, y0));
+      canvas.dispatchEvent(mkMouse("mousedown", x0, y0));
+      canvas.dispatchEvent(mkPtr("pointermove", x1, y1));
+      canvas.dispatchEvent(mkMouse("mousemove", x1, y1));
+      canvas.dispatchEvent(mkPtr("pointerup", x1, y1));
+      canvas.dispatchEvent(mkMouse("mouseup", x1, y1));
+      void api;
       return { ok: true };
     },
   };
