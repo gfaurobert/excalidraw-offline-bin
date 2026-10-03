@@ -90,9 +90,9 @@ export function installExcalidrawOfflineE2eBridge(deps: {
           .filter(Boolean),
         pathLabel: deps.getPathLabel(),
         excalidrawVersion: deps.excalidrawPackageVersion,
-        hasStickynoteTool: elements.some((el) => el.type === "stickynote") ||
-          typeof (appState as AppState & { activeTool?: { type?: string } })
-              .activeTool?.type === "string",
+        hasStickynoteTool: elements.some((el) =>
+          (el.type as string) === "stickynote"
+        ),
       };
     },
 
@@ -162,7 +162,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
     setActiveTool(tool: string) {
       const api = deps.getApi();
       if (!api) return { ok: false };
-      api.setActiveTool({ type: tool as "stickynote" });
+      api.setActiveTool({ type: tool as "selection" });
       return { ok: true };
     },
 
@@ -173,7 +173,7 @@ export function installExcalidrawOfflineE2eBridge(deps: {
         return { ok: false };
       }
       try {
-        api.setActiveTool({ type: "stickynote" as "selection" });
+        api.setActiveTool({ type: "selection" });
       } catch {
         return { ok: false };
       }
