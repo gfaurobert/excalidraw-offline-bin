@@ -410,7 +410,13 @@ async function handleApi(req: Request, pathname: string): Promise<Response> {
   }
 
   if (pathname === "/api/unsaved" && method === "POST") {
-    const result = await unsavedChangesDialog();
+    const body = await readJson<{ reason?: string }>(req).catch(() => ({}));
+    const reason = body.reason === "reload" || body.reason === "navigation" ||
+        body.reason === "untitled"
+      ? body.reason
+      : "untitled";
+    const { title, text } = unsavedChangesDialogCopy(reason);
+    const result = await unsavedChangesDialog(title, text);
     if (result.ok) return json({ ok: true, choice: result.choice });
     if (result.reason === "unavailable") {
       return json({ ok: false, error: "no dialog available" }, 501);

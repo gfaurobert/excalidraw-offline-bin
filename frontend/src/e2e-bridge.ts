@@ -31,10 +31,7 @@ export interface ExcalidrawOfflineE2eBridge {
   focusCanvas: () => void;
   addEditMarker: (marker: string) => { added: boolean; elementId?: string };
   confirmImageExport: () => { clicked: boolean };
-  setActiveTool: (tool: string) => { ok: boolean };
-  placeStickyNote: (text: string) => { ok: boolean; elementId?: string };
   toggleDarkModeViaMenu: () => { theme: string };
-  simulateRightClickPan: (dx: number, dy: number) => { ok: boolean };
   exportPngViaNativePicker: (
     filename: string,
   ) => Promise<{ ok: boolean; path?: string; cancelled?: boolean }>;
@@ -183,62 +180,6 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       return { clicked: true };
     },
 
-    setActiveTool(tool: string) {
-      const api = deps.getApi();
-      if (!api) return { ok: false };
-      api.setActiveTool({ type: tool as "selection" });
-      return { ok: true };
-    },
-
-    placeStickyNote(text: string) {
-      const api = deps.getApi();
-      if (!api) return { ok: false };
-      if (!deps.excalidrawPackageVersion.includes("4ce38fb")) {
-        return { ok: false };
-      }
-      try {
-        api.setActiveTool({ type: "selection" });
-      } catch {
-        return { ok: false };
-      }
-      const elements = api.getSceneElements() as ExcalidrawElement[];
-      const id = `e2e-sticky-${Date.now()}`;
-      const note = {
-        type: "stickynote",
-        id,
-        x: 380,
-        y: 260,
-        width: 200,
-        height: 180,
-        angle: 0,
-        strokeColor: "#1e1e1e",
-        backgroundColor: "#fff3bf",
-        fillStyle: "solid",
-        strokeWidth: 2,
-        strokeStyle: "solid",
-        roughness: 1,
-        opacity: 100,
-        version: 1,
-        versionNonce: Math.floor(Math.random() * 1e9),
-        isDeleted: false,
-        seed: 1,
-        groupIds: [],
-        frameId: null,
-        roundness: null,
-        boundElements: null,
-        updated: Date.now(),
-        link: null,
-        locked: false,
-      } as unknown as ExcalidrawElement;
-      api.updateScene({ elements: [...elements, note] });
-      if (text) {
-        api.updateScene({
-          appState: { selectedElementIds: { [id]: true } },
-        });
-      }
-      return { ok: true, elementId: id };
-    },
-
     toggleDarkModeViaMenu() {
       const api = deps.getApi();
       if (!api) return { theme: "light" };
@@ -246,48 +187,6 @@ export function installExcalidrawOfflineE2eBridge(deps: {
       const next = appState.theme === "dark" ? "light" : "dark";
       api.updateScene({ appState: { theme: next } });
       return { theme: next };
-    },
-
-    simulateRightClickPan(dx, dy) {
-      const api = deps.getApi();
-      const canvas = document.querySelector(
-        ".excalidraw canvas",
-      ) as HTMLCanvasElement | null;
-      if (!canvas) return { ok: false };
-      const rect = canvas.getBoundingClientRect();
-      const x0 = rect.left + rect.width * 0.45;
-      const y0 = rect.top + rect.height * 0.45;
-      const x1 = x0 + dx;
-      const y1 = y0 + dy;
-      const mkPtr = (type: string, x: number, y: number) =>
-        new PointerEvent(type, {
-          clientX: x,
-          clientY: y,
-          button: 2,
-          buttons: type === "pointerup" ? 0 : 4,
-          bubbles: true,
-          cancelable: true,
-          pointerType: "mouse",
-          pointerId: 1,
-          isPrimary: true,
-        });
-      const mkMouse = (type: string, x: number, y: number) =>
-        new MouseEvent(type, {
-          clientX: x,
-          clientY: y,
-          button: 2,
-          buttons: type === "mouseup" ? 0 : 4,
-          bubbles: true,
-          cancelable: true,
-        });
-      canvas.dispatchEvent(mkPtr("pointerdown", x0, y0));
-      canvas.dispatchEvent(mkMouse("mousedown", x0, y0));
-      canvas.dispatchEvent(mkPtr("pointermove", x1, y1));
-      canvas.dispatchEvent(mkMouse("mousemove", x1, y1));
-      canvas.dispatchEvent(mkPtr("pointerup", x1, y1));
-      canvas.dispatchEvent(mkMouse("mouseup", x1, y1));
-      void api;
-      return { ok: true };
     },
 
     async exportPngViaNativePicker(filename) {

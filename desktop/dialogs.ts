@@ -637,6 +637,34 @@ async function runUnsavedCommand(
   }
 }
 
+export type UnsavedDialogReason = "untitled" | "reload" | "navigation";
+
+export function unsavedChangesDialogCopy(reason: UnsavedDialogReason = "untitled"): {
+  title: string;
+  text: string;
+} {
+  const title = "Unsaved changes";
+  if (reason === "reload") {
+    return {
+      title,
+      text:
+        "You have unsaved changes. Save them to disk, discard and reload from the file on disk, or cancel?",
+    };
+  }
+  if (reason === "navigation") {
+    return {
+      title,
+      text:
+        "You have unsaved changes. Save, discard, or cancel?",
+    };
+  }
+  return {
+    title,
+    text:
+      "This drawing has no file path yet. Save, discard, or cancel?",
+  };
+}
+
 export async function unsavedChangesDialog(
   title = "Unsaved changes",
   text = "This drawing has no file path yet. Save, discard, or cancel?",

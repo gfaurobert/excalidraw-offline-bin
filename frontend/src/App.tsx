@@ -432,7 +432,7 @@ export default function App() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ reason: "untitled" }),
         },
       );
       choice = result.choice;
@@ -569,7 +569,7 @@ export default function App() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ reason: "reload" }),
         },
       );
       choice = result.choice;
@@ -824,17 +824,6 @@ export default function App() {
     });
   }, [mode, docKey]);
 
-  useEffect(() => {
-    installExcalidrawOfflineE2eBridge({
-      getApi: () => apiRef.current,
-      getPathLabel: () => pathLabelRef.current,
-      getDirty: () => dirtyRef.current,
-      syncSceneFromApi,
-      saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
-      excalidrawPackageVersion: excalidrawVersionRef.current,
-    });
-  }, [syncSceneFromApi]);
-
   // Prove HTTP desktop API is reachable (not Deno bindings).
   useEffect(() => {
     let cancelled = false;
@@ -845,20 +834,23 @@ export default function App() {
             home: string;
             dialogBackend: string;
             excalidrawVersion?: string;
+            e2e?: boolean;
           }>("/api/info");
           if (cancelled) return;
           homeRef.current = info.home || ".";
           if (info.excalidrawVersion) {
             excalidrawVersionRef.current = info.excalidrawVersion;
           }
-          installExcalidrawOfflineE2eBridge({
-            getApi: () => apiRef.current,
-            getPathLabel: () => pathLabelRef.current,
-            getDirty: () => dirtyRef.current,
-            syncSceneFromApi,
-            saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
-            excalidrawPackageVersion: excalidrawVersionRef.current,
-          });
+          if (info.e2e) {
+            installExcalidrawOfflineE2eBridge({
+              getApi: () => apiRef.current,
+              getPathLabel: () => pathLabelRef.current,
+              getDirty: () => dirtyRef.current,
+              syncSceneFromApi,
+              saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
+              excalidrawPackageVersion: excalidrawVersionRef.current,
+            });
+          }
           await apiLog("info", `api/info ok home=${homeRef.current}`);
           await refreshRecent();
           await notifyMode("start");

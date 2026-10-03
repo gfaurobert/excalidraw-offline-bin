@@ -38,8 +38,10 @@ export async function handleE2eApi(
   pathname: string,
   win: Deno.BrowserWindow | null,
 ): Promise<Response | null> {
-  if (!isE2eMode()) return null;
   if (!pathname.startsWith("/api/e2e/")) return null;
+  if (!isE2eMode()) {
+    return json({ ok: false, error: "not found" }, 404);
+  }
   if (!win || win.isClosed()) {
     return json({ ok: false, error: "no browser window" }, 503);
   }
@@ -122,27 +124,6 @@ export async function handleE2eApi(
       body.cancelled === true,
     );
     return json({ ok: true, completed });
-  }
-
-  if (pathname === "/api/e2e/rclick-pan" && method === "POST") {
-    const body = await readJson<{ dx?: number; dy?: number }>(req);
-    const dx = body.dx ?? 120;
-    const dy = body.dy ?? 70;
-    const result = await runInPage<unknown>(
-      win,
-      `(() => globalThis.__excalidrawOfflineE2e?.simulateRightClickPan?.(${dx}, ${dy}) ?? { ok: false })()`,
-    );
-    return json({ ok: true, result });
-  }
-
-  if (pathname === "/api/e2e/sticky-note" && method === "POST") {
-    const body = await readJson<{ text?: string }>(req);
-    const text = body.text?.trim() || "E2E_STICKY_NOTE";
-    const result = await runInPage<unknown>(
-      win,
-      `(() => globalThis.__excalidrawOfflineE2e?.placeStickyNote?.(${JSON.stringify(text)}) ?? { ok: false })()`,
-    );
-    return json({ ok: true, result });
   }
 
   return json({ ok: false, error: "unknown e2e route" }, 404);

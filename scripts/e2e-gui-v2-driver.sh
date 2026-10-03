@@ -20,16 +20,81 @@ record() {
   printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$RESULTS"
 }
 
-shot() {
+LAST_SHOT_MD5=""
+SHOT_MANIFEST="$ARTIFACTS/screenshot-md5.txt"
+: > "$SHOT_MANIFEST"
+
+force_dismiss_zenity() {
+  pkill -f 'zenity --' 2>/dev/null || true
+  wait_zenity_gone 40 || true
+  sleep 0.2
+}
+
+shot_app() {
   local name="$1"
   local out="$ARTIFACTS/screenshots/${name}.png"
+  force_dismiss_zenity
   sleep 0.35
-  if [[ -n "${WID:-}" ]]; then
-    scrot -u "$out" 2>/dev/null || import -window "$WID" "$out"
+  xdotool windowactivate --sync "$WID" 2>/dev/null || xdotool windowactivate "$WID" 2>/dev/null || true
+  sleep 0.15
+  import -window "$WID" "$out" 2>/dev/null || scrot -u "$out"
+  register_shot "$name" "$out"
+}
+
+shot_zenity() {
+  local name="$1"
+  local out="$ARTIFACTS/screenshots/${name}.png"
+  local z
+  z=$(xdotool search --class "Zenity" 2>/dev/null | head -1 || true)
+  sleep 0.25
+  if [[ -n "$z" ]]; then
+    import -window "$z" "$out" 2>/dev/null || import -window "$WID" "$out"
   else
-    import -window root "$out"
+    import -window "$WID" "$out"
   fi
-  echo "screenshot: $out"
+  register_shot "$name" "$out"
+}
+
+register_shot() {
+  local name="$1" out="$2"
+  local md5
+  md5=$(md5sum "$out" | awk '{print $1}')
+  echo "$name $md5" >> "$SHOT_MANIFEST"
+  echo "screenshot: $out md5=$md5"
+  if [[ -n "$LAST_SHOT_MD5" && "$md5" == "$LAST_SHOT_MD5" ]]; then
+    record screenshot-distinct FAIL "consecutive identical md5=$md5 at $name"
+    echo "FATAL: screenshot $name is identical to previous step (md5=$md5)" >&2
+    exit 1
+  fi
+  LAST_SHOT_MD5="$md5"
+}
+
+shot() {
+  shot_app "$1"
+}
+
+canvas_center_coords() {
+  eval "$(xdotool getwindowgeometry --shell "$WID" 2>/dev/null || echo 'X=0 Y=0 WIDTH=1024 HEIGHT=768')"
+  echo "$((X + WIDTH / 2)) $((Y + HEIGHT / 2 + 40))"
+}
+
+right_click_pan_drag() {
+  local cx cy x y i
+  read -r cx cy <<< "$(canvas_center_coords)"
+  xdotool windowactivate --sync "$WID" 2>/dev/null || true
+  api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
+  sleep 0.2
+  xdotool mousemove --window "$WID" "$cx" "$cy"
+  sleep 0.05
+  xdotool mousedown 3
+  for i in $(seq 1 30); do
+    x=$((cx + i * 10))
+    y=$((cy + i * 6))
+    xdotool mousemove --window "$WID" "$x" "$y"
+    sleep 0.015
+  done
+  xdotool mouseup 3
+  sleep 0.3
 }
 
 img_mean() {
@@ -121,16 +186,10 @@ wait_zenity_gone() {
 
 zenity_click_discard() {
   local z="$1"
-  xdotool windowactivate "$z" 2>/dev/null || true
-  sleep 0.2
-  local btn
-  btn=$(xdotool search --onlyvisible --name "Discard" 2>/dev/null | head -1 || true)
-  if [[ -n "$btn" ]]; then
-    xdotool windowactivate "$btn" 2>/dev/null || true
-    xdotool click --clearmodifiers 1
-    return 0
-  fi
-  xdotool key --window "$z" Tab Tab Return 2>/dev/null || xdotool key --window "$z" Return
+  xdotool windowactivate --sync "$z" 2>/dev/null || xdotool windowactivate "$z" 2>/dev/null || true
+  sleep 0.25
+  xdotool key --window "$z" --clearmodifiers Tab Return
+  sleep 0.15
 }
 
 zenity_click_save() {
@@ -288,15 +347,15 @@ api_shortcut '{"key":"r","ctrlKey":true}'
 sleep 0.8
 Z=$(wait_zenity 30 || true)
 if [[ -n "$Z" ]]; then
-  shot "06-reload-unsaved-prompt"
+  shot_zenity "06-reload-unsaved-prompt"
+  ZTITLE=$(xdotool getwindowname "$Z" 2>/dev/null || true)
+  record reload-unsaved-prompt PASS "zenity title=$ZTITLE"
   zenity_click_discard "$Z"
-  wait_zenity_gone 40 || true
-  sleep 2
-  record reload-unsaved-prompt PASS "zenity shown"
+  wait_zenity_gone 40 || force_dismiss_zenity
+  sleep 1.5
   record reload-discard PASS "clicked discard"
-  sleep 2.5
 else
-  shot "06-reload-no-prompt"
+  shot_app "06-reload-no-prompt"
   record reload-unsaved-prompt FAIL "no zenity"
   record reload-discard FAIL "skipped"
 fi
@@ -314,7 +373,7 @@ sleep 0.8
 Z=$(wait_zenity 30 || true)
 if [[ -n "$Z" ]]; then
   zenity_click_save "$Z"
-  wait_zenity_gone 40 || true
+  wait_zenity_gone 40 || force_dismiss_zenity
   for _ in $(seq 1 40); do
     json_file_has "$OPEN_FILE" "E2E_DIRTY_SAVE_${TAG}" && break
     sleep 0.25
@@ -336,14 +395,14 @@ api_shortcut '{"key":"s","ctrlKey":true,"shiftKey":true}'
 sleep 1.5
 Z=$(wait_zenity 40 || true)
 if [[ -n "$Z" ]]; then
-  shot "04-save-as-zenity-dialog"
+  shot_zenity "04-save-as-zenity-dialog"
   for _ in $(seq 1 24); do
     PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$SAVE_AS")" || true)
     echo "$PICK_RESP" | grep -q '"completed":true' && break
     sleep 0.25
   done
   pkill -f 'zenity --file-selection' 2>/dev/null || true
-  wait_zenity_gone 25 || true
+  force_dismiss_zenity
   for _ in $(seq 1 40); do
     [[ -f "$SAVE_AS" ]] && break
     sleep 0.25
@@ -357,11 +416,12 @@ if [[ -n "$Z" ]]; then
     record save-as FAIL "zenity ok but file missing"
   fi
 else
-  shot "04-save-as-no-zenity"
+  shot_app "04-save-as-no-zenity"
   record save-as FAIL "zenity not shown"
 fi
 
 # --- Export image + native PNG picker ---
+force_dismiss_zenity
 api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 api_shortcut '{"key":"e","ctrlKey":true,"shiftKey":true}'
 sleep 1.2
@@ -379,14 +439,14 @@ api_post "/api/e2e/export/save-png" "$(printf '{"filename":"%s"}' "$EXPORT_BASE"
 sleep 2
 Z=$(wait_zenity 60 || true)
 if [[ -n "$Z" ]]; then
-  shot "08-export-png-zenity"
+  shot_zenity "08-export-png-zenity"
   for _ in $(seq 1 24); do
     PICK_RESP=$(api_post "/api/e2e/complete-pick" "$(printf '{"path":"%s"}' "$EXPORT_PNG")" || true)
     echo "$PICK_RESP" | grep -q '"completed":true' && break
     sleep 0.25
   done
   pkill -f 'zenity --file-selection' 2>/dev/null || true
-  wait_zenity_gone 25 || true
+  force_dismiss_zenity
   for _ in $(seq 1 40); do
     [[ -f "$EXPORT_PNG" ]] && break
     sleep 0.25
@@ -400,6 +460,10 @@ if [[ -n "$Z" ]]; then
 else
   record export-png-save FAIL "export zenity missing"
 fi
+
+api_shortcut '{"key":"Escape"}'
+sleep 0.4
+force_dismiss_zenity
 
 # --- Dark mode ---
 MEAN_LIGHT=$(img_mean "$ARTIFACTS/screenshots/01-open-document.png")
@@ -415,14 +479,27 @@ else
   record dark-mode FAIL "theme=$THEME mean_dark=$MEAN_DARK mean_light=$MEAN_LIGHT"
 fi
 
-# --- Sticky note (version gated) ---
-STICKY_RESULT=$(api_post "/api/e2e/sticky-note" "$(printf '{"text":"%s"}' "$STICKY_MARKER")")
+# --- Sticky note (version gated; toolbar shortcut N + canvas click) ---
+force_dismiss_zenity
+api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
+api_shortcut '{"key":"n"}'
+sleep 0.6
+read -r STICKY_X STICKY_Y <<< "$(canvas_center_coords)"
+xdotool mousemove --window "$WID" "$STICKY_X" "$STICKY_Y"
+sleep 0.1
+xdotool click --window "$WID" --clearmodifiers 1
+sleep 0.8
+xdotool type --delay 6 --clearmodifiers "$STICKY_MARKER"
+sleep 0.3
+api_shortcut '{"key":"Escape"}'
+sleep 0.4
 api_shortcut '{"key":"s","ctrlKey":true}'
-sleep 2
+sleep 2.5
 HAS_STICKY=0
 json_file_has "$OPEN_FILE" '"type": "stickynote"' && HAS_STICKY=1
 json_file_has "$OPEN_FILE" 'stickynote' && HAS_STICKY=1
-shot "10-sticky-note"
+json_file_has "$OPEN_FILE" "$STICKY_MARKER" && HAS_STICKY=1
+shot_app "10-sticky-note"
 if [[ "$EXPECT_STICKY" == "1" ]]; then
   if [[ "$HAS_STICKY" -eq 1 ]]; then
     stop_app
@@ -456,24 +533,24 @@ else
   fi
 fi
 
-# --- Right-click pan (scroll delta) ---
+# --- Right-click pan (real X11 input; upstream threshold 5px, Linux contextmenu on press) ---
+force_dismiss_zenity
+api_shortcut '{"key":"Escape"}' 2>/dev/null || true
+sleep 0.3
 SCROLL1=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
-api_post "/api/e2e/focus-canvas" '{}' >/dev/null || true
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
-  xdotool mousemove --window "$WID" 640 450
-  xdotool mousedown 3
-  xdotool mousemove --window "$WID" 820 540
-  xdotool mouseup 3
-  api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
+  api_shortcut '{"key":"v"}'
+  sleep 0.25
+  right_click_pan_drag
 else
-  api_post "/api/e2e/rclick-pan" '{"dx":120,"dy":70}' >/dev/null || true
+  right_click_pan_drag
 fi
 sleep 0.8
 SCROLL2=$(api_inspect | inspect_py "print(f\"{s.get('scrollX',0)},{s.get('scrollY',0)}\")")
-shot "11-right-click-pan"
+shot_app "11-right-click-pan"
 DELTA=$(python3 -c "a,b=map(float,'$SCROLL1'.split(',')); c,d=map(float,'$SCROLL2'.split(',')); print(abs(c-a)+abs(d-b))")
 if [[ "$EXPECT_RCLICK_PAN" == "1" ]]; then
-  awk -v d="$DELTA" 'BEGIN{exit !(d+0 > 0.5)}' && record right-click-pan PASS "scroll delta=$DELTA ($SCROLL1 -> $SCROLL2)" || record right-click-pan FAIL "delta=$DELTA"
+  awk -v d="$DELTA" 'BEGIN{exit !(d+0 > 0.5)}' && record right-click-pan PASS "scroll delta=$DELTA ($SCROLL1 -> $SCROLL2)" || record right-click-pan FAIL "delta=$DELTA (xdotool RMB drag; upstream AppPan secondary threshold=5px)"
 else
   awk -v d="$DELTA" 'BEGIN{exit !(d+0 < 1.0)}' && record right-click-pan PASS "no pan on old pin delta=$DELTA" || record right-click-pan FAIL "unexpected pan delta=$DELTA on old"
 fi
@@ -489,5 +566,13 @@ trap - EXIT
   while IFS='|' read -r n s d; do
     echo "| $n | $s | $d |"
   done < "$RESULTS"
+  echo ""
+  echo "## Screenshot MD5"
+  echo ""
+  echo "| Step | MD5 |"
+  echo "|------|-----|"
+  while read -r step md5; do
+    [[ -n "$step" ]] && echo "| $step | $md5 |"
+  done < "$SHOT_MANIFEST"
 } > "$SUMMARY"
 echo "Wrote $SUMMARY"
