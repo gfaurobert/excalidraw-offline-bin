@@ -18,7 +18,7 @@ build_at_pin() {
   deno task build:frontend >/dev/null
   deno task package:linux 2>&1 | tail -3
   rm -rf "$out"
-  cp -a dist/linux/excalidraw-offline "$out"
+  cp -r dist/linux/excalidraw-offline "$out"
 }
 
 run_driver() {
