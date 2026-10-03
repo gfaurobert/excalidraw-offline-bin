@@ -16,6 +16,7 @@ import {
   installOfflineExportDownloadHook,
   saveExportBlobViaApi,
 } from "./offline-export-download-hook.ts";
+import { installExcalidrawOfflineE2eBridge } from "./e2e-bridge.ts";
 
 interface ScenePayload {
   elements: readonly ExcalidrawElement[];
@@ -150,6 +151,13 @@ export default function App() {
   const updateTitleRef = useRef<
     (path: string | null, dirty: boolean) => Promise<void>
   >(async () => {});
+  const handleChangeRef = useRef<
+    (
+      elements: readonly ExcalidrawElement[],
+      appState: AppState,
+      files: BinaryFiles,
+    ) => void
+  >(() => {});
 
   const [mode, setMode] = useState<AppMode>("start");
   const [recent, setRecent] = useState<{ path: string; label: string }[]>([]);
@@ -165,7 +173,10 @@ export default function App() {
   });
   const [pathLabel, setPathLabel] = useState<string>("Untitled");
   const [status, setStatus] = useState<string>("Starting…");
+  const pathLabelRef = useRef(pathLabel);
+  const excalidrawVersionRef = useRef("unknown");
 
+  pathLabelRef.current = pathLabel;
   modeRef.current = mode;
 
   const enterCanvas = useCallback(() => {
@@ -299,6 +310,20 @@ export default function App() {
     [scheduleAutosave, updateTitle],
   );
 
+  useEffect(() => {
+    handleChangeRef.current = handleChange;
+  }, [handleChange]);
+
+  const syncSceneFromApi = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    handleChangeRef.current(
+      api.getSceneElements(),
+      api.getAppState() as AppState,
+      api.getFiles(),
+    );
+  }, []);
+
   const writeSceneToPath = useCallback(async (path: string): Promise<boolean> => {
     busyRef.current = true;
     try {
@@ -407,7 +432,7 @@ export default function App() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ reason: "untitled" }),
         },
       );
       choice = result.choice;
@@ -544,7 +569,7 @@ export default function App() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ reason: "reload" }),
         },
       );
       choice = result.choice;
@@ -808,9 +833,24 @@ export default function App() {
           const info = await apiJson<{
             home: string;
             dialogBackend: string;
+            excalidrawVersion?: string;
+            e2e?: boolean;
           }>("/api/info");
           if (cancelled) return;
           homeRef.current = info.home || ".";
+          if (info.excalidrawVersion) {
+            excalidrawVersionRef.current = info.excalidrawVersion;
+          }
+          if (info.e2e) {
+            installExcalidrawOfflineE2eBridge({
+              getApi: () => apiRef.current,
+              getPathLabel: () => pathLabelRef.current,
+              getDirty: () => dirtyRef.current,
+              syncSceneFromApi,
+              saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
+              excalidrawPackageVersion: excalidrawVersionRef.current,
+            });
+          }
           await apiLog("info", `api/info ok home=${homeRef.current}`);
           await refreshRecent();
           await notifyMode("start");

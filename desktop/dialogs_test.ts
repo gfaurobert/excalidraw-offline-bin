@@ -4,6 +4,7 @@ import {
   buildDirectoryDialogArgs,
   buildInfoDialogArgs,
   buildUnsavedChangesDialogArgs,
+  unsavedChangesDialogCopy,
   ensureExcalidrawExt,
   formatLinkedInfoText,
   parseUnsavedDialogOutcome,
@@ -205,6 +206,22 @@ Deno.test("buildUnsavedChangesDialogArgs kdialog", () => {
       "--cancel-label",
       "Cancel",
     ],
+  );
+});
+
+Deno.test("unsavedChangesDialogCopy reload vs untitled", () => {
+  const reload = unsavedChangesDialogCopy("reload");
+  assertEquals(reload.title, "Unsaved changes");
+  assertEquals(
+    reload.text.includes("reload from the file on disk"),
+    true,
+    "reload copy",
+  );
+  const untitled = unsavedChangesDialogCopy("untitled");
+  assertEquals(
+    untitled.text.includes("no file path yet"),
+    true,
+    "untitled copy",
   );
 });
 
