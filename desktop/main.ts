@@ -842,6 +842,13 @@ function applyMenu(recentPaths: string[]): void {
   ]);
 }
 
+function e2eHarnessDefaultIds(): InstallHarnessId[] {
+  if (!isE2eMode()) return [...DEFAULT_HARNESS_TARGET_IDS];
+  const preset = Deno.env.get("EXCALIDRAW_E2E_CHECKLIST_PRESET")?.trim();
+  if (preset === "all") return ["all"];
+  return [...DEFAULT_HARNESS_TARGET_IDS];
+}
+
 async function runInstallSketchingSkill(): Promise<void> {
   const choice = await choiceDialog(
     "Install skill",
@@ -891,11 +898,12 @@ async function runInstallSketchingSkill(): Promise<void> {
       const scopeLabel = mode === "global"
         ? "Which agent tools should receive the skill? (Global)"
         : "Which agent tools should receive the skill? (Project)";
+      const defaultHarnessIds = e2eHarnessDefaultIds();
       const harnessChoice = await multiSelectChecklistDialog(
         "Install skill — targets",
         scopeLabel,
         HARNESS_TARGET_OPTIONS,
-        [...DEFAULT_HARNESS_TARGET_IDS],
+        defaultHarnessIds,
       );
       if (!harnessChoice.ok) {
         if (harnessChoice.reason === "cancelled") {

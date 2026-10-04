@@ -26,7 +26,8 @@ export LIBGL_ALWAYS_SOFTWARE=1
 export MESA_GL_VERSION_OVERRIDE=3.3
 
 APP_LOG="$ARTIFACTS/logs/app.stdout"
-GLOBAL_TREE="$ARTIFACTS/trees/global-all.txt"
+GLOBAL_BEFORE="$ARTIFACTS/trees/global-before.txt"
+GLOBAL_AFTER="$ARTIFACTS/trees/global-after.txt"
 PROJECT_TREE="$ARTIFACTS/trees/project-agents-claude.txt"
 
 wait_zenity() {
@@ -43,18 +44,39 @@ wait_zenity() {
   return 1
 }
 
-shot_zenity() {
+wait_zenity_title() {
+  local title_sub="$1"
+  local tries="${2:-80}"
+  for _ in $(seq 1 "$tries"); do
+    local z
+    z=$(xdotool search --name "$title_sub" 2>/dev/null | head -1 || true)
+    if [[ -n "$z" ]]; then
+      echo "$z"
+      return 0
+    fi
+    sleep 0.15
+  done
+  return 1
+}
+
+shot_zenity_window() {
   local name="$1"
+  local title_sub="${2:-}"
   local out="$ARTIFACTS/screenshots/${name}.png"
-  local z
-  z=$(wait_zenity 5 || true)
-  sleep 0.35
+  local z=""
+  if [[ -n "$title_sub" ]]; then
+    z=$(wait_zenity_title "$title_sub" 80 || true)
+  fi
+  if [[ -z "$z" ]]; then
+    z=$(wait_zenity 10 || true)
+  fi
+  sleep 0.5
   if [[ -n "$z" ]]; then
     import -window "$z" "$out" 2>/dev/null || scrot "$out"
-    echo "screenshot: $out"
+    echo "screenshot: $out (zenity wid=$z title=${title_sub:-any})"
   else
-    scrot "$out" || true
-    echo "screenshot (fallback): $out"
+    echo "FATAL: no zenity window for $name (title=${title_sub:-any})" >&2
+    exit 1
   fi
 }
 
@@ -93,74 +115,130 @@ complete_pick() {
   api_post "/api/e2e/complete-pick" "$body" >/dev/null
 }
 
-complete_confirm() {
-  api_post "/api/e2e/complete-confirm" "{\"confirmed\":$1}" >/dev/null
+complete_pick_cancelled() {
+  api_post "/api/e2e/complete-pick" '{"cancelled":true}' >/dev/null
+}
+
+write_global_before() {
+  {
+    echo "=== before install ($(date -Iseconds)) ==="
+    for d in .agents .claude .kiro .cline; do
+      if [[ -e "$E2E_HOME/$d" ]]; then
+        echo "EXISTS: $E2E_HOME/$d"
+        find "$E2E_HOME/$d" 2>/dev/null | sort
+      else
+        echo "MISSING: $E2E_HOME/$d"
+      fi
+    done
+  } >"$GLOBAL_BEFORE"
+}
+
+write_global_after() {
+  {
+    echo "=== after install (skill folders only) ==="
+    for d in .agents .claude .kiro .cline; do
+      echo "$E2E_HOME/$d/skills/excalidraw-sketching"
+    done
+  } >"$GLOBAL_AFTER"
 }
 
 run_global_all() {
   echo "--- Global + All targets ---"
   rm -rf "$E2E_HOME/.agents" "$E2E_HOME/.claude" "$E2E_HOME/.kiro" "$E2E_HOME/.cline"
+  write_global_before
+
+  export EXCALIDRAW_E2E_CHECKLIST_PRESET=all
+  export EXCALIDRAW_E2E_CAPTURE_INFO=1
+
   start_app
 
   api_post "/api/e2e/skill-install" "{}" &
-  sleep 0.5
-  wait_zenity 40 >/dev/null
+  sleep 0.6
+  wait_zenity_title "Install skill" 80 >/dev/null
   complete_pick "global"
-  sleep 0.4
-  wait_zenity 40 >/dev/null
-  shot_zenity "01-checklist-global-all"
-  complete_pick $'all'
-  sleep 1.5
+  sleep 0.5
+  wait_zenity_title "targets" 80 >/dev/null
+  shot_zenity_window "01-checklist-global-all" "targets"
+  complete_pick "all"
+  sleep 0.8
+  wait_zenity_title "Install skill" 80 >/dev/null
+  shot_zenity_window "03-install-success" "Install skill"
+  xdotool key Return 2>/dev/null || true
+  sleep 0.5
   stop_app
 
-  find "$E2E_HOME" -path '*/excalidraw-sketching/*' -o -path '*/excalidraw-sketching' 2>/dev/null | sort >"$GLOBAL_TREE" || true
-  find "$E2E_HOME/.agents" "$E2E_HOME/.claude" "$E2E_HOME/.kiro" "$E2E_HOME/.cline" 2>/dev/null | sort >>"$GLOBAL_TREE" || true
-  echo "Global tree written to $GLOBAL_TREE"
-  test -d "$E2E_HOME/.claude/skills/excalidraw-sketching"
-  test -f "$E2E_HOME/.claude/skills/excalidraw-sketching/SKILL.md"
-  ! test -d "$E2E_HOME/.claude/skills/excalidraw-sketching/evals"
+  unset EXCALIDRAW_E2E_CHECKLIST_PRESET
+  unset EXCALIDRAW_E2E_CAPTURE_INFO
+
+  write_global_after
+  while read -r line; do
+    [[ "$line" == ===* ]] && continue
+    [[ -z "$line" ]] && continue
+    test -d "$line"
+    test -f "$line/SKILL.md"
+    ! test -d "$line/evals"
+  done <"$GLOBAL_AFTER"
+  grep -q "MISSING: $E2E_HOME/.claude" "$GLOBAL_BEFORE"
+  echo "Global before: $GLOBAL_BEFORE"
+  echo "Global after: $GLOBAL_AFTER"
 }
 
 run_project_agents_claude() {
   echo "--- Project + .agents + Claude Code ---"
   rm -rf "$PROJECT_ROOT/.agents" "$PROJECT_ROOT/.claude"
+  unset EXCALIDRAW_E2E_CHECKLIST_PRESET
+  unset EXCALIDRAW_E2E_CAPTURE_INFO
+
   start_app
 
   api_post "/api/e2e/skill-install" "{}" &
-  sleep 0.5
-  wait_zenity 40 >/dev/null
+  sleep 0.6
+  wait_zenity_title "Install skill" 80 >/dev/null
   complete_pick "project"
   sleep 0.4
-  wait_zenity 40 >/dev/null
+  wait_zenity_title "Select project" 80 >/dev/null
   complete_pick "$PROJECT_ROOT"
-  sleep 0.4
-  wait_zenity 40 >/dev/null
-  shot_zenity "02-checklist-project"
+  sleep 0.5
+  wait_zenity_title "targets" 80 >/dev/null
+  shot_zenity_window "02-checklist-project" "targets"
   complete_pick $'agents\nclaude'
-  sleep 1.5
+  sleep 1.2
   stop_app
 
-  find "$PROJECT_ROOT" \( -path '*/.agents/skills/*' -o -path '*/.claude/skills/*' \) 2>/dev/null | sort >"$PROJECT_TREE"
-  echo "Project tree written to $PROJECT_TREE"
+  {
+    echo "=== project install (skill folders only) ==="
+    echo "$PROJECT_ROOT/.agents/skills/excalidraw-sketching"
+    echo "$PROJECT_ROOT/.claude/skills/excalidraw-sketching"
+  } >"$PROJECT_TREE"
   test -f "$PROJECT_ROOT/.agents/skills/excalidraw-sketching/SKILL.md"
   test -f "$PROJECT_ROOT/.claude/skills/excalidraw-sketching/SKILL.md"
+  echo "Project tree: $PROJECT_TREE"
 }
 
-show_success_dialog() {
-  local listing="$1"
-  local out="$ARTIFACTS/screenshots/03-install-success.png"
-  zenity --info --title="Install skill" --text="Installed excalidraw-sketching to:\n${listing}" &
-  local zp=$!
+run_global_checklist_cancel() {
+  echo "--- Global checklist cancel (no install) ---"
+  rm -rf "$E2E_HOME/.agents" "$E2E_HOME/.claude" "$E2E_HOME/.kiro" "$E2E_HOME/.cline"
+  unset EXCALIDRAW_E2E_CHECKLIST_PRESET
+  unset EXCALIDRAW_E2E_CAPTURE_INFO
+
+  start_app
+  api_post "/api/e2e/skill-install" "{}" &
   sleep 0.6
-  shot_zenity "03-install-success"
-  kill "$zp" 2>/dev/null || true
-  wait "$zp" 2>/dev/null || true
+  wait_zenity_title "Install skill" 80 >/dev/null
+  complete_pick "global"
+  sleep 0.5
+  wait_zenity_title "targets" 80 >/dev/null
+  complete_pick_cancelled
+  sleep 1
+  stop_app
+
+  test ! -e "$E2E_HOME/.agents/skills/excalidraw-sketching"
+  test ! -e "$E2E_HOME/.claude/skills/excalidraw-sketching"
+  echo "Cancel left home without skill installs"
 }
 
+run_global_checklist_cancel
 run_global_all
 run_project_agents_claude
-
-SUCCESS_PATHS=$(head -5 "$GLOBAL_TREE" | paste -sd '\n' -)
-show_success_dialog "$SUCCESS_PATHS"
 
 echo "E2E skill install complete"

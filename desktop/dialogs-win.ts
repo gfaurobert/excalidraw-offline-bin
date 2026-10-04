@@ -444,30 +444,32 @@ export function buildWinMultiSelectScript(
 $clb.SetItemTag($idx, ${psSingleQuote(opt.id)})
 if (${checked}) { $clb.SetItemChecked($idx, $true) }`,
     );
-    y += 24;
+    y += 32;
   }
-  const height = Math.max(220, y + 100);
+  const listHeight = Math.max(280, y - 48);
+  const height = Math.max(380, 48 + listHeight + 100);
   return `${WINFORMS_PREAMBLE}$form = New-Object System.Windows.Forms.Form
 $form.Text = ${psSingleQuote(title)}
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
-$form.Width = 520
+$form.Width = 920
 $form.Height = ${height}
 $form.ShowInTaskbar = $false
 $label = New-Object System.Windows.Forms.Label
 $label.Text = ${psSingleQuote(text)}
 $label.Left = 16
 $label.Top = 12
-$label.Width = 470
-$label.Height = 32
+$label.Width = 670
+$label.Height = 40
 $form.Controls.Add($label)
 $clb = New-Object System.Windows.Forms.CheckedListBox
 $clb.Left = 16
 $clb.Top = 48
-$clb.Width = 470
-$clb.Height = ${y - 48}
+$clb.Width = 670
+$clb.Height = ${listHeight}
+$clb.CheckOnClick = $true
 $form.Controls.Add($clb)
 ${itemLines.join("\n")}
 $ok = New-Object System.Windows.Forms.Button

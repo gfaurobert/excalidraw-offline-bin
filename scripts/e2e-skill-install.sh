@@ -24,7 +24,9 @@ echo "Temp HOME: $E2E_HOME"
 
 xvfb-run -a bash "$ROOT/scripts/e2e-skill-install-driver.sh"
 
-echo "--- global-all tree ---"
-cat "$ARTIFACTS/trees/global-all.txt" || true
+echo "--- global before ---"
+cat "$ARTIFACTS/trees/global-before.txt" || true
+echo "--- global after ---"
+cat "$ARTIFACTS/trees/global-after.txt" || true
 echo "--- project tree ---"
 cat "$ARTIFACTS/trees/project-agents-claude.txt" || true

@@ -210,6 +210,9 @@ export async function installSkillToMany(
   source: string,
   dests: string[],
 ): Promise<InstallSkillManyResult> {
+  if (dests.length === 0) {
+    return { ok: false, reason: "error", detail: "no destinations" };
+  }
   const installed: string[] = [];
   try {
     await assertSkillSource(source);

@@ -150,8 +150,13 @@ export async function infoDialog(
   linkUrl?: string,
 ): Promise<InfoDialogResult> {
   if (isE2ePickMode()) {
-    console.log("[e2e] info dialog", title, text);
-    return { ok: true };
+    const captureInstallSuccess = Deno.env.get("EXCALIDRAW_E2E_CAPTURE_INFO") === "1" &&
+      title === "Install skill" &&
+      text.startsWith(`Installed ${"excalidraw-sketching"} to:`);
+    if (!captureInstallSuccess) {
+      console.log("[e2e] info dialog", title, text);
+      return { ok: true };
+    }
   }
   if (isWindows()) {
     const body = linkUrl ? `${text}\n\n${linkUrl}` : text;
@@ -511,9 +516,10 @@ export function buildMultiSelectChecklistArgs(
       "--column=ID",
       "--column=Target",
       "--hide-header",
+      "--hide-column=2",
       "--print-column=2",
-      "--width=640",
-      "--height=360",
+      "--width=920",
+      "--height=500",
     ];
     for (const opt of options) {
       args.push(checked.has(opt.id) ? "TRUE" : "FALSE", opt.id, opt.label);
@@ -521,7 +527,15 @@ export function buildMultiSelectChecklistArgs(
     return args;
   }
 
-  const args = ["kdialog", "--title", title, "--checklist", text];
+  const args = [
+    "kdialog",
+    "--title",
+    title,
+    "--geometry",
+    "920x500",
+    "--checklist",
+    text,
+  ];
   for (const opt of options) {
     args.push(
       opt.id,

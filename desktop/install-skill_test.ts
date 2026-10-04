@@ -43,6 +43,23 @@ Deno.test("expandHarnessSelection dedupes without All", () => {
   ]);
 });
 
+Deno.test("expandHarnessSelection All with other checks does not duplicate", () => {
+  const expanded = expandHarnessSelection(["all", "agents", "claude"]);
+  assertEquals(expanded.length, 4);
+  assertEquals(new Set(expanded).size, 4);
+  const dests = resolveHarnessInstallDests("global", "/home/u", [
+    "all",
+    "agents",
+    "claude",
+  ]);
+  assertEquals(dests.length, 4);
+  assertEquals(new Set(dests).size, 4);
+});
+
+Deno.test("resolveHarnessInstallDests empty selection installs nothing", () => {
+  assertEquals(resolveHarnessInstallDests("global", "/home/u", []), []);
+});
+
 Deno.test("resolveHarnessInstallDests global paths", () => {
   assertEquals(
     resolveHarnessInstallDests("global", "/home/alice", ["agents", "claude"]),
@@ -126,6 +143,19 @@ Deno.test("installSkillTo and installSkillToMany round-trip", async () => {
     const many = await installSkillToMany(source, [destA, destB]);
     assertEquals(many.ok, true);
     if (many.ok) assertEquals(many.dests.length, 2);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("installSkillToMany with empty dests is a no-op failure", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "skill-empty-" });
+  try {
+    const source = join(tmp, SKILL_ID);
+    await Deno.mkdir(source);
+    await Deno.writeTextFile(join(source, "SKILL.md"), "# skill\n");
+    const result = await installSkillToMany(source, []);
+    assertEquals(result.ok, false);
   } finally {
     await Deno.remove(tmp, { recursive: true });
   }
