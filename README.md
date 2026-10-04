@@ -4,6 +4,8 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
+**Current version:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux). **Install:** Linux → [latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest); Windows and macOS → [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) until newer Win/mac builds ship. Releases v0.6.0–v0.7.1 are Linux-only (AppImage, tar.xz).
+
 ## Features (MVP)
 
 - Launch an offline Excalidraw desktop app
@@ -11,18 +13,18 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 - File → Close returns to the start screen; Quit exits
 - Native zenity/kdialog (Linux), PowerShell WinForms (Windows 11), or osascript (macOS) for open/save and unsaved Cancel/Save/Discard
 - Open / Save / Save As `.excalidraw` files anywhere on disk
-- File → Reload (Ctrl+R / ⌘R) re-reads the open file from disk (e.g. after an agent edits it)
-- Excalidraw **Export image** dialog (Ctrl+Shift+E / ⌘⇧E or hamburger menu) with native save for PNG/SVG (save dialog defaults to the folder containing the open `.excalidraw` file)
-- CLI **export** (headless hidden webview, same renderer as the GUI): `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png | -d dir] [--scale N] [--json]` — writes PNGs next to the drawing by default (`${name}_${datetime}.png`, or with a frame segment when applicable); `--out` / `-d` override (creates missing directories); `excalidraw-offline --help` and `excalidraw-offline export --help` print usage to stdout (exit 0, no GUI); prints written path(s) to stdout; does not participate in single-instance file-open handoff
+- File → Reload (Ctrl+R / ⌘R) re-reads the open file from disk (e.g. after an agent edits it) — **all platforms** in published builds (v0.5.0+)
+- Excalidraw **Export image** dialog (Ctrl+Shift+E / ⌘⇧E or hamburger menu) with native save for PNG/SVG — **v0.6.0+** (Linux releases today; not in Windows/macOS v0.5.0 yet)
+- CLI **export** (headless hidden webview, same renderer as the GUI) — **v0.6.0+** (Linux today): `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png | -d dir] [--scale N] [--json]` — writes PNGs next to the drawing by default (`${name}_${datetime}.png`, or with a frame segment when applicable); `--out` / `-d` override (creates missing directories); `excalidraw-offline --help` and `excalidraw-offline export --help` print usage to stdout (exit 0, no GUI); prints written path(s) to stdout; does not participate in single-instance file-open handoff
 - CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
 - OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe; macOS `Info.plist` UTI on the packaged `.app` (Finder double-click still needs Deno Desktop to deliver Apple Events — use CLI argv until then)
 - File → Open Recent (up to 10 paths, persisted locally)
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
 - Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
-- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project / Custom → `.agents/skills`)
+- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project / Custom → `.agents/skills`) — **reinstall after upgrading** (v0.7.1+) so agents get the updated app + CLI guide
 - Transient open/save status appears in the header (not a footer)
-- Upstream editor tools from `@excalidraw/excalidraw` `@next` (lasso selection, bucket fill, draw-to-shape / autoshape)
+- Upstream editor from `@excalidraw/excalidraw` **0.18.0-4ce38fb** on Linux v0.7+ (sticky notes `N`, right-click drag pan, lasso, bucket fill, draw-to-shape / autoshape)
 
 ## Requirements
 
@@ -35,7 +37,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 
 ### Linux (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.1**):
 
 - **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (chmod +x, then run)
 - **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree)
@@ -46,23 +48,23 @@ Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs [`.github/work
 
 ### Windows 11 (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (v0.6+ Windows assets were not published):
 
-- **MSI** — `excalidraw-offline-<version>-windows-x86_64.msi` (per-machine install under Program Files)
-- **Zip** — `excalidraw-offline-<version>-windows-x86_64.zip` (portable; extract to a path **without spaces** if the MSI layout misbehaves)
+- **MSI** — `excalidraw-offline-0.5.0-windows-x86_64.msi` (per-machine install under Program Files)
+- **Zip** — `excalidraw-offline-0.5.0-windows-x86_64.zip` (portable; extract to a path **without spaces** if the MSI layout misbehaves)
 
 Runtime: WebView2 (included on Windows 11) and PowerShell for native dialogs. Unsigned builds may show SmartScreen; choose **More info → Run anyway**.
 
-The packaged exe registers a per-user `.excalidraw` association on first launch (HKCU). CLI: `excalidraw-offline C:\path\to\file.excalidraw`.
+The packaged exe registers a per-user `.excalidraw` association on first launch (HKCU). CLI: `excalidraw-offline C:\path\to\file.excalidraw`. Reload (Ctrl+R) is included; export CLI and Export image dialog ship in a future Windows release (already on Linux v0.6+).
 
 Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml) (cross-compiled from Linux). Local dry-run: `deno task package:windows:release`.
 
 ### macOS Apple Silicon (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (v0.6+ macOS assets were not published):
 
-- **DMG** — `excalidraw-offline-<version>-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
-- **Zip** — `excalidraw-offline-<version>-macos-arm64.zip` (extract the `.app`)
+- **DMG** — `excalidraw-offline-0.5.0-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
+- **Zip** — `excalidraw-offline-0.5.0-macos-arm64.zip` (extract the `.app`)
 
 Runtime: WKWebView (system) and `osascript` for native dialogs. Ad-hoc signed builds hit Gatekeeper; right-click the app → **Open**, or remove quarantine with `xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"`.
 
@@ -73,6 +75,8 @@ open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
 # or
 "/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw
 ```
+
+Reload (⌘R) is included; export CLI and Export image dialog ship in a future macOS release (already on Linux v0.6+).
 
 Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-macos.yml`](.github/workflows/release-macos.yml) on `macos-latest`. Local dry-run on a Mac: `deno task package:macos:release`.
 

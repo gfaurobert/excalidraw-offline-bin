@@ -18,10 +18,13 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 - **Save** (File → Save / Ctrl+S or ⌘S) / **Save As**  (File → Save As / Ctrl+Shift+S or ⌘⇧S) — native file picker for `.excalidraw` files anywhere on disk
 - **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline\recent.json`; macOS: `~/Library/Application Support/excalidraw-offline/recent.json`). Missing or unreadable paths are removed when selected
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
-- **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Use this when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
-- **Export image…** (Excalidraw main menu → Export image, or **Ctrl+Shift+E** / ⌘⇧E) — upstream Excalidraw export dialog (preview, Only selected / Background / Dark mode / Embed scene, scale 1×–3×, filename, PNG / SVG / Copy to clipboard). PNG and SVG use the **native save dialog** (default folder: same directory as the saved `.excalidraw` file, or home when Untitled); the header shows the saved path. Copy to clipboard uses the webview when supported; otherwise a clear header error. Embed scene and other toggles match upstream behavior
+- **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Available on **all platforms** in published builds (v0.5.0+). Use when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
+- **Quit** (File → Quit) — exits the app
+- **Export image…** (Excalidraw main menu → Export image, or **Ctrl+Shift+E** / ⌘⇧E) — **v0.6.0+** (Linux releases today; not in Windows/macOS **v0.5.0** builds yet). Upstream Excalidraw export dialog (preview, Only selected / Background / Dark mode / Embed scene, scale 1×–3×, filename, PNG / SVG / Copy to clipboard). PNG and SVG use the **native save dialog** (default folder: same directory as the saved `.excalidraw` file, or home when Untitled); the header shows the saved path. Copy to clipboard uses the webview when supported; otherwise a clear header error. Embed scene and other toggles match upstream behavior
 
 ### CLI export (agents)
+
+**v0.6.0+** on Linux (same flags will apply on future Windows/macOS releases). Not available in published **v0.5.0** Win/mac builds.
 
 Run PNG export without opening the interactive window (uses a short-lived hidden webview with the same `exportToBlob` path as the GUI). This command **does not** hand off to an already-running instance.
 
@@ -71,7 +74,6 @@ Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging laun
 Default output filenames: `{drawingBase}_{YYYYMMDD-HHMMSS}.png`, or `{drawingBase}_{frame}_{YYYYMMDD-HHMMSS}.png` when exporting a named frame. Collision suffixes (`-2`, `-3`, …) are added if the name already exists.
 
 Stdout lists written file paths; stderr has diagnostics. Exit code `1` with a clear message if the file, frame, or element is missing. **Headless export requires `deno desktop` / the packaged app webview** (same as the GUI). Pure WSL without a Windows/macOS/Linux GUI webview may fail — run the command on the host OS or use File → Export in the GUI.
-- **Quit** (File → Quit) — exits the app
 
 ### Open from CLI or file manager
 
@@ -126,8 +128,14 @@ Choose where to install:
 
 If the destination already exists, the app asks before overwriting. Decline aborts the install.
 
+**After upgrading the app (v0.7.1+ skill):** run **Install excalidraw-sketching skill** again so agents get the updated skill. The bundled copy includes:
+
+- How to use the desktop app — File menu actions, keyboard shortcuts, Reload unsaved prompt (**Save / Discard**, reload / **Cancel**), Export image dialog, frames, sticky notes (**N**), right-click drag pan, dark mode
+- Headless **export** CLI — every flag, `--help`, default output naming (`{name}_{datetime}.png`, frame segments, collision suffixes), stdout vs stderr, exit codes
+- Sketch JSON conventions under `sketches/` (no MCP canvas servers)
+
 ## Menus
 
-- **Info** (native dialogs): Runtime backend, Assets tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version)
+- **Info** (native dialogs): Runtime backend, Assets tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version, e.g. `0.18.0-4ce38fb` on Linux v0.7+)
 
 Transient open/save status appears in the app header (not a footer).
