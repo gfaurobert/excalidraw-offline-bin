@@ -6,6 +6,8 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 
 **Current version:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux). **Install:** Linux → [latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest); Windows and macOS → [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) until newer Win/mac builds ship. Releases v0.6.0–v0.7.1 are Linux-only (AppImage, tar.xz).
 
+https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
+
 ## Features (MVP)
 
 - Launch an offline Excalidraw desktop app
