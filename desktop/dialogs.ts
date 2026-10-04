@@ -18,6 +18,7 @@ import {
   winSaveImageExportDialog,
   winUnsavedChangesDialog,
 } from "./dialogs-win.ts";
+import { runDialogWithE2ePick } from "./e2e-pick.ts";
 import {
   describeMacosDialogBackend,
   macChoiceDialog,
@@ -265,7 +266,7 @@ export async function saveImageExportDialog(
   }
 
   if (await commandExists("zenity")) {
-    const result = await runDialog([
+    const result = await runDialogWithE2ePick([
       "zenity",
       "--file-selection",
       "--save",
@@ -313,7 +314,7 @@ export async function saveExcalidrawDialog(
     : `${homeDir()}/${defaultNameOrPath}`;
 
   if (await commandExists("zenity")) {
-    const result = await runDialog([
+    const result = await runDialogWithE2ePick([
       "zenity",
       "--file-selection",
       "--save",
@@ -634,6 +635,34 @@ async function runUnsavedCommand(
   } catch (err) {
     return { ok: false, reason: "error", detail: String(err) };
   }
+}
+
+export type UnsavedDialogReason = "untitled" | "reload" | "navigation";
+
+export function unsavedChangesDialogCopy(reason: UnsavedDialogReason = "untitled"): {
+  title: string;
+  text: string;
+} {
+  const title = "Unsaved changes";
+  if (reason === "reload") {
+    return {
+      title,
+      text:
+        "You have unsaved changes. Save them to disk, discard and reload from the file on disk, or cancel?",
+    };
+  }
+  if (reason === "navigation") {
+    return {
+      title,
+      text:
+        "You have unsaved changes. Save, discard, or cancel?",
+    };
+  }
+  return {
+    title,
+    text:
+      "This drawing has no file path yet. Save, discard, or cancel?",
+  };
 }
 
 export async function unsavedChangesDialog(
