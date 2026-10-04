@@ -118,15 +118,25 @@ Use **Skills → Install excalidraw-sketching skill** to copy the bundled [Agent
 
 ![Skills menu](assets/install_skills_01.png)
 
-Choose where to install:
+Choose scope:
 
-- **Global (user)** — `~/.agents/skills/excalidraw-sketching/`
-- **Project** — pick a project root, then `<root>/.agents/skills/excalidraw-sketching/`
-- **Custom** — pick any folder; the skill is copied there as-is (no `.agents/skills` appended)
+- **Global (user)** — installs under your home directory
+- **Project** — pick a project root folder
+- **Custom** — pick any folder; the skill is copied to `<folder>/excalidraw-sketching/` (no extra suffix)
+
+For **Global** and **Project**, a checklist asks which agent tools should receive the skill (defaults: `.agents/skills` and Claude Code):
+
+| Target | Global | Project |
+|--------|--------|---------|
+| `.agents/skills` (Codex, Cursor, Copilot, Gemini CLI, OpenCode, Amp, Goose, Roo Code, Windsurf) | `~/.agents/skills/excalidraw-sketching/` | `<root>/.agents/skills/excalidraw-sketching/` |
+| Claude Code | `~/.claude/skills/excalidraw-sketching/` | `<root>/.claude/skills/excalidraw-sketching/` |
+| Kiro | `~/.kiro/skills/excalidraw-sketching/` | `<root>/.kiro/skills/excalidraw-sketching/` |
+| Cline | `~/.cline/skills/excalidraw-sketching/` | `<root>/.cline/skills/excalidraw-sketching/` |
+| **All** | every row above | every row above |
 
 ![Install skill dialog](assets/install_skills_02.png)
 
-If the destination already exists, the app asks before overwriting. Decline aborts the install.
+Missing parent folders (for example `~/.claude/skills`) are created automatically. If any destination already exists, the app lists them and asks once before overwriting. Decline aborts the install.
 
 **After upgrading the app (v0.7.1+ skill):** run **Install excalidraw-sketching skill** again so agents get the updated skill. The bundled copy includes:
 

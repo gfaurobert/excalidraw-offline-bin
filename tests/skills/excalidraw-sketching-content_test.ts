@@ -1,6 +1,12 @@
 import { join, fromFileUrl, dirname } from "../../desktop/path.ts";
 
-const SKILL_DIR = dirname(fromFileUrl(import.meta.url));
+const SKILL_DIR = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "..",
+  "..",
+  "skills",
+  "excalidraw-sketching",
+);
 const SKILL_MD = join(SKILL_DIR, "SKILL.md");
 
 const REQUIRED_SNIPPETS = [

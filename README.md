@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 - Autosave once a file path exists
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
 - Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
-- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project / Custom → `.agents/skills`) — **reinstall after upgrading** (v0.7.1+) so agents get the updated app + CLI guide
+- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project with multi-select targets — `.agents/skills`, Claude Code, Kiro, Cline, or All; Custom folder unchanged) — **reinstall after upgrading** (v0.7.1+) so agents get the updated app + CLI guide
 - Transient open/save status appears in the header (not a footer)
 - Upstream editor from `@excalidraw/excalidraw` **0.18.0-4ce38fb** on Linux v0.7+ (sticky notes `N`, right-click drag pan, lasso, bucket fill, draw-to-shape / autoshape)
 

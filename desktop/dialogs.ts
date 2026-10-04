@@ -11,6 +11,7 @@ import {
   winChoiceDialog,
   winConfirmDialog,
   winInfoDialog,
+  winMultiSelectChecklistDialog,
   winOpenDirectoryDialog,
   winOpenExcalidrawDialog,
   winOpenImageDialog,
@@ -18,12 +19,17 @@ import {
   winSaveImageExportDialog,
   winUnsavedChangesDialog,
 } from "./dialogs-win.ts";
-import { runDialogWithE2ePick } from "./e2e-pick.ts";
+import {
+  isE2ePickMode,
+  runConfirmWithE2ePick,
+  runDialogWithE2ePick,
+} from "./e2e-pick.ts";
 import {
   describeMacosDialogBackend,
   macChoiceDialog,
   macConfirmDialog,
   macInfoDialog,
+  macMultiSelectChecklistDialog,
   macOpenDirectoryDialog,
   macOpenExcalidrawDialog,
   macOpenImageDialog,
@@ -46,6 +52,14 @@ export type InfoDialogResult =
 
 export type ChoiceDialogResult =
   | { ok: true; id: string }
+  | {
+    ok: false;
+    reason: "cancelled" | "unavailable" | "error";
+    detail?: string;
+  };
+
+export type MultiSelectDialogResult =
+  | { ok: true; ids: string[] }
   | {
     ok: false;
     reason: "cancelled" | "unavailable" | "error";
@@ -135,6 +149,10 @@ export async function infoDialog(
   text: string,
   linkUrl?: string,
 ): Promise<InfoDialogResult> {
+  if (isE2ePickMode()) {
+    console.log("[e2e] info dialog", title, text);
+    return { ok: true };
+  }
   if (isWindows()) {
     const body = linkUrl ? `${text}\n\n${linkUrl}` : text;
     return await winInfoDialog(title, body);
@@ -439,7 +457,7 @@ export async function choiceDialog(
   }
 
   if (await commandExists("zenity")) {
-    const result = await runDialog(
+    const result = await runDialogWithE2ePick(
       buildChoiceDialogArgs("zenity", title, text, options, defaultId),
     );
     if (!result.ok) return result;
@@ -455,7 +473,7 @@ export async function choiceDialog(
   }
 
   if (await commandExists("kdialog")) {
-    const result = await runDialog(
+    const result = await runDialogWithE2ePick(
       buildChoiceDialogArgs("kdialog", title, text, options, defaultId),
     );
     if (!result.ok) return result;
@@ -468,6 +486,138 @@ export async function choiceDialog(
       };
     }
     return { ok: true, id };
+  }
+
+  return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
+}
+
+/** Pure args builder for checklist multi-select (testable). */
+export function buildMultiSelectChecklistArgs(
+  backend: "zenity" | "kdialog",
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): string[] {
+  const checked = new Set(defaultCheckedIds);
+  if (backend === "zenity") {
+    const args = [
+      "zenity",
+      "--list",
+      "--checklist",
+      `--title=${title}`,
+      `--text=${text}`,
+      "--column=Select",
+      "--column=ID",
+      "--column=Target",
+      "--hide-header",
+      "--print-column=2",
+      "--width=640",
+      "--height=360",
+    ];
+    for (const opt of options) {
+      args.push(checked.has(opt.id) ? "TRUE" : "FALSE", opt.id, opt.label);
+    }
+    return args;
+  }
+
+  const args = ["kdialog", "--title", title, "--checklist", text];
+  for (const opt of options) {
+    args.push(
+      opt.id,
+      opt.label,
+      checked.has(opt.id) ? "on" : "off",
+    );
+  }
+  return args;
+}
+
+export function parseMultiSelectIds(
+  options: ChoiceOption[],
+  stdout: string,
+): string[] {
+  const ids: string[] = [];
+  const raw = stdout.trim();
+  if (!raw) return ids;
+  const chunks = raw.includes("\n")
+    ? raw.split("\n").map((l) => l.trim()).filter(Boolean)
+    : raw.split(/\s+/).filter(Boolean);
+  for (const chunk of chunks) {
+    const token = chunk.includes("|")
+      ? chunk.split("|")[0]?.trim() ?? chunk
+      : chunk;
+    const byId = options.find((o) => o.id === token);
+    if (byId) {
+      ids.push(byId.id);
+      continue;
+    }
+    const byLabel = options.find((o) => o.label === token);
+    if (byLabel) ids.push(byLabel.id);
+  }
+  return ids;
+}
+
+export async function multiSelectChecklistDialog(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): Promise<MultiSelectDialogResult> {
+  if (options.length === 0) {
+    return { ok: false, reason: "error", detail: "no options" };
+  }
+
+  if (isWindows()) {
+    return await winMultiSelectChecklistDialog(
+      title,
+      text,
+      options,
+      defaultCheckedIds,
+    );
+  }
+  if (isDarwin()) {
+    return await macMultiSelectChecklistDialog(
+      title,
+      text,
+      options,
+      defaultCheckedIds,
+    );
+  }
+
+  if (await commandExists("zenity")) {
+    const result = await runDialogWithE2ePick(
+      buildMultiSelectChecklistArgs(
+        "zenity",
+        title,
+        text,
+        options,
+        defaultCheckedIds,
+      ),
+    );
+    if (!result.ok) return result;
+    const ids = parseMultiSelectIds(options, result.path);
+    if (ids.length === 0) {
+      return { ok: false, reason: "cancelled" };
+    }
+    return { ok: true, ids };
+  }
+
+  if (await commandExists("kdialog")) {
+    const result = await runDialogWithE2ePick(
+      buildMultiSelectChecklistArgs(
+        "kdialog",
+        title,
+        text,
+        options,
+        defaultCheckedIds,
+      ),
+    );
+    if (!result.ok) return result;
+    const ids = parseMultiSelectIds(options, result.path);
+    if (ids.length === 0) {
+      return { ok: false, reason: "cancelled" };
+    }
+    return { ok: true, ids };
   }
 
   return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
@@ -498,10 +648,14 @@ export async function openDirectoryDialog(
   if (isWindows()) return await winOpenDirectoryDialog(title, start);
   if (isDarwin()) return await macOpenDirectoryDialog(title, start);
   if (await commandExists("zenity")) {
-    return await runDialog(buildDirectoryDialogArgs("zenity", title, start));
+    return await runDialogWithE2ePick(
+      buildDirectoryDialogArgs("zenity", title, start),
+    );
   }
   if (await commandExists("kdialog")) {
-    return await runDialog(buildDirectoryDialogArgs("kdialog", title, start));
+    return await runDialogWithE2ePick(
+      buildDirectoryDialogArgs("kdialog", title, start),
+    );
   }
   return { ok: false, reason: "unavailable", detail: "no zenity/kdialog" };
 }
@@ -517,25 +671,6 @@ export function buildConfirmDialogArgs(
   return ["kdialog", "--title", title, "--yesno", text];
 }
 
-async function runConfirmCommand(args: string[]): Promise<ConfirmDialogResult> {
-  try {
-    const useSetsid = await commandExists("setsid");
-    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
-      args: useSetsid ? args : args.slice(1),
-      stdout: "null",
-      stderr: "piped",
-    });
-    const { success, code, stderr } = await cmd.output();
-    // zenity/kdialog: 0 = Yes, 1 = No/Cancel
-    if (success || code === 0) return { ok: true, confirmed: true };
-    if (code === 1) return { ok: true, confirmed: false };
-    const detail = new TextDecoder().decode(stderr).trim();
-    return { ok: false, reason: "error", detail: detail || `exit ${code}` };
-  } catch (err) {
-    return { ok: false, reason: "error", detail: String(err) };
-  }
-}
-
 export async function confirmDialog(
   title: string,
   text: string,
@@ -543,12 +678,12 @@ export async function confirmDialog(
   if (isWindows()) return await winConfirmDialog(title, text);
   if (isDarwin()) return await macConfirmDialog(title, text);
   if (await commandExists("zenity")) {
-    return await runConfirmCommand(
+    return await runConfirmWithE2ePick(
       buildConfirmDialogArgs("zenity", title, text),
     );
   }
   if (await commandExists("kdialog")) {
-    return await runConfirmCommand(
+    return await runConfirmWithE2ePick(
       buildConfirmDialogArgs("kdialog", title, text),
     );
   }

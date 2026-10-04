@@ -1,10 +1,15 @@
 /// <reference path="./desktop-types.d.ts" />
 
-import type { DialogResult } from "./dialogs.ts";
+import type { ConfirmDialogResult, DialogResult } from "./dialogs.ts";
 import { commandExists } from "./platform.ts";
 
 let pendingPick: {
   resolve: (result: DialogResult) => void;
+  child: Deno.ChildProcess;
+} | null = null;
+
+let pendingConfirm: {
+  resolve: (result: ConfirmDialogResult) => void;
   child: Deno.ChildProcess;
 } | null = null;
 
@@ -17,6 +22,19 @@ export function isE2ePickMode(): boolean {
 }
 
 /** Driver completes a visible zenity save/open picker while the UI awaits /api/pick-save. */
+export function completeE2eConfirm(confirmed: boolean): boolean {
+  const pending = pendingConfirm;
+  if (!pending) return false;
+  pendingConfirm = null;
+  try {
+    pending.child.kill();
+  } catch {
+    // ignore
+  }
+  pending.resolve({ ok: true, confirmed });
+  return true;
+}
+
 export function completeE2ePick(
   path: string | null,
   cancelled = false,
@@ -65,6 +83,57 @@ export async function runDialogWithE2ePick(args: string[]): Promise<DialogResult
       reason: "error",
       detail: `Failed to spawn ${args[0]}: ${String(err)}`,
     };
+  }
+}
+
+export async function runConfirmWithE2ePick(
+  args: string[],
+): Promise<ConfirmDialogResult> {
+  if (!isE2ePickMode()) {
+    return await runConfirmBlocking(args);
+  }
+
+  try {
+    const useSetsid = await commandExists("setsid");
+    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+      args: useSetsid ? args : args.slice(1),
+      stdout: "null",
+      stderr: "piped",
+    });
+    const child = cmd.spawn();
+
+    return await new Promise((resolve) => {
+      pendingConfirm = { resolve, child };
+      setTimeout(() => {
+        if (pendingConfirm?.child === child) {
+          completeE2eConfirm(false);
+        }
+      }, 120_000);
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "error",
+      detail: `Failed to spawn ${args[0]}: ${String(err)}`,
+    };
+  }
+}
+
+async function runConfirmBlocking(args: string[]): Promise<ConfirmDialogResult> {
+  try {
+    const useSetsid = await commandExists("setsid");
+    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+      args: useSetsid ? args : args.slice(1),
+      stdout: "null",
+      stderr: "piped",
+    });
+    const { success, code, stderr } = await cmd.output();
+    if (success || code === 0) return { ok: true, confirmed: true };
+    if (code === 1) return { ok: true, confirmed: false };
+    const detail = new TextDecoder().decode(stderr).trim();
+    return { ok: false, reason: "error", detail: detail || `exit ${code}` };
+  } catch (err) {
+    return { ok: false, reason: "error", detail: String(err) };
   }
 }
 

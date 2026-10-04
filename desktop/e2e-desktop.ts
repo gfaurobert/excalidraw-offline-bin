@@ -1,6 +1,14 @@
 /// <reference path="./desktop-types.d.ts" />
 
-import { completeE2ePick } from "./e2e-pick.ts";
+import { completeE2eConfirm, completeE2ePick } from "./e2e-pick.ts";
+
+let e2eSkillInstallHandler: (() => void | Promise<void>) | null = null;
+
+export function registerE2eSkillInstallHandler(
+  handler: () => void | Promise<void>,
+): void {
+  e2eSkillInstallHandler = handler;
+}
 
 export function isE2eMode(): boolean {
   try {
@@ -126,6 +134,20 @@ export async function handleE2eApi(
       body.cancelled === true,
     );
     return json({ ok: true, completed });
+  }
+
+  if (pathname === "/api/e2e/complete-confirm" && method === "POST") {
+    const body = await readJson<{ confirmed?: boolean }>(req);
+    const completed = completeE2eConfirm(body.confirmed === true);
+    return json({ ok: true, completed });
+  }
+
+  if (pathname === "/api/e2e/skill-install" && method === "POST") {
+    if (!e2eSkillInstallHandler) {
+      return json({ ok: false, error: "skill install handler not registered" }, 503);
+    }
+    await e2eSkillInstallHandler();
+    return json({ ok: true });
   }
 
   return json({ ok: false, error: "unknown e2e route" }, 404);

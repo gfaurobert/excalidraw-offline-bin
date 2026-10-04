@@ -428,6 +428,111 @@ export async function winUnsavedChangesDialog(
   }
 }
 
+export function buildWinMultiSelectScript(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): string {
+  const checkedSet = new Set(defaultCheckedIds);
+  let y = 48;
+  const itemLines: string[] = [];
+  for (const opt of options) {
+    const checked = checkedSet.has(opt.id) ? "$true" : "$false";
+    itemLines.push(
+      `$idx = $clb.Items.Add(${psSingleQuote(opt.label)})
+$clb.SetItemTag($idx, ${psSingleQuote(opt.id)})
+if (${checked}) { $clb.SetItemChecked($idx, $true) }`,
+    );
+    y += 24;
+  }
+  const height = Math.max(220, y + 100);
+  return `${WINFORMS_PREAMBLE}$form = New-Object System.Windows.Forms.Form
+$form.Text = ${psSingleQuote(title)}
+$form.StartPosition = 'CenterScreen'
+$form.FormBorderStyle = 'FixedDialog'
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.Width = 520
+$form.Height = ${height}
+$form.ShowInTaskbar = $false
+$label = New-Object System.Windows.Forms.Label
+$label.Text = ${psSingleQuote(text)}
+$label.Left = 16
+$label.Top = 12
+$label.Width = 470
+$label.Height = 32
+$form.Controls.Add($label)
+$clb = New-Object System.Windows.Forms.CheckedListBox
+$clb.Left = 16
+$clb.Top = 48
+$clb.Width = 470
+$clb.Height = ${y - 48}
+$form.Controls.Add($clb)
+${itemLines.join("\n")}
+$ok = New-Object System.Windows.Forms.Button
+$ok.Text = 'OK'
+$ok.Width = 90
+$ok.Left = 300
+$ok.Top = ${y + 8}
+$ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$cancel = New-Object System.Windows.Forms.Button
+$cancel.Text = 'Cancel'
+$cancel.Width = 90
+$cancel.Left = 400
+$cancel.Top = ${y + 8}
+$cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$form.Controls.Add($ok)
+$form.Controls.Add($cancel)
+$form.AcceptButton = $ok
+$form.CancelButton = $cancel
+$result = $form.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  $any = $false
+  for ($i = 0; $i -lt $clb.Items.Count; $i++) {
+    if ($clb.GetItemChecked($i)) {
+      [Console]::Out.WriteLine([string]$clb.GetItemTag($i))
+      $any = $true
+    }
+  }
+  if ($any) { exit 0 }
+}
+exit 1
+`;
+}
+
+export async function winMultiSelectChecklistDialog(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): Promise<
+  | { ok: true; ids: string[] }
+  | {
+    ok: false;
+    reason: "cancelled" | "unavailable" | "error";
+    detail?: string;
+  }
+> {
+  if (options.length === 0) {
+    return { ok: false, reason: "error", detail: "no options" };
+  }
+  const { code, stdout, stderr } = await runPowerShell(
+    buildWinMultiSelectScript(title, text, options, defaultCheckedIds),
+  );
+  const ids = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (code === 0 && ids.length > 0) {
+    const valid = ids.filter((id) => options.some((o) => o.id === id));
+    if (valid.length > 0) return { ok: true, ids: valid };
+  }
+  if (code === 1) return { ok: false, reason: "cancelled" };
+  return {
+    ok: false,
+    reason: "error",
+    detail: stderr.trim() || `exit ${code}`,
+  };
+}
+
 export async function winChoiceDialog(
   title: string,
   text: string,

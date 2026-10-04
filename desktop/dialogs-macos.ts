@@ -131,6 +131,41 @@ end try
 `;
 }
 
+export function buildMacMultiSelectScript(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): string {
+  const checkedSet = new Set(defaultCheckedIds);
+  const labels = options.map((o) => appleScriptString(o.label)).join(", ");
+  const defaultLabels = options
+    .filter((o) => checkedSet.has(o.id))
+    .map((o) => appleScriptString(o.label))
+    .join(", ");
+  const defaultClause = defaultLabels.length > 0
+    ? ` default items {${defaultLabels}}`
+    : "";
+  const mapLines = options.map((o) =>
+    `    if chosen is ${appleScriptString(o.label)} then set end of pickedIds to ${appleScriptString(o.id)}`
+  ).join("\n");
+  return `set theChoice to choose from list {${labels}} with title ${appleScriptString(title)} with prompt ${appleScriptString(text)} with multiple selections allowed${defaultClause}
+if theChoice is false then
+  error number 1
+end if
+set pickedIds to {}
+repeat with lbl in theChoice
+  set chosen to lbl as text
+${mapLines}
+end repeat
+if (count of pickedIds) is 0 then
+  error number 1
+end if
+set AppleScript's text item delimiters to linefeed
+return pickedIds as text
+`;
+}
+
 export function buildMacChoiceScript(
   title: string,
   text: string,
@@ -344,6 +379,44 @@ export async function macUnsavedChangesDialog(
     const choice = parseMacUnsavedOutcome(stdout);
     if (code === 0 && choice) return { ok: true, choice };
     if (isUserCancel(code, stderr)) return { ok: true, choice: "cancel" };
+    return {
+      ok: false,
+      reason: "error",
+      detail: stderr.trim() || `exit ${code}`,
+    };
+  } catch (err) {
+    return { ok: false, reason: "unavailable", detail: String(err) };
+  }
+}
+
+export async function macMultiSelectChecklistDialog(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[] = [],
+): Promise<
+  | { ok: true; ids: string[] }
+  | {
+    ok: false;
+    reason: "cancelled" | "unavailable" | "error";
+    detail?: string;
+  }
+> {
+  if (options.length === 0) {
+    return { ok: false, reason: "error", detail: "no options" };
+  }
+  try {
+    const { code, stdout, stderr } = await runOsascript(
+      buildMacMultiSelectScript(title, text, options, defaultCheckedIds),
+    );
+    const ids = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (code === 0 && ids.length > 0) {
+      const valid = ids.filter((id) => options.some((o) => o.id === id));
+      if (valid.length > 0) return { ok: true, ids: valid };
+    }
+    if (isUserCancel(code, stderr) || code === 1) {
+      return { ok: false, reason: "cancelled" };
+    }
     return {
       ok: false,
       reason: "error",
