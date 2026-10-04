@@ -1,105 +1,139 @@
 ---
 name: excalidraw-sketching
-  description: >-
-  AI agent sketching for wireframes, diagrams, and CAD object drawings via
-  plain .excalidraw files under sketches/. Use when the user asks to sketch,
-  wireframe, diagram, draw a flowchart/architecture, or outline a part/assembly
-  for CAD. CRUD files on disk only — never launch MCP, never start a canvas
-  server. After create/update, tell the user the path and launch
-  `excalidraw-offline <path>` when available.
+description: >-
+  Help humans use Excalidraw Offline (.excalidraw desktop app, native File menu,
+  GUI export, headless PNG CLI) and create or edit agent sketches as plain JSON
+  under sketches/. Use for wireframes, diagrams, CAD outlines, opening/saving
+  files, Reload after external edits, CLI export flags, or installing this skill
+  via Skills → Install excalidraw-sketching skill.
 ---
 
-# Excalidraw sketches (offline)
+# Excalidraw Offline — agent guide
+
+**Excalidraw Offline** is a local Deno Desktop app for `.excalidraw` files (not
+Electron). It embeds upstream Excalidraw in a webview with **native OS dialogs**
+(Linux: zenity/kdialog; Windows: PowerShell WinForms; macOS: osascript). No
+MCP, no canvas server, no share links.
+
+Agents typically either **(A)** help a human use the GUI/CLI, or **(B)** read/write
+sketch JSON under `sketches/` and tell the human how to open or export.
+
+## Install this skill
+
+**Skills → Install excalidraw-sketching skill** copies this folder from the app
+bundle. Destinations:
+
+| Choice | Path |
+|--------|------|
+| Global (user) | `~/.agents/skills/excalidraw-sketching/` |
+| Project | `<picked-root>/.agents/skills/excalidraw-sketching/` |
+| Custom | `<picked-folder>/excalidraw-sketching/` (no `.agents/skills` suffix) |
+
+Overwrite prompts if the destination already exists.
+
+## Desktop app — help the human
+
+### Start screen
+
+Cold start shows **New / Open / Recent** (canvas mounts after an action). Does
+not auto-open the last file.
+
+### Native **File** menu (also wired in the canvas webview)
+
+| Action | Menu / shortcut |
+|--------|-----------------|
+| New | File → New · **Ctrl+N** (⌘N macOS) |
+| Open | File → Open… · **Ctrl+O** |
+| Open Recent | File → Open Recent · up to 10 MRU paths (missing paths dropped on use) |
+| Close | File → Close · **Ctrl+W** · returns to start screen |
+| Reload | File → Reload · **Ctrl+R** · re-reads saved file from disk (see below) |
+| Save | File → Save · **Ctrl+S** |
+| Save As | File → Save As… · **Ctrl+Shift+S** |
+| Quit | File → Quit · **Ctrl+Q** |
+
+**Reload** is enabled only on the **canvas** with a **saved path** (not Untitled,
+not start screen). Use when a coding agent or other tool changed the `.excalidraw`
+on disk. If the human has **unsaved local edits**, Reload shows native
+**Cancel / Save / Discard** (reload reason: save to disk first, discard local
+edits then load disk, or cancel). Same three-button pattern for dirty **Untitled**
+on Close / New / Open / Quit.
+
+Once a drawing has a path, **autosave** (~1.5s debounce) writes back to that file.
+Untitled sketches need Save / Save As before autosave works.
+
+### Open / create from CLI
+
+```bash
+excalidraw-offline /path/to/drawing.excalidraw
+```
+
+Missing path → creates blank `.excalidraw` (parents included) and opens it.
+Existing file → opens in GUI (may hand off to an already-running instance per app
+rules). Prefer this over Cursor chat file links (those open in the editor, not
+Excalidraw Offline). Linux after MIME install: `xdg-open path.excalidraw`.
+
+### Export image (GUI)
+
+**Ctrl+Shift+E** (⌘⇧E macOS) or upstream **Excalidraw → Export image…** opens
+the upstream export dialog (preview, selection/background/**dark mode**/embed
+scene, scale 1×–3×, PNG / SVG / clipboard). **PNG and SVG** use the **native save
+picker** (default folder: directory of the saved `.excalidraw`, or home when
+Untitled). App header shows status and saved path.
+
+### Upstream Excalidraw on the canvas
+
+Bundled Excalidraw includes standard tools plus recent upstream additions:
+
+- **Frames** — frame elements (`type: "frame"`, `name` for labels); use for
+  screen regions; CLI can export by frame name (see below).
+- **Sticky notes** — shortcut **`N`**; element type `stickynote`.
+- **Pan** — **right-click drag** to pan (upstream behavior; threshold ~5px).
+- **Dark mode** — canvas theme in `appState.theme` (`"light"` / `"dark"`); toggle
+  via upstream Excalidraw’s in-app menu. **Export image…** (Ctrl+Shift+E) also
+  offers a **Dark mode** export option in the dialog.
+
+Space+drag and other upstream shortcuts behave as in stock Excalidraw.
+
+### Other native menus
+
+- **Skills** — install this Agent Skill (above).
+- **Info** — Runtime backend, Assets tip, About Excalidraw Offline (wrapper),
+  About Excalidraw (upstream package version).
+
+---
+
+## Agent sketching (file CRUD)
 
 Sketch by **writing and editing `.excalidraw` JSON** under the workspace
-`sketches/` folder. The source of truth is the file on disk. The user views and
-hand-edits with the local **`excalidraw-offline`** desktop app.
+`sketches/` folder. Source of truth is the file on disk.
 
 **Do not** use MCP tools, `mcp-excalidraw-server`, `npx` canvas servers, REST
 canvas APIs, Mermaid-to-canvas converters, or share-link uploads.
 
-## Scope
+### Scope
 
-Use this skill for:
+1. **UI wireframes** — screens, flows, controls
+2. **Diagrams** — architecture, flow, decision trees
+3. **CAD object sketches** — orthographic outlines, callouts (intent notes, not
+   parametric models)
 
-1. **UI wireframes** — screens, flows, controls, navigation
-2. **Diagrams** — architecture, sequence-ish boxes, data flow, decision trees
-3. **CAD object sketches** — orthographic outlines, assembly layouts, feature
-   callouts, exploded-ish part diagrams that feed FreeCAD / ForgeCAD work
-
-Not for: parametric CAD models, precise manufacturing drawings, or live
-collaboration canvases.
-
-## File CRUD (required)
+### File ops
 
 Root: `<workspace-root>/sketches/` (create if missing).
 
 | Op | How |
 |----|-----|
-| **Create** | Write `sketches/<name>.excalidraw` (valid scene JSON) |
-| **Read** | Read the `.excalidraw` file; summarize elements by `id` / label |
-| **Update** | Edit elements in place (change coords, labels, add/remove shapes), then rewrite the file |
-| **Delete** | Delete the `.excalidraw` file (and unused `sketches/assets/<id>.*` if you added images) |
+| Create | Write `sketches/<name>.excalidraw` (valid scene JSON) |
+| Read | Read file; summarize by `id` / label |
+| Update | Patch elements; rewrite file |
+| Delete | Remove file (+ unused `sketches/assets/<id>.*` if any) |
 
-### Naming
+Naming: slug `sketches/<name>.excalidraw`; if exists, edit — do not overwrite
+blindly. Only write under `sketches/`; plain JSON (not Obsidian `.excalidraw.md`).
 
-- User gives a name → `sketches/<name>.excalidraw` (slug: lowercase, dashes)
-- No name → `sketches/sketch-<6 alphanumeric>.excalidraw`
-- If the file already exists → **open/edit it**, do not overwrite blindly
+After create/update: give the path and run `excalidraw-offline <path>` when on PATH.
 
-### Paths
-
-- Only write under `sketches/`
-- Plain `.excalidraw` JSON only (never Obsidian `.excalidraw.md`)
-- Do not git-commit sketches unless the user asks
-
-### Viewing
-
-After create or update:
-
-1. Tell the human the sketch path (workspace-relative, e.g. `sketches/<name>.excalidraw`).
-2. Launch it with the CLI when available (preferred — works for agents and is reliable):
-
-```bash
-excalidraw-offline sketches/<name>.excalidraw
-```
-
-If the file does not exist yet, the app **creates a blank** `.excalidraw` at that path (including parent directories) and opens it. Prefer writing the sketch JSON yourself for real content; use create-on-open when you want a blank canvas at a known path.
-
-If `excalidraw-offline` is not on `PATH`, say so and fall back to: open the file manually via File → Open in Excalidraw Offline.
-
-After OS MIME install, `xdg-open sketches/<name>.excalidraw` also works for existing files. Prefer the CLI for agent launches.
-
-### Export PNG snapshots (CLI)
-
-To generate PNGs for vision models or docs **without** a human using the menu:
-
-```bash
-excalidraw-offline --help
-excalidraw-offline export --help
-excalidraw-offline export sketches/<name>.excalidraw
-excalidraw-offline export sketches/<name>.excalidraw --frame "Screen name"
-excalidraw-offline export sketches/<name>.excalidraw --all-frames -d sketches/export --json
-```
-
-From a repo checkout (when developing excalidraw-offline itself; compiles `dist/linux/excalidraw-offline` if needed, then runs the same `export` CLI as the packaged app):
-
-```bash
-deno task export -- --help
-deno task export -- sketches/<name>.excalidraw
-deno task export -- sketches/<name>.excalidraw --frame "Screen name" --json
-deno task export -- sketches/<name>.excalidraw --all-frames -d ./png-out
-```
-
-PNG files default to the **same folder** as the `.excalidraw` file (`{name}_{YYYYMMDD-HHMMSS}.png`, or with a frame segment when using `--frame`). Override with **`--out`** or **`-d`** (directory; created if missing). Prefer **`--frame`** / **`--all-frames`** over guessing coordinates; use **`--element <id>`** when you already know element ids from the JSON. Paths are printed to stdout (or JSON with `--json`).
-
-Humans can also use Excalidraw’s **Export image…** dialog (Ctrl+Shift+E); PNG/SVG saves open a native picker starting in the drawing’s folder.
-
-**Cursor note:** Clicking a `.excalidraw` path in Cursor chat usually opens it **inside the editor**, not via the OS handler. Do not rely on chat file links for viewing — run the CLI (or `xdg-open`) instead.
-
-## Document format
-
-Every sketch file:
+### Document format
 
 ```json
 {
@@ -115,159 +149,104 @@ Every sketch file:
 }
 ```
 
-- Pretty-print with 2-space indent and a trailing newline (matches the offline
-  binary writer).
-- `files` stays `{}` unless the sketch embeds images. Image binaries live in
-  `sketches/assets/<fileId>.<ext>` with a stored ref:
+Pretty-print 2 spaces + trailing newline. Element/label rules: `references/cheatsheet.md`.
 
-```json
-"files": {
-  "<fileId>": {
-    "mimeType": "image/png",
-    "id": "<fileId>",
-    "path": "assets/<fileId>.png",
-    "created": 1710000000000
-  }
-}
+---
+
+## Headless PNG export (CLI)
+
+Same renderer as GUI (`exportToBlob`), via a short-lived hidden webview. **Does
+not** join single-instance handoff. Requires packaged app / `deno desktop` webview
+(not headless-only WSL without a host GUI).
+
+### Help (stdout, exit 0, no GUI)
+
+```bash
+excalidraw-offline --help
+excalidraw-offline -h
+excalidraw-offline export --help
+excalidraw-offline export -h
+deno task export -- --help
 ```
 
-All sketches in the same `sketches/` folder share one `assets/` directory — use
-unique `fileId` values (random hex/nanoid-style). Prefer no images unless the
-user provides reference pictures.
+Run these for authoritative flag text; summary below matches the shipped help.
 
-Full field reference: `references/cheatsheet.md`.
+### Flags (one selector kind per run)
 
-## Element rules
+| Flag | Meaning |
+|------|---------|
+| *(default)* | Whole scene bounding box |
+| `--frame NAME` | Repeatable; **exact** frame name; one PNG per match |
+| `--all-frames` | One PNG per **named** frame in the file |
+| `--element ID` | Repeatable; one PNG with listed element ids selected |
+| `--bbox x,y,width,height` | Scene coords; elements intersecting the rectangle |
 
-Every element needs stable fields the offline app expects. Prefer this template
-and only change what you need:
+| Output flag | Meaning |
+|-------------|---------|
+| `--out PATH` | Directory, or a single `.png` when exactly **one** export job |
+| `-d DIR` | Same as `--out` (directory; **created recursively** if missing) |
+| `--scale N` | Default `2`, max `8` |
+| `--json` | stdout `{"paths":["…"]}` instead of one path per line |
 
-```json
-{
-  "id": "btn-primary",
-  "type": "rectangle",
-  "x": 100,
-  "y": 80,
-  "width": 160,
-  "height": 48,
-  "angle": 0,
-  "strokeColor": "#1e1e1e",
-  "backgroundColor": "#a5d8ff",
-  "fillStyle": "solid",
-  "strokeWidth": 2,
-  "strokeStyle": "solid",
-  "roughness": 0,
-  "opacity": 100,
-  "groupIds": [],
-  "frameId": null,
-  "roundness": { "type": 3 },
-  "seed": 1,
-  "versionNonce": 1,
-  "isDeleted": false,
-  "boundElements": [],
-  "updated": 1,
-  "link": null,
-  "locked": false
-}
+**Default output dir:** folder containing the `.excalidraw` file.  
+**Default filename:** `{drawingBase}_{YYYYMMDD-HHMMSS}.png`  
+**Named frame:** `{drawingBase}_{frameNameSanitized}_{YYYYMMDD-HHMMSS}.png`  
+**Collisions:** `-2`, `-3`, … before `.png`. Exit `1` on usage error, missing
+file, unknown frame/element, empty bbox, or export failure.
+
+### Repo checkout (dev)
+
+Builds frontend, compiles `dist/linux/excalidraw-offline` if needed, then same argv:
+
+```bash
+deno task export -- <file.excalidraw> [options]
 ```
 
-### Labels (critical)
+### Examples (fixture: `test-fixtures/e2e-export/matrix-demo.excalidraw`)
 
-Do **not** invent MCP-style `"text": "..."` on shapes. Persist real Excalidraw
-structure:
+Frames in that file: `Dashboard`, `UI "mock" / v2`. Sample element id:
+`rect-outside-id`.
 
-1. Shape with `boundElements: [{ "type": "text", "id": "btn-primary-label" }]`
-2. Sibling text element with `"containerId": "btn-primary"` and the label string
+```bash
+DOC=test-fixtures/e2e-export/matrix-demo.excalidraw
+OUT=/tmp/excalidraw-skill-export
+mkdir -p "$OUT"
 
-Or use a free-standing `text` element (required for zone titles — never bind
-text to large background rectangles).
+# Whole scene
+excalidraw-offline export "$DOC"
 
-### Arrows
+# One frame (repeat --frame for multiple)
+excalidraw-offline export "$DOC" --frame 'UI "mock" / v2' -d "$OUT"
 
-Create the arrow with `points` relative to the arrow's `x`/`y`, and set
-`startBinding` / `endBinding` to the connected element ids (with `focus` /
-`gap`). Keep arrow labels short or omit them.
+# All named frames
+excalidraw-offline export "$DOC" --all-frames -d "$OUT"
 
-### Types to use
+# Element selection + JSON paths on stdout
+excalidraw-offline export "$DOC" --element rect-outside-id --json
 
-| Need | `type` |
-|------|--------|
-| Box / panel / part silhouette | `rectangle` |
-| Soft node / sensor | `ellipse` |
-| Decision | `diamond` |
-| Label / title / dimension note | `text` |
-| Flow / constraint / leader | `arrow` |
-| Guide / section cut | `line` (`strokeStyle: "dashed"`) |
+# Bounding box + scale
+excalidraw-offline export "$DOC" --bbox 0,0,900,500 --scale 3 -d "$OUT"
 
-Use `"roughness": 0` and `"fillStyle": "solid"` for wireframes and CAD sketches
-(crisp, not sketchy).
+# Single explicit output file (only when one job)
+excalidraw-offline export "$DOC" --element rect-outside-id --out "$OUT/one.png"
 
-## Coordinate system and layout
+# Dev checkout equivalent
+deno task export -- "$DOC" --frame Dashboard --json
+deno task export -- "$DOC" --all-frames -d "$OUT"
+```
 
-- Origin top-left; **x → right**, **y → down**
-- Align to a **20px grid**
-- Gaps: 40–80px between siblings; 80–120px between tiers; 120px+ when arrows
-  carry labels
-- Shape width: `max(160, labelChars * 12)`; height 48–80 for UI chrome, 60–100
-  for diagram nodes
-- Zone padding: ≥ 50px around contained elements
+Replace `excalidraw-offline` with `deno task export --` in a git checkout; keep
+flags after `--`.
 
-### Anti-patterns
+Humans can also use **Ctrl+Shift+E** (GUI export dialog) instead of CLI.
 
-1. Bound labels on large zone rectangles (label centers in the middle and
-   overlaps children) — use free-standing text at the top-left of the zone
-2. Long diagonal cross-zone arrows — route along edges with elbowed points
-3. Labels on every arrow — only when the relationship name matters (≤ 12 chars)
-4. Overlapping shapes or truncated text — widen boxes before adding more
+---
 
-## Workflows by sketch kind
+## Quality checklist (agent sketches)
 
-### UI wireframe
+1. Valid JSON at `sketches/<name>.excalidraw`
+2. Labels via bound text or free-standing text (no fake `"text"` on shapes)
+3. Tell human the path + `excalidraw-offline <path>` or export command
+4. Do not git-commit unless asked
 
-1. Plan screen frames left-to-right or top-to-bottom
-2. Draw frames as large rectangles + free-standing screen titles
-3. Place controls (rects/ellipses) with bound labels
-4. Add navigation arrows between screens sparingly
-5. Prefer grayscale + one accent for primary actions
-
-### Diagram
-
-1. Lay out tiers on a grid before writing JSON
-2. Nodes first (stable ids), then arrows with bindings
-3. Background zones only when they clarify boundaries (dashed stroke, light fill)
-4. Re-read the file and check: no overlaps, labels fit, arrows clear
-
-### CAD object sketch
-
-1. One orthographic view per cluster (Front / Top / Side) or a single clear
-   outline — label the view with free-standing text
-2. Outer silhouette as rectangle/ellipse/line paths; features as nested shapes
-3. Callouts: short arrows + free text (`hole Ø6`, `fillet R3`, `M4×0.7`) — these
-   are **intent notes**, not parametric constraints
-4. Keep proportions approximate; say in the reply that exact dims belong in
-   FreeCAD / ForgeCAD
-5. If feeding a CAD skill next, keep part/feature ids stable and human-readable
-   (`housing`, `lid`, `boss-m4`)
-
-## Quality checklist
-
-Before saying done:
-
-1. File exists at `sketches/<name>.excalidraw` and parses as JSON
-2. `type` / `version` / `elements` / `appState` / `files` present
-3. Every label either bound correctly or free-standing (no MCP shorthand)
-4. No overlapping critical shapes; text not clipped
-5. Point the user at the path and how to open it in Excalidraw Offline
-6. Do not commit unless asked
-
-## Iterative edits
-
-1. Read the file
-2. Find elements by `id` or label text (not by brittle x/y alone)
-3. Patch elements (move, resize, recolor, add/delete)
-4. Rewrite the whole file
-5. Summarize what changed (ids + intent)
-
-When rebuilding a messy sketch is faster than patching, replace `elements`
-entirely but keep the same filename and ids the user already relies on when
-possible.
+Full element reference: `references/cheatsheet.md`. Eval prompts: `evals/evals.json`.
