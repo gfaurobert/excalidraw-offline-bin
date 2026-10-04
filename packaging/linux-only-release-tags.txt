@@ -2,3 +2,4 @@
 # Remove a tag from this list once Win/mac builds are validated for that version.
 v0.6.0
 v0.7.0
+v0.7.1
