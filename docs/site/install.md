@@ -5,6 +5,16 @@ nav_order: 2
 
 # Install
 
+**Current version:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux x86_64 only).
+
+| Platform | Download |
+|----------|----------|
+| **Linux** | [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (v0.7.1: AppImage + tar.xz) |
+| **Windows 11** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (MSI + zip) — newer Win builds not published yet |
+| **macOS arm64** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (DMG + zip) — newer mac builds not published yet |
+
+Releases **v0.6.0**, **v0.7.0**, and **v0.7.1** are **Linux-only** (export CLI, `--help`, and Export image dialog are in those Linux builds only until Windows/macOS catch up).
+
 ## Requirements
 ### Arch
 ```shell
@@ -25,7 +35,7 @@ Replace 'zenity' with 'kdialog'
 
 ## Linux (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.1**):
 
 - **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run). Release builds embed MIME/`%F` in the AppImage desktop entry when `appimagetool` is available during packaging (first-run AppImage integration registers the association).
 - **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree). The portable tarball does **not** register MIME types.
@@ -36,14 +46,16 @@ Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs `.github/workf
 
 ## Windows 11 (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (not the latest tag — v0.6+ Windows assets were skipped):
 
-- **MSI** — `excalidraw-offline-<version>-windows-x86_64.msi`
-- **Zip** — `excalidraw-offline-<version>-windows-x86_64.zip` (portable)
+- **MSI** — `excalidraw-offline-0.5.0-windows-x86_64.msi`
+- **Zip** — `excalidraw-offline-0.5.0-windows-x86_64.zip` (portable)
 
 Runtime: WebView2 (preinstalled on Windows 11) and Windows PowerShell for open/save/unsaved dialogs. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
-The packaged app registers a per-user `.excalidraw` file association on first launch. CLI:
+The packaged app registers a per-user `.excalidraw` file association on first launch. **File → Reload** (Ctrl+R) is available; **Export image…** and `excalidraw-offline export` arrive in a future Windows release (already on Linux v0.6+).
+
+CLI:
 
 ```powershell
 excalidraw-offline C:\path\to\drawing.excalidraw
@@ -53,12 +65,14 @@ Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-windows.yml`.
 
 ## macOS Apple Silicon (GitHub Releases)
 
-Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
+Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (not the latest tag — v0.6+ macOS assets were skipped):
 
-- **DMG** — `excalidraw-offline-<version>-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
-- **Zip** — `excalidraw-offline-<version>-macos-arm64.zip` (extract the `.app`)
+- **DMG** — `excalidraw-offline-0.5.0-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
+- **Zip** — `excalidraw-offline-0.5.0-macos-arm64.zip` (extract the `.app`)
 
 Runtime: WKWebView and `osascript` for open/save/unsaved dialogs. Ad-hoc signed builds hit Gatekeeper (right-click → **Open**, or `xattr -d com.apple.quarantine` on the `.app`).
+
+**File → Reload** (⌘R) is available; **Export image…** and `excalidraw-offline export` arrive in a future macOS release (already on Linux v0.6+).
 
 CLI (pass the drawing as argv; Finder double-click currently only launches the app):
 

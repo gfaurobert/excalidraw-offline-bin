@@ -1,6 +1,6 @@
 ---
 title: FAQ
-nav_order: 5
+nav_order: 6
 ---
 
 # FAQ
@@ -17,6 +17,12 @@ No for core drawing. There is no account, sync, or collaboration in the first ve
 
 Linux x86_64 (GitHub Releases AppImage/tarball; Arch `makepkg`), Windows 11 x86_64 (MSI and zip), and Apple Silicon macOS (DMG and zip of the `.app`). Intel Macs are not packaged yet.
 
+**Which release should I install?** **Current version is [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux only).** On Linux, use [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest). On Windows and macOS, use **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** — v0.6.0, v0.7.0, and v0.7.1 did not ship Win/mac assets.
+
+## Where are Export image and `excalidraw-offline export`?
+
+From **v0.6.0** (Linux builds today): **Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`**. Windows and macOS **v0.5.0** builds do not include them yet; **File → Reload** (Ctrl+R / ⌘R) is available on v0.5.0 on all platforms. See [Usage]({% link usage.md %}) and [What's new]({% link whats-new.md %}).
+
 ## Why do I need zenity, kdialog, PowerShell, or osascript?
 
 Open/save pickers and the unsaved Cancel / Save / Discard dialog use native OS dialogs: zenity or kdialog on Linux, PowerShell WinForms on Windows, and `osascript` on macOS. If they are unavailable, the app reports a status error rather than falling back to typed paths.
@@ -31,7 +37,7 @@ Imported images are copied there with relative paths so the drawing stays portab
 
 ## How do I install the sketching Agent Skill?
 
-Use the Skills menu: Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom folder. The bundled skill is `excalidraw-sketching`.
+Use the Skills menu: Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom folder. The bundled skill is `excalidraw-sketching`. **Reinstall after upgrading the app** (especially v0.7.1+) so agents read the updated skill — it documents the app guide, Reload prompt, Export dialog, export CLI flags, `--help`, output naming, and exit codes.
 
 ## macOS says the app is damaged or cannot be opened
 
