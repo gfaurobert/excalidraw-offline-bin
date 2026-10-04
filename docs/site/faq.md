@@ -17,7 +17,7 @@ No for core drawing. There is no account, sync, or collaboration in the first ve
 
 Linux x86_64 (GitHub Releases AppImage/tarball; Arch `makepkg`), Windows 11 x86_64 (MSI and zip), and Apple Silicon macOS (DMG and zip of the `.app`). Intel Macs are not packaged yet.
 
-**Which release should I install?** **Current version is [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux only).** On Linux, use [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest). On Windows and macOS, use **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** — v0.6.0, v0.7.0, and v0.7.1 did not ship Win/mac assets.
+**Which release should I install?** **Current version is [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux only).** On Linux, use [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest). On Windows and macOS, use **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** — v0.6.0, v0.7.0, v0.7.1, and v0.7.2 did not ship Win/mac assets.
 
 ## Where are Export image and `excalidraw-offline export`?
 

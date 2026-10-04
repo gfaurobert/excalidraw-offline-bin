@@ -4,7 +4,7 @@ Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.co
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
-**Current version:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux). **Install:** Linux → [latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest); Windows and macOS → [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) until newer Win/mac builds ship. Releases v0.6.0–v0.7.1 are Linux-only (AppImage, tar.xz).
+**Current version:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux). **Install:** Linux → [latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest); Windows and macOS → [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) until newer Win/mac builds ship. Releases v0.6.0–v0.7.2 are Linux-only (AppImage, tar.xz).
 
 https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 
@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 
 ### Linux (GitHub Releases)
 
-Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.1**):
+Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.2**):
 
 - **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (chmod +x, then run)
 - **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree)

@@ -1,6 +1,6 @@
 # Maintainer: Gregoire <gregoire@localhost>
 pkgname=excalidraw-offline
-pkgver=0.7.1
+pkgver=0.7.2
 pkgrel=1
 pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Deno Desktop wrapper)"
 arch=('x86_64' 'aarch64')

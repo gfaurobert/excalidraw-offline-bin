@@ -5,9 +5,17 @@ nav_order: 5
 
 # What's new
 
-**Current release:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux x86_64 — AppImage and tar.xz).
+**Current release:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux x86_64 — AppImage and tar.xz).
 
-Windows and macOS builds for v0.6.0, v0.7.0, and v0.7.1 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({{ '/install.html' | relative_url }}).
+Windows and macOS builds for v0.6.0, v0.7.0, v0.7.1, and v0.7.2 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({{ '/install.html' | relative_url }}).
+
+---
+
+## v0.7.2 (2026-10-04) — Linux only
+
+- **Skills → Install excalidraw-sketching skill** — multi-select checklist of agent install targets (`.agents/skills` for Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Amp, Goose, Roo Code, Windsurf; Claude Code `.claude/skills`; Kiro `.kiro/skills`; Cline `.cline/skills`; **All**), creating missing folders. Installed skill contains only `SKILL.md` and `references/` (no evals or test files).
+
+[Release notes](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) · [Full changelog](https://github.com/gfaurobert/excalidraw-offline-bin/compare/v0.7.1...v0.7.2)
 
 ---
 

@@ -5,15 +5,15 @@ nav_order: 2
 
 # Install
 
-**Current version:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux x86_64 only).
+**Current version:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux x86_64 only).
 
 | Platform | Download |
 |----------|----------|
-| **Linux** | [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (v0.7.1: AppImage + tar.xz) |
+| **Linux** | [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (v0.7.2: AppImage + tar.xz) |
 | **Windows 11** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (MSI + zip) — newer Win builds not published yet |
 | **macOS arm64** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (DMG + zip) — newer mac builds not published yet |
 
-Releases **v0.6.0**, **v0.7.0**, and **v0.7.1** are **Linux-only** (export CLI, `--help`, and Export image dialog are in those Linux builds only until Windows/macOS catch up).
+Releases **v0.6.0**, **v0.7.0**, **v0.7.1**, and **v0.7.2** are **Linux-only** (export CLI, `--help`, and Export image dialog are in those Linux builds only until Windows/macOS catch up).
 
 ## Requirements
 ### Arch
@@ -35,7 +35,7 @@ Replace 'zenity' with 'kdialog'
 
 ## Linux (GitHub Releases)
 
-Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.1**):
+Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.2**):
 
 - **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run). Release builds embed MIME/`%F` in the AppImage desktop entry when `appimagetool` is available during packaging (first-run AppImage integration registers the association).
 - **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree). The portable tarball does **not** register MIME types.
