@@ -21,7 +21,7 @@ Linux x86_64 (GitHub Releases AppImage/tarball; Arch `makepkg`), Windows 11 x86_
 
 ## Where are Export image and `excalidraw-offline export`?
 
-From **v0.6.0** (Linux builds today): **Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`**. Windows and macOS **v0.5.0** builds do not include them yet; **File → Reload** (Ctrl+R / ⌘R) is available on v0.5.0 on all platforms. See [Usage]({% link usage.md %}) and [What's new]({% link whats-new.md %}).
+From **v0.6.0** (Linux builds today): **Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`**. Windows and macOS **v0.5.0** builds do not include them yet; **File → Reload** (Ctrl+R / ⌘R) is available on v0.5.0 on all platforms. See [Usage]({{ '/usage.html' | relative_url }}) and [What's new]({{ '/whats-new.html' | relative_url }}).
 
 ## Why do I need zenity, kdialog, PowerShell, or osascript?
 

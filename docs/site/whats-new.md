@@ -7,7 +7,7 @@ nav_order: 5
 
 **Current release:** [v0.7.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.1) (Linux x86_64 — AppImage and tar.xz).
 
-Windows and macOS builds for v0.6.0, v0.7.0, and v0.7.1 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({% link install.md %}).
+Windows and macOS builds for v0.6.0, v0.7.0, and v0.7.1 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({{ '/install.html' | relative_url }}).
 
 ---
 
