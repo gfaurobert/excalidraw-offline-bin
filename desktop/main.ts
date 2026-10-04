@@ -12,6 +12,7 @@ import {
   confirmDialog,
   describeDialogBackend,
   infoDialog,
+  multiSelectChecklistDialog,
   openDirectoryDialog,
   openExcalidrawDialog,
   openImageDialog,
@@ -30,7 +31,11 @@ import {
 } from "./file-format.ts";
 import type { ScenePayload } from "./types.ts";
 import { createCloseGuard } from "./close-guard.ts";
-import { handleE2eApi, isE2eMode } from "./e2e-desktop.ts";
+import {
+  handleE2eApi,
+  isE2eMode,
+  registerE2eSkillInstallHandler,
+} from "./e2e-desktop.ts";
 import {
   CLEAR_RECENT_ID,
   createRecentFilesStore,
@@ -46,10 +51,16 @@ import {
   getExcalidrawVersion,
 } from "./versions.ts";
 import {
+  DEFAULT_HARNESS_TARGET_IDS,
+  expandHarnessSelection,
+  HARNESS_TARGET_OPTIONS,
   installSkillTo,
+  installSkillToMany,
   pathExists,
+  resolveHarnessInstallDests,
   resolveInstallTarget,
   SKILL_ID,
+  type InstallHarnessId,
   type InstallMode,
 } from "./install-skill.ts";
 import { openPathFromArgs } from "./cli-args.ts";
@@ -109,8 +120,8 @@ if (exportCliParse.kind === "export") {
 const startupOpenPath = openPathFromArgs(Deno.args, Deno.cwd());
 
 const INSTALL_SKILL_OPTIONS = [
-  { id: "global", label: "Global (user) — ~/.agents/skills" },
-  { id: "project", label: "Project — <folder>/.agents/skills" },
+  { id: "global", label: "Global (user) — install under your home directory" },
+  { id: "project", label: "Project — pick a project root folder" },
   { id: "custom", label: "Custom — pick any folder" },
 ];
 
@@ -831,6 +842,13 @@ function applyMenu(recentPaths: string[]): void {
   ]);
 }
 
+function e2eHarnessDefaultIds(): InstallHarnessId[] {
+  if (!isE2eMode()) return [...DEFAULT_HARNESS_TARGET_IDS];
+  const preset = Deno.env.get("EXCALIDRAW_E2E_CHECKLIST_PRESET")?.trim();
+  if (preset === "all") return ["all"];
+  return [...DEFAULT_HARNESS_TARGET_IDS];
+}
+
 async function runInstallSketchingSkill(): Promise<void> {
   const choice = await choiceDialog(
     "Install skill",
@@ -872,18 +890,55 @@ async function runInstallSketchingSkill(): Promise<void> {
     picked = dir.path;
   }
 
-  let dest: string;
+  let dests: string[];
   try {
-    dest = resolveInstallTarget(mode, homeDir(), picked);
+    if (mode === "custom") {
+      dests = [resolveInstallTarget(mode, homeDir(), picked)];
+    } else {
+      const scopeLabel = mode === "global"
+        ? "Which agent tools should receive the skill? (Global)"
+        : "Which agent tools should receive the skill? (Project)";
+      const defaultHarnessIds = e2eHarnessDefaultIds();
+      const harnessChoice = await multiSelectChecklistDialog(
+        "Install skill — targets",
+        scopeLabel,
+        HARNESS_TARGET_OPTIONS,
+        defaultHarnessIds,
+      );
+      if (!harnessChoice.ok) {
+        if (harnessChoice.reason === "cancelled") {
+          enqueueUi({ type: "status", message: "Skill install cancelled" });
+          return;
+        }
+        await infoDialog(
+          "Install skill",
+          `Cannot show target list: ${harnessChoice.detail ?? harnessChoice.reason}`,
+        );
+        return;
+      }
+      const harnessIds = expandHarnessSelection(
+        harnessChoice.ids as InstallHarnessId[],
+      );
+      dests = resolveHarnessInstallDests(
+        mode,
+        homeDir(),
+        harnessIds,
+        picked,
+      );
+    }
   } catch (err) {
     await infoDialog("Install skill", String(err));
     return;
   }
 
-  if (await pathExists(dest)) {
+  const existing = [];
+  for (const dest of dests) {
+    if (await pathExists(dest)) existing.push(dest);
+  }
+  if (existing.length > 0) {
     const overwrite = await confirmDialog(
       "Overwrite skill?",
-      `Skill already exists at:\n${dest}\n\nReplace it?`,
+      `Skill already exists at:\n${existing.join("\n")}\n\nReplace at all listed locations?`,
     );
     if (!overwrite.ok) {
       await infoDialog(
@@ -898,13 +953,21 @@ async function runInstallSketchingSkill(): Promise<void> {
     }
   }
 
-  const result = await installSkillTo(BUNDLED_SKILL, dest);
+  const result = dests.length === 1
+    ? await installSkillTo(BUNDLED_SKILL, dests[0]!)
+    : await installSkillToMany(BUNDLED_SKILL, dests);
+
   if (result.ok) {
+    const paths = "dests" in result ? result.dests : [result.dest];
+    const listing = paths.join("\n");
     await infoDialog(
       "Install skill",
-      `Installed ${SKILL_ID} to:\n${result.dest}`,
+      `Installed ${SKILL_ID} to:\n${listing}`,
     );
-    enqueueUi({ type: "status", message: `Skill installed: ${result.dest}` });
+    enqueueUi({
+      type: "status",
+      message: `Skill installed (${paths.length}): ${paths[0]}`,
+    });
   } else {
     await infoDialog(
       "Install skill",
@@ -913,6 +976,8 @@ async function runInstallSketchingSkill(): Promise<void> {
     enqueueUi({ type: "status", message: "Skill install failed" });
   }
 }
+
+registerE2eSkillInstallHandler(() => runInstallSketchingSkill());
 
 appVersion = getAppVersion();
 excalidrawVersion = getExcalidrawVersion();

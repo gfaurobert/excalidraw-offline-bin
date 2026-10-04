@@ -37,7 +37,7 @@ Imported images are copied there with relative paths so the drawing stays portab
 
 ## How do I install the sketching Agent Skill?
 
-Use the Skills menu: Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom folder. The bundled skill is `excalidraw-sketching`. **Reinstall after upgrading the app** (especially v0.7.1+) so agents read the updated skill — it documents the app guide, Reload prompt, Export dialog, export CLI flags, `--help`, output naming, and exit codes.
+Use **Skills → Install excalidraw-sketching skill**. Choose **Global** or **Project**, then check which agent tools should receive a copy (defaults: `.agents/skills` and Claude Code; **All** installs every supported target). Paths include `~/.agents/skills`, `~/.claude/skills`, `~/.kiro/skills`, and `~/.cline/skills` (or the same folders under your project root). **Custom** still copies to any folder you pick. The bundled skill is `excalidraw-sketching`. **Reinstall after upgrading the app** (especially v0.7.1+) so agents read the updated skill — it documents the app guide, Reload prompt, Export dialog, export CLI flags, `--help`, output naming, and exit codes.
 
 ## macOS says the app is damaged or cannot be opened
 

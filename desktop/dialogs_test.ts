@@ -3,7 +3,9 @@ import {
   buildConfirmDialogArgs,
   buildDirectoryDialogArgs,
   buildInfoDialogArgs,
+  buildMultiSelectChecklistArgs,
   buildUnsavedChangesDialogArgs,
+  parseMultiSelectIds,
   unsavedChangesDialogCopy,
   ensureExcalidrawExt,
   formatLinkedInfoText,
@@ -11,6 +13,10 @@ import {
   pickerUnavailableMessage,
 } from "./dialogs.ts";
 import { APP_REPO_URL, EXCALIDRAW_REPO_URL } from "./versions.ts";
+
+function assert(condition: boolean, msg = ""): void {
+  if (!condition) throw new Error(msg || "assert failed");
+}
 
 function assertEquals(actual: unknown, expected: unknown, msg = ""): void {
   const a = JSON.stringify(actual);
@@ -70,9 +76,15 @@ Deno.test("formatLinkedInfoText kdialog uses plain URL", () => {
 });
 
 const INSTALL_OPTIONS = [
-  { id: "global", label: "Global (user) — ~/.agents/skills" },
-  { id: "project", label: "Project — <folder>/.agents/skills" },
+  { id: "global", label: "Global (user) — install under your home directory" },
+  { id: "project", label: "Project — pick a project root folder" },
   { id: "custom", label: "Custom — pick any folder" },
+];
+
+const HARNESS_OPTIONS = [
+  { id: "agents", label: ".agents/skills (Codex, Cursor)" },
+  { id: "claude", label: "Claude Code" },
+  { id: "all", label: "All" },
 ];
 
 Deno.test("buildChoiceDialogArgs zenity radiolist", () => {
@@ -95,9 +107,9 @@ Deno.test("buildChoiceDialogArgs zenity radiolist", () => {
       "--hide-header",
       "--print-column=2",
       "TRUE",
-      "Global (user) — ~/.agents/skills",
+      "Global (user) — install under your home directory",
       "FALSE",
-      "Project — <folder>/.agents/skills",
+      "Project — pick a project root folder",
       "FALSE",
       "Custom — pick any folder",
     ],
@@ -120,16 +132,41 @@ Deno.test("buildChoiceDialogArgs kdialog radiolist", () => {
       "--radiolist",
       "Where to install?",
       "global",
-      "Global (user) — ~/.agents/skills",
+      "Global (user) — install under your home directory",
       "on",
       "project",
-      "Project — <folder>/.agents/skills",
+      "Project — pick a project root folder",
       "off",
       "custom",
       "Custom — pick any folder",
       "off",
     ],
   );
+});
+
+Deno.test("buildMultiSelectChecklistArgs zenity defaults", () => {
+  const args = buildMultiSelectChecklistArgs(
+    "zenity",
+    "Install skill — targets",
+    "Pick tools",
+    HARNESS_OPTIONS,
+    ["agents", "claude"],
+  );
+  assert(args.includes("--checklist"), "checklist");
+  assert(args.includes("--hide-column=2"), "hide id column");
+  assert(args.includes("--width=920"), "width");
+  assert(args.includes("--height=500"), "height");
+  assert(args.includes("TRUE"), "agents checked");
+  assert(args.includes("agents"), "agents id");
+  assert(args.includes("claude"), "claude id");
+});
+
+Deno.test("parseMultiSelectIds multiline and tokens", () => {
+  assertEquals(
+    parseMultiSelectIds(HARNESS_OPTIONS, "agents\nclaude"),
+    ["agents", "claude"],
+  );
+  assertEquals(parseMultiSelectIds(HARNESS_OPTIONS, "all"), ["all"]);
 });
 
 Deno.test("buildDirectoryDialogArgs zenity", () => {

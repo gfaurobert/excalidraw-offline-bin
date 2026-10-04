@@ -20,16 +20,24 @@ sketch JSON under `sketches/` and tell the human how to open or export.
 
 ## Install this skill
 
-**Skills → Install excalidraw-sketching skill** copies this folder from the app
-bundle. Destinations:
+**Skills → Install excalidraw-sketching skill** copies `SKILL.md` and
+`references/` from the app bundle (file copy, not a symlink).
 
-| Choice | Path |
-|--------|------|
-| Global (user) | `~/.agents/skills/excalidraw-sketching/` |
-| Project | `<picked-root>/.agents/skills/excalidraw-sketching/` |
-| Custom | `<picked-folder>/excalidraw-sketching/` (no `.agents/skills` suffix) |
+1. Choose **Global (user)**, **Project**, or **Custom**.
+2. For **Global** or **Project**, pick one or more agent targets (defaults:
+   `.agents/skills` and **Claude Code**). **All** installs every target below.
+3. **Custom** — pick any folder; the skill is copied to
+   `<folder>/excalidraw-sketching/` (no extra suffix).
 
-Overwrite prompts if the destination already exists.
+| Target | Global path | Project path |
+|--------|-------------|--------------|
+| `.agents/skills` (Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Amp, Goose, Roo Code, Windsurf) | `~/.agents/skills/excalidraw-sketching/` | `<root>/.agents/skills/excalidraw-sketching/` |
+| Claude Code | `~/.claude/skills/excalidraw-sketching/` | `<root>/.claude/skills/excalidraw-sketching/` |
+| Kiro | `~/.kiro/skills/excalidraw-sketching/` | `<root>/.kiro/skills/excalidraw-sketching/` |
+| Cline | `~/.cline/skills/excalidraw-sketching/` | `<root>/.cline/skills/excalidraw-sketching/` |
+
+Parent directories are created as needed. If any destination already exists,
+the app lists them and asks once before overwriting.
 
 ## Desktop app — help the human
 
@@ -249,4 +257,4 @@ Humans can also use **Ctrl+Shift+E** (GUI export dialog) instead of CLI.
 3. Tell human the path + `excalidraw-offline <path>` or export command
 4. Do not git-commit unless asked
 
-Full element reference: `references/cheatsheet.md`. Eval prompts: `evals/evals.json`.
+Full element reference: `references/cheatsheet.md`.

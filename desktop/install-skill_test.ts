@@ -1,9 +1,13 @@
 import {
   agentsSkillsUserDir,
+  copySkillContent,
+  expandHarnessSelection,
+  installSkillTo,
+  installSkillToMany,
+  resolveHarnessInstallDests,
   resolveInstallTarget,
   SKILL_ID,
-  copyDirRecursive,
-  installSkillTo,
+  SKILL_INSTALL_ENTRIES,
 } from "./install-skill.ts";
 import { join } from "./path.ts";
 
@@ -21,20 +25,6 @@ Deno.test("agentsSkillsUserDir", () => {
   assertEquals(agentsSkillsUserDir("/home/alice"), "/home/alice/.agents/skills");
 });
 
-Deno.test("resolveInstallTarget global", () => {
-  assertEquals(
-    resolveInstallTarget("global", "/home/alice"),
-    `/home/alice/.agents/skills/${SKILL_ID}`,
-  );
-});
-
-Deno.test("resolveInstallTarget project appends .agents/skills", () => {
-  assertEquals(
-    resolveInstallTarget("project", "/home/alice", "/work/my-repo"),
-    `/work/my-repo/.agents/skills/${SKILL_ID}`,
-  );
-});
-
 Deno.test("resolveInstallTarget custom does not append .agents/skills", () => {
   assertEquals(
     resolveInstallTarget("custom", "/home/alice", "/opt/skills-root"),
@@ -42,35 +32,130 @@ Deno.test("resolveInstallTarget custom does not append .agents/skills", () => {
   );
 });
 
-Deno.test("resolveInstallTarget project strips trailing slash", () => {
+Deno.test("expandHarnessSelection All expands concrete targets", () => {
+  assertEquals(expandHarnessSelection(["all"]), ["agents", "claude", "kiro", "cline"]);
+});
+
+Deno.test("expandHarnessSelection dedupes without All", () => {
+  assertEquals(expandHarnessSelection(["agents", "claude", "agents"]), [
+    "agents",
+    "claude",
+  ]);
+});
+
+Deno.test("expandHarnessSelection All with other checks does not duplicate", () => {
+  const expanded = expandHarnessSelection(["all", "agents", "claude"]);
+  assertEquals(expanded.length, 4);
+  assertEquals(new Set(expanded).size, 4);
+  const dests = resolveHarnessInstallDests("global", "/home/u", [
+    "all",
+    "agents",
+    "claude",
+  ]);
+  assertEquals(dests.length, 4);
+  assertEquals(new Set(dests).size, 4);
+});
+
+Deno.test("resolveHarnessInstallDests empty selection installs nothing", () => {
+  assertEquals(resolveHarnessInstallDests("global", "/home/u", []), []);
+});
+
+Deno.test("resolveHarnessInstallDests global paths", () => {
   assertEquals(
-    resolveInstallTarget("project", "/home/alice", "/work/repo/"),
-    `/work/repo/.agents/skills/${SKILL_ID}`,
+    resolveHarnessInstallDests("global", "/home/alice", ["agents", "claude"]),
+    [
+      `/home/alice/.agents/skills/${SKILL_ID}`,
+      `/home/alice/.claude/skills/${SKILL_ID}`,
+    ],
   );
   assertEquals(
-    resolveInstallTarget("project", "C:/Users/a", "C:\\work\\repo\\"),
-    `C:/work/repo/.agents/skills/${SKILL_ID}`,
+    resolveHarnessInstallDests("global", "/home/alice", ["cline"]),
+    [`/home/alice/.cline/skills/${SKILL_ID}`],
   );
 });
 
-Deno.test("copyDirRecursive and installSkillTo round-trip", async () => {
-  const tmp = await Deno.makeTempDir({ prefix: "skill-install-" });
+Deno.test("resolveHarnessInstallDests project paths", () => {
+  assertEquals(
+    resolveHarnessInstallDests("project", "/home/alice", ["kiro"], "/work/repo/"),
+    [`/work/repo/.kiro/skills/${SKILL_ID}`],
+  );
+});
+
+Deno.test("resolveHarnessInstallDests All on project", () => {
+  const dests = resolveHarnessInstallDests("global", "/home/u", ["all"]);
+  assertEquals(dests.length, 4);
+  assertEquals(dests[0], `/home/u/.agents/skills/${SKILL_ID}`);
+  assertEquals(dests[1], `/home/u/.claude/skills/${SKILL_ID}`);
+});
+
+Deno.test("copySkillContent copies only SKILL.md and references", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "skill-copy-" });
   try {
     const source = join(tmp, "src", SKILL_ID);
     await Deno.mkdir(join(source, "references"), { recursive: true });
+    await Deno.mkdir(join(source, "evals"), { recursive: true });
     await Deno.writeTextFile(join(source, "SKILL.md"), "# skill\n");
     await Deno.writeTextFile(join(source, "references", "a.md"), "ref\n");
+    await Deno.writeTextFile(join(source, "evals", "evals.json"), "{}\n");
+    await Deno.writeTextFile(join(source, "skill-content_test.ts"), "// test\n");
 
     const dest = join(tmp, "out", SKILL_ID);
-    await copyDirRecursive(source, dest);
+    await copySkillContent(source, dest);
+
     assertEquals(await Deno.readTextFile(join(dest, "SKILL.md")), "# skill\n");
     assertEquals(
       await Deno.readTextFile(join(dest, "references", "a.md")),
       "ref\n",
     );
+    let evalsExists = true;
+    try {
+      await Deno.stat(join(dest, "evals"));
+    } catch {
+      evalsExists = false;
+    }
+    assertEquals(evalsExists, false);
+    let testFileExists = true;
+    try {
+      await Deno.stat(join(source, "skill-content_test.ts"));
+      await Deno.stat(join(dest, "skill-content_test.ts"));
+    } catch {
+      testFileExists = false;
+    }
+    assertEquals(testFileExists, false);
+    assertEquals([...SKILL_INSTALL_ENTRIES], ["SKILL.md", "references"]);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
 
-    const result = await installSkillTo(source, dest);
-    assertEquals(result.ok, true);
+Deno.test("installSkillTo and installSkillToMany round-trip", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "skill-install-" });
+  try {
+    const source = join(tmp, "src", SKILL_ID);
+    await Deno.mkdir(join(source, "references"), { recursive: true });
+    await Deno.writeTextFile(join(source, "SKILL.md"), "# skill\n");
+
+    const destA = join(tmp, "a", ".agents", "skills", SKILL_ID);
+    const destB = join(tmp, "b", ".claude", "skills", SKILL_ID);
+    const one = await installSkillTo(source, destA);
+    assertEquals(one.ok, true);
+
+    const many = await installSkillToMany(source, [destA, destB]);
+    assertEquals(many.ok, true);
+    if (many.ok) assertEquals(many.dests.length, 2);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("installSkillToMany with empty dests is a no-op failure", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "skill-empty-" });
+  try {
+    const source = join(tmp, SKILL_ID);
+    await Deno.mkdir(source);
+    await Deno.writeTextFile(join(source, "SKILL.md"), "# skill\n");
+    const result = await installSkillToMany(source, []);
+    assertEquals(result.ok, false);
   } finally {
     await Deno.remove(tmp, { recursive: true });
   }
