@@ -25,6 +25,14 @@ import {
   runDialogWithE2ePick,
 } from "./e2e-pick.ts";
 import {
+  buildZenityMultiSelectChecklistArgs,
+  isZenityUnsupportedOptionError,
+  normalizeZenityCliText,
+  parseZenityVersion,
+  type ZenityMultiSelectVariant,
+  zenityMultiSelectVariantOrder,
+} from "./zenity-checklist.ts";
+import {
   describeMacosDialogBackend,
   macChoiceDialog,
   macConfirmDialog,
@@ -413,8 +421,8 @@ export function buildChoiceDialogArgs(
       "zenity",
       "--list",
       "--radiolist",
-      `--title=${title}`,
-      `--text=${text}`,
+      `--title=${normalizeZenityCliText(title)}`,
+      `--text=${normalizeZenityCliText(text)}`,
       "--column=Select",
       "--column=Option",
       "--hide-header",
@@ -503,28 +511,17 @@ export function buildMultiSelectChecklistArgs(
   text: string,
   options: ChoiceOption[],
   defaultCheckedIds: string[] = [],
+  zenityVariant: ZenityMultiSelectVariant = "hidden-id",
 ): string[] {
   const checked = new Set(defaultCheckedIds);
   if (backend === "zenity") {
-    const args = [
-      "zenity",
-      "--list",
-      "--checklist",
-      `--title=${title}`,
-      `--text=${text}`,
-      "--column=Select",
-      "--column=ID",
-      "--column=Target",
-      "--hide-header",
-      "--hide-column=2",
-      "--print-column=2",
-      "--width=920",
-      "--height=500",
-    ];
-    for (const opt of options) {
-      args.push(checked.has(opt.id) ? "TRUE" : "FALSE", opt.id, opt.label);
-    }
-    return args;
+    return buildZenityMultiSelectChecklistArgs(
+      zenityVariant,
+      title,
+      text,
+      options,
+      defaultCheckedIds,
+    );
   }
 
   const args = [
@@ -571,6 +568,74 @@ export function parseMultiSelectIds(
   return ids;
 }
 
+let cachedZenityVersion: ReturnType<typeof parseZenityVersion> | undefined;
+
+async function readZenityVersion(): Promise<
+  ReturnType<typeof parseZenityVersion>
+> {
+  if (cachedZenityVersion !== undefined) return cachedZenityVersion;
+  try {
+    const cmd = new Deno.Command("zenity", {
+      args: ["--version"],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { stdout, stderr, code } = await cmd.output();
+    const raw = new TextDecoder().decode(stdout).trim() ||
+      new TextDecoder().decode(stderr).trim();
+    cachedZenityVersion = code === 0 || raw ? parseZenityVersion(raw) : null;
+  } catch {
+    cachedZenityVersion = null;
+  }
+  return cachedZenityVersion;
+}
+
+async function runZenityMultiSelectChecklist(
+  title: string,
+  text: string,
+  options: ChoiceOption[],
+  defaultCheckedIds: string[],
+): Promise<MultiSelectDialogResult> {
+  const version = await readZenityVersion();
+  const variants = zenityMultiSelectVariantOrder(version);
+  let lastError: MultiSelectDialogResult | undefined;
+
+  for (const variant of variants) {
+    const result = await runDialogWithE2ePick(
+      buildMultiSelectChecklistArgs(
+        "zenity",
+        title,
+        text,
+        options,
+        defaultCheckedIds,
+        variant,
+      ),
+    );
+    if (result.ok) {
+      const ids = parseMultiSelectIds(options, result.path);
+      if (ids.length === 0) {
+        return { ok: false, reason: "cancelled" };
+      }
+      return { ok: true, ids };
+    }
+    if (result.reason === "cancelled") return result;
+    if (
+      result.reason === "error" &&
+      isZenityUnsupportedOptionError(result.detail)
+    ) {
+      lastError = result;
+      continue;
+    }
+    return result;
+  }
+
+  return lastError ?? {
+    ok: false,
+    reason: "error",
+    detail: "zenity checklist failed for all variants",
+  };
+}
+
 export async function multiSelectChecklistDialog(
   title: string,
   text: string,
@@ -599,21 +664,12 @@ export async function multiSelectChecklistDialog(
   }
 
   if (await commandExists("zenity")) {
-    const result = await runDialogWithE2ePick(
-      buildMultiSelectChecklistArgs(
-        "zenity",
-        title,
-        text,
-        options,
-        defaultCheckedIds,
-      ),
+    return await runZenityMultiSelectChecklist(
+      title,
+      text,
+      options,
+      defaultCheckedIds,
     );
-    if (!result.ok) return result;
-    const ids = parseMultiSelectIds(options, result.path);
-    if (ids.length === 0) {
-      return { ok: false, reason: "cancelled" };
-    }
-    return { ok: true, ids };
   }
 
   if (await commandExists("kdialog")) {
