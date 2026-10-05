@@ -154,8 +154,8 @@ Deno.test("buildMultiSelectChecklistArgs zenity defaults", () => {
   );
   assert(args.includes("--checklist"), "checklist");
   assert(args.includes("--hide-column=2"), "hide id column");
-  assert(args.includes("--width=920"), "width");
-  assert(args.includes("--height=500"), "height");
+  assert(!args.some((a) => a.startsWith("--width=")), "no zenity width");
+  assert(!args.some((a) => a.startsWith("--height=")), "no zenity height");
   assert(args.includes("TRUE"), "agents checked");
   assert(args.includes("agents"), "agents id");
   assert(args.includes("claude"), "claude id");

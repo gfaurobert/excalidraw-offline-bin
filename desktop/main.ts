@@ -900,7 +900,7 @@ async function runInstallSketchingSkill(): Promise<void> {
         : "Which agent tools should receive the skill? (Project)";
       const defaultHarnessIds = e2eHarnessDefaultIds();
       const harnessChoice = await multiSelectChecklistDialog(
-        "Install skill — targets",
+        "Install skill - targets",
         scopeLabel,
         HARNESS_TARGET_OPTIONS,
         defaultHarnessIds,

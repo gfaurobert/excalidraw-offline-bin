@@ -85,7 +85,7 @@ start_app() {
   bash "$LAUNCHER" >"$APP_LOG" 2>&1 &
   APP_PID=$!
   PORT=""
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 240); do
     PORT=$(grep -oE 'Listening on http://127.0.0.1:[0-9]+' "$APP_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+$' || true)
     [[ -n "$PORT" ]] && break
     sleep 0.25
