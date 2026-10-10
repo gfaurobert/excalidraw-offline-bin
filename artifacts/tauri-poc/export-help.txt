@@ -1,0 +1,33 @@
+excalidraw-offline export — write PNG(s) from a .excalidraw file (headless).
+
+Usage:
+  excalidraw-offline export <file.excalidraw> [options]
+
+Selectors (use one kind only):
+  (default)                 Whole scene bounding box
+  --frame NAME              Repeatable; exact frame name; one PNG per match
+  --all-frames              One PNG per named frame in the file
+  --element ID              Repeatable; export selection of listed element ids
+  --bbox x,y,width,height   Scene coords; elements intersecting the rectangle
+
+Output:
+  --out PATH, -d DIR        Destination directory, or a single .png path when
+                            there is exactly one export job. Creates missing
+                            directories recursively.
+  --scale N                 Export scale (default 2, max 8)
+  --json                    Print {"paths":["…"]} on stdout instead of paths
+
+Default location: same folder as the .excalidraw file.
+Default filename:  {drawingBase}_{YYYYMMDD-HHMMSS}.png
+Frame exports:     {drawingBase}_{frameName}_{YYYYMMDD-HHMMSS}.png
+Collisions:        -2, -3, … suffix before .png
+
+Exit codes:
+  0  Success; written path(s) on stdout (or JSON with --json)
+  1  Usage, missing file, unknown frame/element, empty bbox, or export failure
+
+Examples:
+  excalidraw-offline export wireframes.excalidraw --all-frames -d ~/sketches/export
+  excalidraw-offline export wireframes.excalidraw --frame "Login" --scale 3
+  excalidraw-offline export wireframes.excalidraw --element rect-id --json
+

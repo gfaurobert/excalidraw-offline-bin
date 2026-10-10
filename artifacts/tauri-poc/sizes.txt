@@ -1,0 +1,16 @@
+=== Like-for-like compressed payloads (payload.tar.xz) ===
+Tauri lean (binary + frontend/dist, system WebKit): 5679420 bytes (~5.5 MiB)
+Deno desktop (runtime + dist + skills in payload): 24304152 bytes (~23 MiB)
+
+Tauri wrapper tarball (dir + payload.tar.xz + launcher script): 5681560 bytes
+
+=== Full distribution (different roles) ===
+Tauri release binary only: 17115248 bytes (~17 MiB)
+Tauri AppImage (bundles WebKit/GTK via linuxdeploy): 86301176 bytes (~82 MiB)
+
+AppImage is large because it ships WebKitGTK, GTK3, and dependencies for distros without guaranteed system WebKit.
+Lean tar.xz is viable on Arch/Ubuntu when webkit2gtk-4.1 + GTK3 are installed (same assumption as many WebKit apps).
+
+=== Idle RSS (matrix-demo loaded, Xvfb) ===
+tauri_idle_rss_kb=170940
+deno_idle_rss_kb=202824
