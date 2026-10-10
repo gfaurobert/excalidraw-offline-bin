@@ -7,6 +7,14 @@ use tauri::{AppHandle, Wry};
 
 const CLEAR_RECENT_ID: &str = "clear-recent";
 
+pub fn refresh_menu(state: &Arc<AppState>) {
+    let Some(app) = state.app_handle.lock().clone() else {
+        return;
+    };
+    let recent_paths = state.recent.list();
+    let _ = apply_menu(&app, state, &recent_paths);
+}
+
 pub fn build_menu(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<Menu<Wry>> {
     let recent_paths = state.recent.list();
     apply_menu(app, state, &recent_paths)
@@ -134,10 +142,10 @@ pub fn apply_menu(
 }
 
 fn picker_unavailable() -> String {
-    "File picker unavailable (rfd/GTK)".to_string()
+    "File picker unavailable (zenity/rfd)".to_string()
 }
 
-pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
+pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
     if id.starts_with("recent:") {
         let path = id.strip_prefix("recent:").unwrap_or("").to_string();
         if std::path::Path::new(&path).is_file() {
@@ -147,7 +155,7 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
                 message: format!("Recent file missing: {path}"),
             });
             state.recent.remove(&path);
-            let _ = apply_menu(app, state, &state.recent.list());
+            refresh_menu(state);
         }
         return;
     }
@@ -157,7 +165,7 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
             for p in state.recent.list() {
                 state.recent.remove(&p);
             }
-            let _ = apply_menu(app, state, &state.recent.list());
+            refresh_menu(state);
         }
         "new" => state.enqueue_ui(UiCommand::New),
         "open" => {

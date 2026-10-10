@@ -11,14 +11,90 @@ pub enum DialogResult {
 }
 
 pub fn dialog_backend_label() -> &'static str {
-    "rfd (GTK native)"
+    if command_exists("zenity") {
+        "zenity (GTK)"
+    } else {
+        "rfd (GTK native)"
+    }
 }
 
-fn default_path(name_or_path: &str) -> PathBuf {
-    if name_or_path.contains('/') || name_or_path.contains('\\') {
-        PathBuf::from(name_or_path)
+fn command_exists(name: &str) -> bool {
+    Command::new("which")
+        .arg(name)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn resolve_default_save_path(default_name_or_path: &str) -> PathBuf {
+    let raw = default_name_or_path.trim();
+    let path = if raw.contains('/') || raw.contains('\\') {
+        PathBuf::from(raw)
     } else {
-        home_dir().join(name_or_path)
+        home_dir().join(raw)
+    };
+    path.canonicalize().unwrap_or(path)
+}
+
+fn run_zenity_save(default_path: &Path) -> DialogResult {
+    let default = default_path.to_string_lossy().replace('\\', "/");
+    let output = Command::new("zenity")
+        .args([
+            "--file-selection",
+            "--save",
+            "--confirm-overwrite",
+            "--title=Save Excalidraw file",
+            &format!("--filename={default}"),
+            "--file-filter=Excalidraw | *.excalidraw",
+            "--file-filter=All files | *",
+        ])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if text.is_empty() {
+                DialogResult::Cancelled
+            } else {
+                DialogResult::Ok {
+                    path: ensure_excalidraw_ext(&text),
+                }
+            }
+        }
+        Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
+        Ok(o) => DialogResult::Unavailable {
+            detail: String::from_utf8_lossy(&o.stderr).into_owned(),
+        },
+        Err(e) => DialogResult::Unavailable {
+            detail: e.to_string(),
+        },
+    }
+}
+
+fn run_zenity_open() -> DialogResult {
+    let output = Command::new("zenity")
+        .args([
+            "--file-selection",
+            "--title=Open Excalidraw file",
+            "--file-filter=Excalidraw | *.excalidraw",
+            "--file-filter=All files | *",
+        ])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if text.is_empty() {
+                DialogResult::Cancelled
+            } else {
+                DialogResult::Ok { path: text }
+            }
+        }
+        Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
+        Ok(o) => DialogResult::Unavailable {
+            detail: String::from_utf8_lossy(&o.stderr).into_owned(),
+        },
+        Err(e) => DialogResult::Unavailable {
+            detail: e.to_string(),
+        },
     }
 }
 
@@ -29,11 +105,14 @@ pub fn open_excalidraw_dialog() -> DialogResult {
             return DialogResult::Ok { path: t.to_string() };
         }
     }
-    let file = FileDialog::new()
+    if command_exists("zenity") {
+        return run_zenity_open();
+    }
+    match FileDialog::new()
         .set_title("Open Excalidraw file")
         .add_filter("Excalidraw", &["excalidraw"])
-        .pick_file();
-    match file {
+        .pick_file()
+    {
         Some(p) => DialogResult::Ok {
             path: p.to_string_lossy().into_owned(),
         },
@@ -50,7 +129,10 @@ pub fn save_excalidraw_dialog(default_name_or_path: &str) -> DialogResult {
             };
         }
     }
-    let default_path = default_path(default_name_or_path);
+    let default_path = resolve_default_save_path(default_name_or_path);
+    if command_exists("zenity") {
+        return run_zenity_save(&default_path);
+    }
     let mut dialog = FileDialog::new()
         .set_title("Save Excalidraw file")
         .add_filter("Excalidraw", &["excalidraw"]);
@@ -71,7 +153,30 @@ pub fn save_excalidraw_dialog(default_name_or_path: &str) -> DialogResult {
 }
 
 pub fn save_image_export_dialog(suggested_path: &str) -> DialogResult {
-    let default_path = PathBuf::from(suggested_path.replace('\\', "/"));
+    let default_path = resolve_default_save_path(suggested_path);
+    if command_exists("zenity") {
+        let default = default_path.to_string_lossy().replace('\\', "/");
+        let output = Command::new("zenity")
+            .args([
+                "--file-selection",
+                "--save",
+                "--confirm-overwrite",
+                "--title=Export image",
+                &format!("--filename={default}"),
+                "--file-filter=PNG | *.png",
+            ])
+            .output();
+        return match output {
+            Ok(o) if o.status.success() => DialogResult::Ok {
+                path: String::from_utf8_lossy(&o.stdout).trim().to_string(),
+            },
+            Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
+            Ok(o) => DialogResult::Unavailable {
+                detail: String::from_utf8_lossy(&o.stderr).into_owned(),
+            },
+            Err(e) => DialogResult::Unavailable { detail: e.to_string() },
+        };
+    }
     let mut dialog = FileDialog::new()
         .set_title("Export image")
         .add_filter("PNG", &["png"]);
@@ -105,7 +210,7 @@ pub fn open_image_dialog() -> DialogResult {
 }
 
 pub fn unsaved_changes_dialog(title: &str, text: &str) -> Result<String, DialogResult> {
-    if Command::new("which").arg("zenity").output().ok().is_some_and(|o| o.status.success()) {
+    if command_exists("zenity") {
         let status = Command::new("zenity")
             .args([
                 "--question",

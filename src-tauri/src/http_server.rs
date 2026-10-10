@@ -6,6 +6,7 @@ use crate::dialogs::{
 use crate::export::{
     decode_png_base64, pick_unique_export_filename, resolve_export_output_location,
 };
+use crate::menu::refresh_menu;
 use crate::paths::home_dir;
 use crate::scene::{read_image_file, read_scene, write_scene};
 use axum::{
@@ -149,6 +150,7 @@ async fn set_mode(
         _ => return Json(json!({ "ok": false, "error": "invalid mode" })),
     };
     *state.ui_mode.lock() = ui_mode;
+    refresh_menu(&state);
     Json(json!({ "ok": true, "mode": mode }))
 }
 
@@ -162,6 +164,7 @@ async fn set_path(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -
         .as_ref()
         .and_then(|v| v.as_str())
         .map(String::from);
+    refresh_menu(&state);
     Json(json!({ "ok": true }))
 }
 
@@ -238,6 +241,7 @@ async fn read(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Js
         Ok(scene) => {
             *state.current_path.lock() = Some(path.to_string());
             state.recent.touch(path);
+            refresh_menu(&state);
             let mut resp = json!({ "ok": true, "path": path });
             if let Some(obj) = resp.as_object_mut() {
                 if let Some(s) = scene.as_object() {
@@ -275,6 +279,7 @@ async fn write(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> J
         Ok(()) => {
             *state.current_path.lock() = Some(path.to_string());
             state.recent.touch(path);
+            refresh_menu(&state);
             Json(json!({ "ok": true, "path": path }))
         }
         Err(e) => Json(json!({ "ok": false, "error": e })),

@@ -17,7 +17,11 @@ The existing `frontend/` talks to the desktop through **same-origin HTTP** (`fet
 
 **CLI PNG rendering:** identical to Deno — WebKitGTK webview runs `@excalidraw/excalidraw` `exportToBlob` in `frontend/src/export-cli-main.tsx`, posts base64 PNGs back to Rust for filesystem writes.
 
-**Native dialogs:** `rfd` (GTK on Linux) with directory preloaded from the drawing folder for Save/Save As, matching zenity `--filename=` behavior.
+**Native dialogs:** On Linux, **zenity** (same as Deno) when available, else `rfd`. Save/Save As use `--filename=<full path>` so the picker opens in the drawing folder with the basename prefilled.
+
+**Menu state:** `refresh_menu()` runs after `/api/set-mode`, `/api/read`, `/api/write`, and `/api/set-path` so Reload/Save enablement tracks canvas + path (matches Deno `applyMenu()`).
+
+**Lean Linux tarball:** `scripts/package-tauri-linux-tarball.sh` builds `payload.tar.xz` (binary + `resources/` frontend dist) for like-for-like size comparison with Deno’s compressed payload (~5.5 MiB vs ~23 MiB); requires system `webkit2gtk-4.1`. AppImage (~82 MiB) bundles WebKit/GTK via linuxdeploy.
 
 ## Not yet ported (POC gaps)
 
