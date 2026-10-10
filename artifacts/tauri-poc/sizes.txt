@@ -1,0 +1,9 @@
+=== Binary sizes ===
+Tauri release binary: 17 MiB (17101224 bytes)
+Tauri AppImage: 82 MiB (86301176 bytes)
+Deno desktop self-extract (payload.tar.xz on disk): 23 MiB (24304152 bytes)
+Deno build log uncompressed bundle: ~86.9 MiB (deno desktop --compress=xz)
+
+=== Idle RSS (WebKitGTK / Xvfb, matrix-demo loaded) ===
+Tauri: ~167 MiB (170940 KB)
+Deno:  ~198 MiB (202824 KB)

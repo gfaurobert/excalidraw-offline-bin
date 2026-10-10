@@ -21,6 +21,8 @@ test-fixtures/e2e-export/gui-v2-*.excalidraw
 test-fixtures/e2e-export/gui-edited.excalidraw
 test-fixtures/e2e-export/sticky-check.excalidraw
 .worktrees/
+src-tauri/target/
+src-tauri/gen/
 
 # Jekyll local build
 docs/site/_site/

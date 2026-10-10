@@ -1,0 +1,32 @@
+[package]
+name = "excalidraw-offline"
+version = "0.7.2"
+description = "Excalidraw Offline (Tauri 2 POC)"
+authors = ["Excalidraw Offline"]
+edition = "2021"
+
+[lib]
+name = "excalidraw_offline_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "excalidraw-offline"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+axum = { version = "0.7", features = ["json"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+rfd = "0.15"
+base64 = "0.22"
+dirs = "5"
+chrono = "0.4"
+mime_guess = "2"
+parking_lot = "0.12"
+thiserror = "2"

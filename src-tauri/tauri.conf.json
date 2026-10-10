@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Excalidraw Offline",
+  "version": "0.7.2",
+  "identifier": "dev.excalidraw.offline",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "beforeBuildCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build && cp -f ../icons/icon.png public/icon.png 2>/dev/null || true'",
+    "beforeDevCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build'",
+    "devUrl": "http://127.0.0.1:17342"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "security": {
+      "csp": null,
+      "dangerousDisableAssetCspModification": true
+    },
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "icon": [
+      "../icons/icon.png"
+    ],
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}
