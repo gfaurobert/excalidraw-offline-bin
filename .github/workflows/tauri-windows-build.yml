@@ -48,6 +48,8 @@ jobs:
 
       - name: Clippy Windows (deny warnings)
         working-directory: src-tauri
+        env:
+          TAURI_CONFIG: tauri.windows.ci.json
         run: |
           rustup component add clippy --target x86_64-pc-windows-msvc
           cargo clippy --target x86_64-pc-windows-msvc -- -D warnings
