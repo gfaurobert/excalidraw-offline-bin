@@ -1,6 +1,7 @@
 mod app_state;
 mod cli_export;
 mod dialogs;
+mod e2e;
 mod export;
 mod http_server;
 mod menu;

@@ -1,3 +1,4 @@
+use crate::e2e::e2e_enabled;
 use crate::paths::{ensure_excalidraw_ext, home_dir};
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageLevel};
 use std::path::{Path, PathBuf};
@@ -209,9 +210,48 @@ pub fn open_image_dialog() -> DialogResult {
     }
 }
 
+/// zenity: 0 → save; 1 + stdout "Discard" → discard; 1 + empty stdout → cancel
+pub fn parse_unsaved_zenity_outcome(code: i32, stdout: &str) -> Option<&'static str> {
+    let out = stdout.trim();
+    if code == 0 {
+        return Some("save");
+    }
+    if code == 1 && out == "Discard" {
+        return Some("discard");
+    }
+    if code == 1 {
+        return Some("cancel");
+    }
+    None
+}
+
+/// kdialog --yesnocancel: 0 → save; 1 → discard; 2 → cancel
+pub fn parse_unsaved_kdialog_outcome(code: i32) -> Option<&'static str> {
+    match code {
+        0 => Some("save"),
+        1 => Some("discard"),
+        2 => Some("cancel"),
+        _ => None,
+    }
+}
+
+fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
+    if choice == "cancel" {
+        Err(DialogResult::Cancelled)
+    } else {
+        Ok(choice.to_string())
+    }
+}
+
 pub fn unsaved_changes_dialog(title: &str, text: &str) -> Result<String, DialogResult> {
+    if e2e_enabled() {
+        if let Ok(forced) = std::env::var("EXCALIDRAW_E2E_UNSAVED_CHOICE") {
+            return map_unsaved_choice(forced.trim());
+        }
+    }
+
     if command_exists("zenity") {
-        let status = Command::new("zenity")
+        let output = Command::new("zenity")
             .args([
                 "--question",
                 &format!("--title={title}"),
@@ -220,13 +260,61 @@ pub fn unsaved_changes_dialog(title: &str, text: &str) -> Result<String, DialogR
                 "--cancel-label=Cancel",
                 "--extra-button=Discard",
             ])
-            .status();
-        if let Ok(s) = status {
-            match s.code() {
-                Some(0) => return Ok("save".into()),
-                Some(2) => return Ok("discard".into()),
-                Some(1) | None => return Err(DialogResult::Cancelled),
-                _ => {}
+            .output();
+        match output {
+            Ok(o) => {
+                let code = o.status.code().unwrap_or(-1);
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                if let Some(choice) = parse_unsaved_zenity_outcome(code, &stdout) {
+                    return map_unsaved_choice(choice);
+                }
+                return Err(DialogResult::Unavailable {
+                    detail: format!(
+                        "zenity unsaved dialog exit {code}: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    ),
+                });
+            }
+            Err(e) => {
+                return Err(DialogResult::Unavailable {
+                    detail: e.to_string(),
+                });
+            }
+        }
+    }
+
+    if command_exists("kdialog") {
+        let output = Command::new("kdialog")
+            .args([
+                "--title",
+                title,
+                "--yesnocancel",
+                text,
+                "--yes-label",
+                "Save",
+                "--no-label",
+                "Discard",
+                "--cancel-label",
+                "Cancel",
+            ])
+            .output();
+        match output {
+            Ok(o) => {
+                let code = o.status.code().unwrap_or(-1);
+                if let Some(choice) = parse_unsaved_kdialog_outcome(code) {
+                    return map_unsaved_choice(choice);
+                }
+                return Err(DialogResult::Unavailable {
+                    detail: format!(
+                        "kdialog unsaved dialog exit {code}: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    ),
+                });
+            }
+            Err(e) => {
+                return Err(DialogResult::Unavailable {
+                    detail: e.to_string(),
+                });
             }
         }
     }
@@ -258,4 +346,25 @@ pub fn suggested_image_export_path(
         }
     }
     home.join(filename).to_string_lossy().into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_unsaved_kdialog_outcome, parse_unsaved_zenity_outcome};
+
+    #[test]
+    fn parse_unsaved_zenity_outcome_matches_deno() {
+        assert_eq!(parse_unsaved_zenity_outcome(0, ""), Some("save"));
+        assert_eq!(parse_unsaved_zenity_outcome(1, "Discard"), Some("discard"));
+        assert_eq!(parse_unsaved_zenity_outcome(1, ""), Some("cancel"));
+        assert_eq!(parse_unsaved_zenity_outcome(5, ""), None);
+    }
+
+    #[test]
+    fn parse_unsaved_kdialog_outcome_matches_deno() {
+        assert_eq!(parse_unsaved_kdialog_outcome(0), Some("save"));
+        assert_eq!(parse_unsaved_kdialog_outcome(1), Some("discard"));
+        assert_eq!(parse_unsaved_kdialog_outcome(2), Some("cancel"));
+        assert_eq!(parse_unsaved_kdialog_outcome(3), None);
+    }
 }

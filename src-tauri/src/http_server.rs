@@ -1,4 +1,5 @@
 use crate::app_state::{AppState, UiCommand, UiMode};
+use crate::e2e::{e2e_enabled, eval_in_main_webview};
 use crate::dialogs::{
     dialog_backend_label, open_excalidraw_dialog, open_image_dialog, save_excalidraw_dialog,
     save_image_export_dialog, suggested_image_export_path, unsaved_changes_dialog, DialogResult,
@@ -17,6 +18,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
+use tauri::Manager;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
@@ -48,6 +50,10 @@ pub async fn start_http_server(state: Arc<AppState>) -> u16 {
         .route("/api/cli-export/png", post(cli_png))
         .route("/api/cli-export/finish", post(cli_finish))
         .route("/api/cli-export/fail", post(cli_fail))
+        .route("/api/e2e/focus-canvas", post(e2e_focus_canvas))
+        .route("/api/e2e/edit-marker", post(e2e_edit_marker))
+        .route("/api/e2e/shortcut", post(e2e_shortcut))
+        .route("/api/e2e/ui-command", post(e2e_ui_command))
         .fallback_service(static_service)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,
@@ -66,10 +72,15 @@ pub async fn start_http_server(state: Arc<AppState>) -> u16 {
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let ui_mode = state.ui_mode.lock().clone();
     Json(json!({
         "ok": true,
         "path": state.current_path.lock().clone(),
         "queue": state.ui_queue.lock().len(),
+        "uiMode": match ui_mode {
+            UiMode::Start => "start",
+            UiMode::Canvas => "canvas",
+        },
     }))
 }
 
@@ -80,7 +91,7 @@ async fn info(State(state): State<Arc<AppState>>) -> Json<Value> {
         "path": state.current_path.lock().clone(),
         "home": home_dir().to_string_lossy(),
         "excalidrawVersion": "0.18.0-4ce38fb",
-        "e2e": false,
+        "e2e": e2e_enabled(),
     }))
 }
 
@@ -336,11 +347,81 @@ async fn unsaved(Json(body): Json<Value>) -> Json<Value> {
 async fn quit(State(state): State<Arc<AppState>>) -> Json<Value> {
     *state.quit_pending.lock() = false;
     *state.allow_close.lock() = true;
+    if let Some(app) = state.app_handle.lock().clone() {
+        if let Some(win) = app.get_webview_window("main") {
+            let _ = win.close();
+        }
+        app.exit(0);
+    }
     Json(json!({ "ok": true }))
 }
 
 async fn quit_aborted(State(state): State<Arc<AppState>>) -> Json<Value> {
     *state.quit_pending.lock() = false;
+    Json(json!({ "ok": true }))
+}
+
+async fn e2e_focus_canvas(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let payload = body.to_string();
+    match eval_in_main_webview(
+        &state,
+        &format!("globalThis.__excalidrawOfflineE2e?.focusCanvas?.({payload});"),
+    ) {
+        Ok(()) => Json(json!({ "ok": true })),
+        Err(e) => Json(json!({ "ok": false, "error": e })),
+    }
+}
+
+async fn e2e_edit_marker(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let marker = body
+        .get("marker")
+        .and_then(|v| v.as_str())
+        .unwrap_or("E2E_EDIT_MARKER");
+    let marker_json = serde_json::to_string(marker).unwrap_or_else(|_| "\"E2E_EDIT_MARKER\"".into());
+    match eval_in_main_webview(
+        &state,
+        &format!("globalThis.__excalidrawOfflineE2e?.addEditMarker?.({marker_json});"),
+    ) {
+        Ok(()) => Json(json!({ "ok": true })),
+        Err(e) => Json(json!({ "ok": false, "error": e })),
+    }
+}
+
+async fn e2e_shortcut(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let payload = body.to_string();
+    match eval_in_main_webview(
+        &state,
+        &format!("globalThis.__excalidrawOfflineE2e?.dispatchShortcut?.({payload});"),
+    ) {
+        Ok(()) => Json(json!({ "ok": true })),
+        Err(e) => Json(json!({ "ok": false, "error": e })),
+    }
+}
+
+async fn e2e_ui_command(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    if !e2e_enabled() {
+        return Json(json!({ "ok": false, "error": "e2e disabled" }));
+    }
+    let cmd_type = body.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    let cmd = match cmd_type {
+        "new" => UiCommand::New,
+        "close" => UiCommand::Close,
+        "quit" => UiCommand::Quit,
+        _ => return Json(json!({ "ok": false, "error": "unknown ui-command type" })),
+    };
+    state.enqueue_ui(cmd);
     Json(json!({ "ok": true }))
 }
 
