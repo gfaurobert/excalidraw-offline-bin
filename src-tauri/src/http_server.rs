@@ -179,8 +179,8 @@ async fn set_path(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -
     Json(json!({ "ok": true }))
 }
 
-async fn pick_open() -> Json<Value> {
-    match open_excalidraw_dialog() {
+async fn pick_open(State(state): State<Arc<AppState>>) -> Json<Value> {
+    match open_excalidraw_dialog(&state) {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -189,12 +189,13 @@ async fn pick_open() -> Json<Value> {
     }
 }
 
-async fn pick_save(Json(body): Json<Value>) -> Json<Value> {
+async fn pick_save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Json<Value> {
     let suggested = body
         .get("suggested")
         .and_then(|v| v.as_str())
-        .unwrap_or("drawing.excalidraw");
-    match save_excalidraw_dialog(suggested) {
+        .unwrap_or("drawing.excalidraw")
+        .to_string();
+    match save_excalidraw_dialog(&state, &suggested) {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -216,7 +217,7 @@ async fn pick_save_image(
     }
     let doc = state.current_path.lock().clone();
     let suggested = suggested_image_export_path(doc.as_deref(), &home_dir(), filename);
-    match save_image_export_dialog(&suggested) {
+    match save_image_export_dialog(&state, &suggested) {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -225,8 +226,8 @@ async fn pick_save_image(
     }
 }
 
-async fn pick_image() -> Json<Value> {
-    match open_image_dialog() {
+async fn pick_image(State(state): State<Arc<AppState>>) -> Json<Value> {
+    match open_image_dialog(&state) {
         DialogResult::Ok { path } => {
             match read_image_file(std::path::Path::new(&path)) {
                 Ok((name, mime_type, data_url)) => Json(json!({
@@ -318,7 +319,7 @@ async fn write_binary(Json(body): Json<Value>) -> Json<Value> {
     }
 }
 
-async fn unsaved(Json(body): Json<Value>) -> Json<Value> {
+async fn unsaved(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Json<Value> {
     let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("untitled");
     let (title, text) = match reason {
         "reload" => (
@@ -334,7 +335,7 @@ async fn unsaved(Json(body): Json<Value>) -> Json<Value> {
             "This drawing has no file path yet. Save, discard, or cancel?",
         ),
     };
-    match unsaved_changes_dialog(title, text) {
+    match unsaved_changes_dialog(&state, title, text) {
         Ok(choice) => Json(json!({ "ok": true, "choice": choice })),
         Err(DialogResult::Cancelled) => Json(json!({ "ok": true, "choice": "cancel" })),
         Err(DialogResult::Unavailable { detail }) => {

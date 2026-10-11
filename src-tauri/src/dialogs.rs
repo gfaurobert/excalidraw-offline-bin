@@ -1,8 +1,9 @@
+use crate::app_state::AppState;
 use crate::e2e::e2e_enabled;
 use crate::paths::{ensure_excalidraw_ext, home_dir};
-use rfd::{FileDialog, MessageButtons, MessageDialog, MessageLevel};
+use rfd::FileDialog;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum DialogResult {
@@ -12,19 +13,22 @@ pub enum DialogResult {
 }
 
 pub fn dialog_backend_label() -> &'static str {
-    if command_exists("zenity") {
-        "zenity (GTK)"
-    } else {
-        "rfd (GTK native)"
+    #[cfg(target_os = "linux")]
+    {
+        return "rfd (GTK3 native)";
     }
-}
-
-fn command_exists(name: &str) -> bool {
-    Command::new("which")
-        .arg(name)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    #[cfg(target_os = "windows")]
+    {
+        return "rfd (Win32 native)";
+    }
+    #[cfg(target_os = "macos")]
+    {
+        return "rfd (AppKit native)";
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        "rfd (native)"
+    }
 }
 
 fn resolve_default_save_path(default_name_or_path: &str) -> PathBuf {
@@ -37,77 +41,12 @@ fn resolve_default_save_path(default_name_or_path: &str) -> PathBuf {
     path.canonicalize().unwrap_or(path)
 }
 
-fn run_zenity_save(default_path: &Path) -> DialogResult {
-    let default = default_path.to_string_lossy().replace('\\', "/");
-    let output = Command::new("zenity")
-        .args([
-            "--file-selection",
-            "--save",
-            "--confirm-overwrite",
-            "--title=Save Excalidraw file",
-            &format!("--filename={default}"),
-            "--file-filter=Excalidraw | *.excalidraw",
-            "--file-filter=All files | *",
-        ])
-        .output();
-    match output {
-        Ok(o) if o.status.success() => {
-            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if text.is_empty() {
-                DialogResult::Cancelled
-            } else {
-                DialogResult::Ok {
-                    path: ensure_excalidraw_ext(&text),
-                }
-            }
-        }
-        Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
-        Ok(o) => DialogResult::Unavailable {
-            detail: String::from_utf8_lossy(&o.stderr).into_owned(),
-        },
-        Err(e) => DialogResult::Unavailable {
-            detail: e.to_string(),
-        },
-    }
-}
-
-fn run_zenity_open() -> DialogResult {
-    let output = Command::new("zenity")
-        .args([
-            "--file-selection",
-            "--title=Open Excalidraw file",
-            "--file-filter=Excalidraw | *.excalidraw",
-            "--file-filter=All files | *",
-        ])
-        .output();
-    match output {
-        Ok(o) if o.status.success() => {
-            let text = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if text.is_empty() {
-                DialogResult::Cancelled
-            } else {
-                DialogResult::Ok { path: text }
-            }
-        }
-        Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
-        Ok(o) => DialogResult::Unavailable {
-            detail: String::from_utf8_lossy(&o.stderr).into_owned(),
-        },
-        Err(e) => DialogResult::Unavailable {
-            detail: e.to_string(),
-        },
-    }
-}
-
-pub fn open_excalidraw_dialog() -> DialogResult {
+fn open_excalidraw_dialog_inner() -> DialogResult {
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_OPEN_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
             return DialogResult::Ok { path: t.to_string() };
         }
-    }
-    if command_exists("zenity") {
-        return run_zenity_open();
     }
     match FileDialog::new()
         .set_title("Open Excalidraw file")
@@ -121,7 +60,19 @@ pub fn open_excalidraw_dialog() -> DialogResult {
     }
 }
 
-pub fn save_excalidraw_dialog(default_name_or_path: &str) -> DialogResult {
+/// Open dialog from menu (already on GTK main thread).
+pub fn open_excalidraw_dialog_on_menu(_state: &Arc<AppState>) -> DialogResult {
+    open_excalidraw_dialog_inner()
+}
+
+pub fn open_excalidraw_dialog(state: &Arc<AppState>) -> DialogResult {
+    // rfd GTK backend runs the dialog on the thread that calls it; HTTP handlers
+    // must not block the Tauri main loop waiting on run_on_main_thread.
+    let _ = state;
+    open_excalidraw_dialog_inner()
+}
+
+fn save_excalidraw_dialog_inner(default_name_or_path: &str) -> DialogResult {
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_SAVE_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -131,9 +82,6 @@ pub fn save_excalidraw_dialog(default_name_or_path: &str) -> DialogResult {
         }
     }
     let default_path = resolve_default_save_path(default_name_or_path);
-    if command_exists("zenity") {
-        return run_zenity_save(&default_path);
-    }
     let mut dialog = FileDialog::new()
         .set_title("Save Excalidraw file")
         .add_filter("Excalidraw", &["excalidraw"]);
@@ -153,31 +101,20 @@ pub fn save_excalidraw_dialog(default_name_or_path: &str) -> DialogResult {
     }
 }
 
-pub fn save_image_export_dialog(suggested_path: &str) -> DialogResult {
+pub fn save_excalidraw_dialog_on_menu(
+    _state: &Arc<AppState>,
+    default_name_or_path: &str,
+) -> DialogResult {
+    save_excalidraw_dialog_inner(default_name_or_path)
+}
+
+pub fn save_excalidraw_dialog(state: &Arc<AppState>, default_name_or_path: &str) -> DialogResult {
+    let _ = state;
+    save_excalidraw_dialog_inner(default_name_or_path)
+}
+
+fn save_image_export_dialog_inner(suggested_path: &str) -> DialogResult {
     let default_path = resolve_default_save_path(suggested_path);
-    if command_exists("zenity") {
-        let default = default_path.to_string_lossy().replace('\\', "/");
-        let output = Command::new("zenity")
-            .args([
-                "--file-selection",
-                "--save",
-                "--confirm-overwrite",
-                "--title=Export image",
-                &format!("--filename={default}"),
-                "--file-filter=PNG | *.png",
-            ])
-            .output();
-        return match output {
-            Ok(o) if o.status.success() => DialogResult::Ok {
-                path: String::from_utf8_lossy(&o.stdout).trim().to_string(),
-            },
-            Ok(o) if o.status.code() == Some(1) => DialogResult::Cancelled,
-            Ok(o) => DialogResult::Unavailable {
-                detail: String::from_utf8_lossy(&o.stderr).into_owned(),
-            },
-            Err(e) => DialogResult::Unavailable { detail: e.to_string() },
-        };
-    }
     let mut dialog = FileDialog::new()
         .set_title("Export image")
         .add_filter("PNG", &["png"]);
@@ -197,7 +134,12 @@ pub fn save_image_export_dialog(suggested_path: &str) -> DialogResult {
     }
 }
 
-pub fn open_image_dialog() -> DialogResult {
+pub fn save_image_export_dialog(state: &Arc<AppState>, suggested_path: &str) -> DialogResult {
+    let _ = state;
+    save_image_export_dialog_inner(suggested_path)
+}
+
+fn open_image_dialog_inner() -> DialogResult {
     match FileDialog::new()
         .set_title("Import image")
         .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "svg"])
@@ -210,32 +152,12 @@ pub fn open_image_dialog() -> DialogResult {
     }
 }
 
-/// zenity: 0 → save; 1 + stdout "Discard" → discard; 1 + empty stdout → cancel
-pub fn parse_unsaved_zenity_outcome(code: i32, stdout: &str) -> Option<&'static str> {
-    let out = stdout.trim();
-    if code == 0 {
-        return Some("save");
-    }
-    if code == 1 && out == "Discard" {
-        return Some("discard");
-    }
-    if code == 1 {
-        return Some("cancel");
-    }
-    None
+pub fn open_image_dialog(state: &Arc<AppState>) -> DialogResult {
+    let _ = state;
+    open_image_dialog_inner()
 }
 
-/// kdialog --yesnocancel: 0 → save; 1 → discard; 2 → cancel
-pub fn parse_unsaved_kdialog_outcome(code: i32) -> Option<&'static str> {
-    match code {
-        0 => Some("save"),
-        1 => Some("discard"),
-        2 => Some("cancel"),
-        _ => None,
-    }
-}
-
-fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
+pub(crate) fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
     if choice == "cancel" {
         Err(DialogResult::Cancelled)
     } else {
@@ -243,95 +165,51 @@ fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
     }
 }
 
-pub fn unsaved_changes_dialog(title: &str, text: &str) -> Result<String, DialogResult> {
+fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, DialogResult> {
     if e2e_enabled() {
         if let Ok(forced) = std::env::var("EXCALIDRAW_E2E_UNSAVED_CHOICE") {
             return map_unsaved_choice(forced.trim());
         }
     }
 
-    if command_exists("zenity") {
-        let output = Command::new("zenity")
-            .args([
-                "--question",
-                &format!("--title={title}"),
-                &format!("--text={text}"),
-                "--ok-label=Save",
-                "--cancel-label=Cancel",
-                "--extra-button=Discard",
-            ])
-            .output();
-        match output {
-            Ok(o) => {
-                let code = o.status.code().unwrap_or(-1);
-                let stdout = String::from_utf8_lossy(&o.stdout);
-                if let Some(choice) = parse_unsaved_zenity_outcome(code, &stdout) {
-                    return map_unsaved_choice(choice);
-                }
-                return Err(DialogResult::Unavailable {
-                    detail: format!(
-                        "zenity unsaved dialog exit {code}: {}",
-                        String::from_utf8_lossy(&o.stderr).trim()
-                    ),
-                });
-            }
-            Err(e) => {
-                return Err(DialogResult::Unavailable {
-                    detail: e.to_string(),
-                });
-            }
-        }
+    #[cfg(target_os = "linux")]
+    {
+        return crate::dialogs_linux::linux_unsaved_changes_dialog(title, text);
     }
 
-    if command_exists("kdialog") {
-        let output = Command::new("kdialog")
-            .args([
-                "--title",
-                title,
-                "--yesnocancel",
-                text,
-                "--yes-label",
-                "Save",
-                "--no-label",
-                "Discard",
-                "--cancel-label",
-                "Cancel",
-            ])
-            .output();
-        match output {
-            Ok(o) => {
-                let code = o.status.code().unwrap_or(-1);
-                if let Some(choice) = parse_unsaved_kdialog_outcome(code) {
-                    return map_unsaved_choice(choice);
-                }
-                return Err(DialogResult::Unavailable {
-                    detail: format!(
-                        "kdialog unsaved dialog exit {code}: {}",
-                        String::from_utf8_lossy(&o.stderr).trim()
-                    ),
-                });
-            }
-            Err(e) => {
-                return Err(DialogResult::Unavailable {
-                    detail: e.to_string(),
-                });
-            }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let choice = MessageDialog::new()
+            .set_title(title)
+            .set_description(format!(
+                "{text}\n\nYes = Save, No = Discard, Cancel = keep editing."
+            ))
+            .set_level(MessageLevel::Warning)
+            .set_buttons(MessageButtons::YesNoCancel)
+            .show();
+        match choice {
+            rfd::MessageDialogResult::Yes => Ok("save".into()),
+            rfd::MessageDialogResult::No => Ok("discard".into()),
+            _ => Err(DialogResult::Cancelled),
         }
     }
+}
 
-    let choice = MessageDialog::new()
-        .set_title(title)
-        .set_description(format!(
-            "{text}\n\nClick Yes to Save, No to Discard, or Cancel."
-        ))
-        .set_level(MessageLevel::Warning)
-        .set_buttons(MessageButtons::YesNoCancel)
-        .show();
-    match choice {
-        rfd::MessageDialogResult::Yes => Ok("save".into()),
-        rfd::MessageDialogResult::No => Ok("discard".into()),
-        _ => Err(DialogResult::Cancelled),
-    }
+pub fn unsaved_changes_dialog_on_menu(
+    _state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+) -> Result<String, DialogResult> {
+    unsaved_changes_dialog_inner(title, text)
+}
+
+pub fn unsaved_changes_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+) -> Result<String, DialogResult> {
+    let _ = state;
+    unsaved_changes_dialog_inner(title, text)
 }
 
 pub fn suggested_image_export_path(
@@ -346,25 +224,4 @@ pub fn suggested_image_export_path(
         }
     }
     home.join(filename).to_string_lossy().into_owned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{parse_unsaved_kdialog_outcome, parse_unsaved_zenity_outcome};
-
-    #[test]
-    fn parse_unsaved_zenity_outcome_matches_deno() {
-        assert_eq!(parse_unsaved_zenity_outcome(0, ""), Some("save"));
-        assert_eq!(parse_unsaved_zenity_outcome(1, "Discard"), Some("discard"));
-        assert_eq!(parse_unsaved_zenity_outcome(1, ""), Some("cancel"));
-        assert_eq!(parse_unsaved_zenity_outcome(5, ""), None);
-    }
-
-    #[test]
-    fn parse_unsaved_kdialog_outcome_matches_deno() {
-        assert_eq!(parse_unsaved_kdialog_outcome(0), Some("save"));
-        assert_eq!(parse_unsaved_kdialog_outcome(1), Some("discard"));
-        assert_eq!(parse_unsaved_kdialog_outcome(2), Some("cancel"));
-        assert_eq!(parse_unsaved_kdialog_outcome(3), None);
-    }
 }

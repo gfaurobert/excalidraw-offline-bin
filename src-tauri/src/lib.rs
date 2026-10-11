@@ -1,6 +1,8 @@
 mod app_state;
 mod cli_export;
 mod dialogs;
+#[cfg(target_os = "linux")]
+mod dialogs_linux;
 mod e2e;
 mod export;
 mod http_server;

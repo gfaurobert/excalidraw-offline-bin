@@ -1,5 +1,7 @@
 use crate::app_state::{AppState, UiCommand, UiMode};
-use crate::dialogs::{open_excalidraw_dialog, save_excalidraw_dialog, DialogResult};
+use crate::dialogs::{
+    open_excalidraw_dialog_on_menu, save_excalidraw_dialog_on_menu, DialogResult,
+};
 use crate::recent::recent_display_labels;
 use std::sync::Arc;
 use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -142,7 +144,7 @@ pub fn apply_menu(
 }
 
 fn picker_unavailable() -> String {
-    "File picker unavailable (zenity/rfd)".to_string()
+    "File picker unavailable (native dialog failed)".to_string()
 }
 
 pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
@@ -172,7 +174,7 @@ pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
             state.enqueue_ui(UiCommand::Status {
                 message: "Choose file to open…".into(),
             });
-            match open_excalidraw_dialog() {
+            match open_excalidraw_dialog_on_menu(state) {
                 DialogResult::Ok { path } => {
                     state.enqueue_ui(UiCommand::Open { path: Some(path) });
                 }
@@ -199,7 +201,7 @@ pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
                 state.enqueue_ui(UiCommand::Status {
                     message: "Choose save location…".into(),
                 });
-                match save_excalidraw_dialog("drawing.excalidraw") {
+                match save_excalidraw_dialog_on_menu(state, "drawing.excalidraw") {
                     DialogResult::Ok { path } => {
                         state.enqueue_ui(UiCommand::Save {
                             force_picker: false,
@@ -228,7 +230,7 @@ pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
                 .lock()
                 .clone()
                 .unwrap_or_else(|| "drawing.excalidraw".into());
-            match save_excalidraw_dialog(&suggested) {
+            match save_excalidraw_dialog_on_menu(state, &suggested) {
                 DialogResult::Ok { path } => {
                     state.enqueue_ui(UiCommand::Save {
                         force_picker: true,
