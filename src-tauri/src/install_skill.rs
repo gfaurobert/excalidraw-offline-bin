@@ -161,12 +161,21 @@ pub fn resolve_install_target(
 pub fn resolve_bundled_skill_dir() -> PathBuf {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let candidates = [
-                dir.join("../lib/excalidraw-offline/resources/skills/excalidraw-sketching"),
-                dir.join("../resources/skills/excalidraw-sketching"),
+            let candidates = vec![
                 dir.join("resources/skills/excalidraw-sketching"),
+                dir.join("../resources/skills/excalidraw-sketching"),
+                dir.join("../lib/excalidraw-offline/resources/skills/excalidraw-sketching"),
                 dir.join("../skills/excalidraw-sketching"),
             ];
+            #[cfg(windows)]
+            {
+                candidates.insert(0, dir.join("skills/excalidraw-sketching"));
+                if let Some(res) = std::env::var_os("RESOURCE") {
+                    candidates.push(
+                        PathBuf::from(res).join("skills/excalidraw-sketching"),
+                    );
+                }
+            }
             for c in candidates {
                 let p = c.canonicalize().unwrap_or(c);
                 if p.join("SKILL.md").is_file() {

@@ -1,32 +1,23 @@
-#[cfg(target_os = "linux")]
 use crate::app_state::{AppState, UiCommand};
-#[cfg(target_os = "linux")]
 use crate::dialogs::dialog_backend_label;
-#[cfg(target_os = "linux")]
-use crate::gtk_dialogs::{self, ChoiceOption, DialogError};
-#[cfg(target_os = "linux")]
 use crate::install_skill::{
     existing_dests, install_skill_to, install_skill_to_many,
     parse_harness_id, resolve_bundled_skill_dir, resolve_harness_install_dests,
     resolve_install_target, HarnessId, InstallMode, DEFAULT_HARNESS_IDS, HARNESS_TARGET_OPTIONS,
     SKILL_ID,
 };
-#[cfg(target_os = "linux")]
 use crate::paths::home_dir;
-#[cfg(target_os = "linux")]
+use crate::skill_dialogs::{self, ChoiceOption, DialogError};
 use std::path::PathBuf;
-#[cfg(target_os = "linux")]
 use std::sync::Arc;
 
-#[cfg(target_os = "linux")]
 const INSTALL_SKILL_OPTIONS: &[(&str, &str)] = &[
     ("global", "Global (user) — install under your home directory"),
     ("project", "Project — pick a project root folder"),
     ("custom", "Custom — pick any folder"),
 ];
 
-#[cfg(target_os = "linux")]
-fn harness_options_for_gtk() -> Vec<ChoiceOption> {
+fn harness_options_for_dialog() -> Vec<ChoiceOption> {
     HARNESS_TARGET_OPTIONS
         .iter()
         .map(|o| ChoiceOption {
@@ -36,7 +27,6 @@ fn harness_options_for_gtk() -> Vec<ChoiceOption> {
         .collect()
 }
 
-#[cfg(target_os = "linux")]
 fn default_harness_id_strings() -> Vec<String> {
     DEFAULT_HARNESS_IDS
         .iter()
@@ -44,7 +34,6 @@ fn default_harness_id_strings() -> Vec<String> {
         .collect()
 }
 
-#[cfg(target_os = "linux")]
 fn parse_mode(id: &str) -> Option<InstallMode> {
     match id {
         "global" => Some(InstallMode::Global),
@@ -54,14 +43,12 @@ fn parse_mode(id: &str) -> Option<InstallMode> {
     }
 }
 
-#[cfg(target_os = "linux")]
 fn status(state: &Arc<AppState>, message: impl Into<String>) {
     state.enqueue_ui(UiCommand::Status {
         message: message.into(),
     });
 }
 
-#[cfg(target_os = "linux")]
 async fn install_sketching_skill_async(state: &Arc<AppState>) {
     let home = home_dir();
     let choice_opts: Vec<ChoiceOption> = INSTALL_SKILL_OPTIONS
@@ -72,7 +59,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
         })
         .collect();
 
-    let mode_id = match gtk_dialogs::choice_dialog(
+    let mode_id = match skill_dialogs::choice_dialog(
         state,
         "Install skill",
         "Where should excalidraw-sketching be installed?",
@@ -87,7 +74,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
             return;
         }
         Err(DialogError::Unavailable { detail }) => {
-            let _ = gtk_dialogs::info_dialog(
+            let _ = skill_dialogs::info_dialog(
                 state,
                 "Install skill",
                 &format!("Cannot show install options: {detail}"),
@@ -110,14 +97,14 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
         } else {
             "Select destination folder"
         };
-        match gtk_dialogs::open_directory_dialog(state, title, &home).await {
+        match skill_dialogs::open_directory_dialog(state, title, &home).await {
             Ok(p) => picked = Some(PathBuf::from(p)),
             Err(DialogError::Cancelled) => {
                 status(state, "Skill install cancelled");
                 return;
             }
             Err(DialogError::Unavailable { detail }) => {
-                let _ = gtk_dialogs::info_dialog(
+                let _ = skill_dialogs::info_dialog(
                     state,
                     "Install skill",
                     &format!("Cannot pick folder: {detail}"),
@@ -133,7 +120,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
         InstallMode::Custom => match resolve_install_target(mode, &home, picked.as_deref()) {
             Ok(p) => vec![p],
             Err(e) => {
-                let _ = gtk_dialogs::info_dialog(state, "Install skill", &e, None).await;
+                let _ = skill_dialogs::info_dialog(state, "Install skill", &e, None).await;
                 return;
             }
         },
@@ -143,13 +130,13 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
             } else {
                 "Which agent tools should receive the skill? (Project)"
             };
-            let harness_opts = harness_options_for_gtk();
+            let harness_opts = harness_options_for_dialog();
             let default_strings = default_harness_id_strings();
             let defaults: Vec<&str> = default_strings
                 .iter()
                 .map(|s| s.as_str())
                 .collect();
-            let selected_ids = match gtk_dialogs::multi_select_checklist_dialog(
+            let selected_ids = match skill_dialogs::multi_select_checklist_dialog(
                 state,
                 "Install skill — targets",
                 scope,
@@ -164,7 +151,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
                     return;
                 }
                 Err(DialogError::Unavailable { detail }) => {
-                    let _ = gtk_dialogs::info_dialog(
+                    let _ = skill_dialogs::info_dialog(
                         state,
                         "Install skill",
                         &format!("Cannot show target list: {detail}"),
@@ -186,7 +173,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    let _ = gtk_dialogs::info_dialog(state, "Install skill", &e, None).await;
+                    let _ = skill_dialogs::info_dialog(state, "Install skill", &e, None).await;
                     return;
                 }
             }
@@ -204,7 +191,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
             .map(|p| p.display().to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        match gtk_dialogs::confirm_dialog(
+        match skill_dialogs::confirm_dialog(
             state,
             "Overwrite skill?",
             &format!(
@@ -223,7 +210,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
                 return;
             }
             Err(DialogError::Unavailable { detail }) => {
-                let _ = gtk_dialogs::info_dialog(
+                let _ = skill_dialogs::info_dialog(
                     state,
                     "Install skill",
                     &format!("Cannot confirm overwrite: {detail}"),
@@ -249,7 +236,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
                 .map(|p| p.display().to_string())
                 .collect::<Vec<_>>()
                 .join("\n");
-            let _ = gtk_dialogs::info_dialog(
+            let _ = skill_dialogs::info_dialog(
                 state,
                 "Install skill",
                 &format!("Installed {SKILL_ID} to:\n{listing}"),
@@ -266,7 +253,7 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
             );
         }
         Err(detail) => {
-            let _ = gtk_dialogs::info_dialog(
+            let _ = skill_dialogs::info_dialog(
                 state,
                 "Install skill",
                 &format!("Install failed:\n{detail}"),
@@ -278,7 +265,6 @@ async fn install_sketching_skill_async(state: &Arc<AppState>) {
     }
 }
 
-#[cfg(target_os = "linux")]
 pub fn run_install_sketching_skill(state: &Arc<AppState>) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
@@ -286,12 +272,16 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
     });
 }
 
-#[cfg(target_os = "linux")]
 pub fn run_info_runtime(state: &Arc<AppState>) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
-        let text = format!("Ready · dialog: {}+http", dialog_backend_label());
-        if gtk_dialogs::info_dialog(&state, "Runtime", &text, None)
+        let text = format!(
+            "Ready · dialog: {}+http\nHome: {}\nBundled skill: {}",
+            dialog_backend_label(),
+            home_dir().display(),
+            resolve_bundled_skill_dir().display(),
+        );
+        if skill_dialogs::info_dialog(&state, "Runtime", &text, None)
             .await
             .is_err()
         {
@@ -303,11 +293,10 @@ pub fn run_info_runtime(state: &Arc<AppState>) {
     });
 }
 
-#[cfg(target_os = "linux")]
 pub fn run_info_assets(state: &Arc<AppState>) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
-        if gtk_dialogs::info_dialog(
+        if skill_dialogs::info_dialog(
             &state,
             "Assets",
             "Images save into assets/ next to the .excalidraw file.",
@@ -324,7 +313,6 @@ pub fn run_info_assets(state: &Arc<AppState>) {
     });
 }
 
-#[cfg(target_os = "linux")]
 pub fn run_info_about_app(state: &Arc<AppState>) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
@@ -333,7 +321,7 @@ pub fn run_info_about_app(state: &Arc<AppState>) {
             "Excalidraw Offline\nVersion: {version}\n\n\
          A Tauri desktop wrapper around @excalidraw/excalidraw for offline local files."
         );
-        if gtk_dialogs::info_dialog(
+        if skill_dialogs::info_dialog(
             &state,
             "About Excalidraw Offline",
             &text,
@@ -350,13 +338,12 @@ pub fn run_info_about_app(state: &Arc<AppState>) {
     });
 }
 
-#[cfg(target_os = "linux")]
 pub fn run_info_about_excalidraw(state: &Arc<AppState>) {
     let state = state.clone();
     tauri::async_runtime::spawn(async move {
         let text = "Excalidraw\nRelease: 0.18.0-4ce38fb\n\n\
          Upstream @excalidraw/excalidraw packaged by this app.";
-        if gtk_dialogs::info_dialog(
+        if skill_dialogs::info_dialog(
             &state,
             "About Excalidraw",
             text,

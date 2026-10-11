@@ -10,10 +10,13 @@ mod e2e;
 mod gtk_async;
 #[cfg(target_os = "linux")]
 mod gtk_dialogs;
-#[cfg(target_os = "linux")]
 mod install_skill;
-#[cfg(target_os = "linux")]
+mod skill_dialog_common;
+mod skill_dialogs;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 mod skill_install_flow;
+#[cfg(windows)]
+mod win_dialogs;
 mod desktop_log;
 mod export;
 mod http_server;

@@ -37,3 +37,4 @@ gtk = { version = "0.18", features = ["v3_24"] }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 rfd = { version = "0.15", default-features = true, features = ["common-controls-v6"] }
+

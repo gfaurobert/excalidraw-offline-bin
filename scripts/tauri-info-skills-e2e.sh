@@ -159,7 +159,7 @@ grep -q 'SKILL.md' "$ART/find-global-all.txt" || { echo "FAIL global-all"; exit 
 grep -q 'SKILL.md' "$ART/find-project-project-agents-claude.txt" || { echo "FAIL project install"; exit 1; }
 ! grep -q 'SKILL.md' "$ART/find-cancel.txt" 2>/dev/null || { echo "FAIL cancel installed files"; exit 1; }
 
-echo "Injection: EXCALIDRAW_E2E_SKILL_MODE/HARNESS/PROJECT/CANCEL read in gtk_dialogs.rs (skip UI when DIALOG_PAUSE_MS unset)" | tee -a "$ART/run.log"
+echo "Injection: EXCALIDRAW_E2E_SKILL_* read in gtk_dialogs.rs (Linux) / win_dialogs.rs (Windows)" | tee -a "$ART/run.log"
 echo "Screenshots: real GTK shown when EXCALIDRAW_E2E_DIALOG_PAUSE_MS set; auto-select via env after pause" | tee -a "$ART/run.log"
 echo "PASS info/skills E2E" | tee -a "$ART/run.log"
 

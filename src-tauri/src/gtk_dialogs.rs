@@ -4,32 +4,20 @@ use crate::app_state::AppState;
 use crate::gtk_async;
 use rfd::AsyncFileDialog;
 use std::sync::{Arc, Mutex};
-use crate::e2e::e2e_enabled;
+use crate::skill_dialog_common::{
+    e2e_pause_ms, e2e_skill_cancelled, e2e_sleep_pause, open_url_in_browser, ChoiceOption,
+    DialogError, DialogResult,
+};
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, ButtonsType, CheckButton, Dialog, DialogFlags, MessageDialog,
     MessageType, Orientation, ResponseType, ScrolledWindow,
 };
-use std::process::Command;
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
 static GTK_INIT: Once = Once::new();
-
-#[derive(Debug)]
-pub enum DialogError {
-    Cancelled,
-    Unavailable { detail: String },
-}
-
-pub type DialogResult<T> = Result<T, DialogError>;
-
-#[derive(Clone)]
-pub struct ChoiceOption {
-    pub id: String,
-    pub label: String,
-}
 
 fn ensure_gtk() -> Result<(), DialogError> {
     let mut init_err: Option<String> = None;
@@ -112,26 +100,7 @@ fn wire_dialog_response<D, R>(
     });
 }
 
-fn e2e_pause_ms() -> u64 {
-    if !e2e_enabled() {
-        return 0;
-    }
-    std::env::var("EXCALIDRAW_E2E_DIALOG_PAUSE_MS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0)
-}
-
-fn e2e_skill_cancelled() -> bool {
-    e2e_enabled()
-        && std::env::var("EXCALIDRAW_E2E_SKILL_CANCEL")
-            .map(|v| v == "1")
-            .unwrap_or(false)
-}
-
-pub fn open_url_in_browser(url: &str) {
-    let _ = Command::new("xdg-open").arg(url).spawn();
-}
+use crate::e2e::e2e_enabled;
 
 pub async fn info_dialog(
     state: &Arc<AppState>,
@@ -166,7 +135,7 @@ pub async fn info_dialog(
         );
         dialog.set_title(&title);
         dialog.show_all();
-        thread::sleep(Duration::from_millis(pause));
+        e2e_sleep_pause();
         dialog.response(ResponseType::Ok);
         dialog.close();
     } else {

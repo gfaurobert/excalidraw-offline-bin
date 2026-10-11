@@ -11,6 +11,47 @@ permissions:
   contents: read
 
 jobs:
+  linux-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Clippy Linux (deny warnings)
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Install cargo-xwin
+        run: cargo install cargo-xwin --locked
+
+      - name: Clippy Windows via xwin (deny warnings)
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
+        run: cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings
+
   windows-x64:
     runs-on: windows-latest
     steps:
