@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{GetStockObject, DEFAULT_GUI_FONT};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{IsDlgButtonChecked, BST_CHECKED};
@@ -14,8 +14,8 @@ use windows::Win32::UI::HiDpi::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, LoadCursorW, RegisterClassW,
-    SendMessageW, SetForegroundWindow, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-    CW_USEDEFAULT, HMENU, IDC_ARROW, IDCANCEL, IDOK, SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE,
+    SendMessageW, SetForegroundWindow, SetWindowPos, ShowWindow, BM_SETCHECK, CS_HREDRAW,
+    CS_VREDRAW, CW_USEDEFAULT, HMENU, IDC_ARROW, SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE,
     WM_COMMAND, WM_CREATE, WM_SETFONT, WS_CAPTION, WS_CHILD, WS_OVERLAPPED, WS_SYSMENU,
     WS_TABSTOP, WS_VISIBLE, BS_AUTOCHECKBOX, BS_DEFPUSHBUTTON, BS_PUSHBUTTON, HWND_TOP,
     SWP_NOMOVE, SWP_NOZORDER, WNDCLASSW,
@@ -28,7 +28,7 @@ const IDOK_LOCAL: i32 = 1;
 const IDCANCEL_LOCAL: i32 = 2;
 
 thread_local! {
-    static DIALOG_CTX: RefCell<Option<DialogCtx>> = RefCell::new(None);
+    static DIALOG_CTX: RefCell<Option<DialogCtx>> = const { RefCell::new(None) };
 }
 
 struct DialogCtx {
@@ -38,11 +38,21 @@ struct DialogCtx {
     tx: Option<tokio::sync::oneshot::Sender<DialogResult<Vec<String>>>>,
 }
 
+struct CreateParams {
+    caption: String,
+    options: Vec<ChoiceOption>,
+    default_checked: HashSet<String>,
+}
+
 static CLASS_REGISTERED: AtomicBool = AtomicBool::new(false);
 static DPI_AWARE: AtomicBool = AtomicBool::new(false);
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+fn child_menu_id(id: i32) -> HMENU {
+    HMENU(id as usize as *mut core::ffi::c_void)
 }
 
 fn ensure_dpi_aware() {
@@ -75,14 +85,12 @@ fn ensure_window_class() -> windows::core::Result<()> {
         let wc = WNDCLASSW {
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(wnd_proc),
-            hInstance: instance.into(),
+            hInstance: HINSTANCE::from(instance),
             hCursor: LoadCursorW(None, IDC_ARROW)?,
             lpszClassName: PCWSTR(wide(CLASS_NAME).as_ptr()),
             ..Default::default()
         };
-        if RegisterClassW(&wc) == 0 {
-            // Already registered by a prior call in-process.
-        }
+        let _ = RegisterClassW(&wc);
     }
     CLASS_REGISTERED.store(true, Ordering::Release);
     Ok(())
@@ -90,9 +98,15 @@ fn ensure_window_class() -> windows::core::Result<()> {
 
 unsafe fn apply_gui_font(hwnd: HWND) {
     let font = GetStockObject(DEFAULT_GUI_FONT);
-    let _ = SendMessageW(hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(1));
+    let _ = SendMessageW(
+        hwnd,
+        WM_SETFONT,
+        Some(WPARAM(font.0 as usize)),
+        Some(LPARAM(1)),
+    );
 }
 
+#[allow(clippy::too_many_arguments)]
 unsafe fn create_control(
     class: &str,
     text: &str,
@@ -104,6 +118,7 @@ unsafe fn create_control(
     parent: HWND,
     id: i32,
 ) -> HWND {
+    let module = GetModuleHandleW(None).expect("module");
     let hwnd = CreateWindowExW(
         WINDOW_EX_STYLE(0),
         PCWSTR(wide(class).as_ptr()),
@@ -113,9 +128,9 @@ unsafe fn create_control(
         y,
         w,
         h,
-        parent,
-        HMENU(id as isize),
-        GetModuleHandleW(None).expect("module"),
+        Some(parent),
+        Some(child_menu_id(id)),
+        Some(HINSTANCE::from(module)),
         None,
     )
     .expect("CreateWindowExW control");
@@ -129,7 +144,7 @@ unsafe fn finish_dialog(hwnd: HWND, result: DialogResult<Vec<String>>) {
             let _ = tx.send(result);
         }
     }
-    if hwnd.0 != 0 {
+    if !hwnd.is_invalid() {
         let _ = DestroyWindow(hwnd);
     }
 }
@@ -138,7 +153,7 @@ unsafe fn collect_checked_ids(hwnd: HWND, options: &[ChoiceOption]) -> DialogRes
     let mut ids = Vec::new();
     for (i, opt) in options.iter().enumerate() {
         let id = ID_CHECK_BASE + i as i32;
-        if IsDlgButtonChecked(hwnd, id) == BST_CHECKED {
+        if IsDlgButtonChecked(hwnd, id) == BST_CHECKED.0 {
             ids.push(opt.id.clone());
         }
     }
@@ -192,7 +207,7 @@ unsafe extern "system" fn wnd_proc(
                 let cb = create_control(
                     "BUTTON",
                     &opt.label,
-                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_AUTOCHECKBOX.0),
+                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_AUTOCHECKBOX as u32),
                     margin,
                     y,
                     width - margin * 2,
@@ -201,12 +216,11 @@ unsafe extern "system" fn wnd_proc(
                     id,
                 );
                 if params.default_checked.contains(&opt.id) {
-                    use windows::Win32::UI::WindowsAndMessaging::BM_SETCHECK;
                     let _ = SendMessageW(
                         cb,
                         BM_SETCHECK,
-                        WPARAM(BST_CHECKED.0 as usize),
-                        LPARAM(0),
+                        Some(WPARAM(BST_CHECKED.0 as usize)),
+                        None,
                     );
                 }
                 y += line + scale(dpi, 4);
@@ -216,7 +230,7 @@ unsafe extern "system" fn wnd_proc(
             create_control(
                 "BUTTON",
                 "OK",
-                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_DEFPUSHBUTTON.0),
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_DEFPUSHBUTTON as u32),
                 width - margin - btn_w * 2 - scale(dpi, 8),
                 ok_y,
                 btn_w,
@@ -227,7 +241,7 @@ unsafe extern "system" fn wnd_proc(
             create_control(
                 "BUTTON",
                 "Cancel",
-                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_PUSHBUTTON.0),
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(BS_PUSHBUTTON as u32),
                 width - margin - btn_w,
                 ok_y,
                 btn_w,
@@ -239,7 +253,7 @@ unsafe extern "system" fn wnd_proc(
             let total_h = ok_y + btn_h + margin;
             let _ = SetWindowPos(
                 hwnd,
-                HWND_TOP,
+                Some(HWND_TOP),
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 width,
@@ -251,7 +265,7 @@ unsafe extern "system" fn wnd_proc(
         }
         WM_COMMAND => {
             let id = (wparam.0 & 0xffff) as i32;
-            if id == IDOK_LOCAL || id == IDOK {
+            if id == IDOK_LOCAL {
                 let result = DIALOG_CTX.with(|c| {
                     c.borrow()
                         .as_ref()
@@ -261,7 +275,7 @@ unsafe extern "system" fn wnd_proc(
                 finish_dialog(hwnd, result);
                 return LRESULT(0);
             }
-            if id == IDCANCEL_LOCAL || id == IDCANCEL {
+            if id == IDCANCEL_LOCAL {
                 finish_dialog(hwnd, Err(DialogError::Cancelled));
                 return LRESULT(0);
             }
@@ -275,13 +289,6 @@ unsafe extern "system" fn wnd_proc(
     }
 }
 
-struct CreateParams {
-    caption: String,
-    options: Vec<ChoiceOption>,
-    default_checked: HashSet<String>,
-}
-
-/// Show a modeless checklist; completes `tx` when the user dismisses the window.
 fn fail_tx(
     tx: tokio::sync::oneshot::Sender<DialogResult<Vec<String>>>,
     err: DialogError,
@@ -356,9 +363,9 @@ pub fn show_harness_checklist(
             CW_USEDEFAULT,
             width,
             height,
-            HWND::default(),
-            HMENU::default(),
-            module,
+            None,
+            None,
+            Some(HINSTANCE::from(module)),
             None,
         ) {
             Ok(h) => h,

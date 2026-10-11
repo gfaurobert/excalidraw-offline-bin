@@ -161,7 +161,8 @@ pub fn resolve_install_target(
 pub fn resolve_bundled_skill_dir() -> PathBuf {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let candidates = vec![
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut candidates = vec![
                 dir.join("resources/skills/excalidraw-sketching"),
                 dir.join("../resources/skills/excalidraw-sketching"),
                 dir.join("../lib/excalidraw-offline/resources/skills/excalidraw-sketching"),

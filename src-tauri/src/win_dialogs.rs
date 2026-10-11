@@ -4,6 +4,7 @@
 
 use crate::app_state::AppState;
 use crate::dialogs_main::run_on_main;
+use std::sync::Arc;
 #[cfg(windows)]
 use crate::win32_async;
 #[cfg(windows)]
