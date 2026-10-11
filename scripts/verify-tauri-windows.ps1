@@ -17,7 +17,7 @@ function Wait-For-AppUrl {
             $chunks += Get-Content -Raw -Path $errPath -ErrorAction SilentlyContinue
         }
         $text = $chunks -join "`n"
-        if ($text -match '\[desktop\] app url http://127\.0\.0\.1:(\d+)/') {
+        if ($text -match '(?:\[desktop\] app url|app url) http://127\.0\.0\.1:(\d+)/') {
             return [int]$Matches[1]
         }
         Start-Sleep -Milliseconds 500

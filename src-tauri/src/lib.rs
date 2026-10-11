@@ -82,6 +82,7 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
             }
             let app_url = format!("http://127.0.0.1:{port}/");
             desktop_log::info(&format!("app url {app_url}"));
+            println!("[desktop] app url {app_url}");
             let url = app_url.parse().expect("app url");
             let win =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))

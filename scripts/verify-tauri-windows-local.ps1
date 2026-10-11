@@ -42,7 +42,7 @@ while ((Get-Date) -lt $deadline) {
         (Get-Content -Raw $stdout -ErrorAction SilentlyContinue),
         (Get-Content -Raw $stderr -ErrorAction SilentlyContinue)
     ) -join "`n"
-    if ($text -match '127\.0\.0\.1:(\d+)') {
+    if ($text -match '(?:\[desktop\] app url|app url) http://127\.0\.0\.1:(\d+)') {
         $port = [int]$Matches[1]
         break
     }
