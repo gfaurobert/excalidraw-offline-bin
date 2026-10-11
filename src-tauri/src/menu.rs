@@ -240,7 +240,7 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
                 match save_excalidraw_dialog(&state, &suggested).await {
                     DialogResult::Ok { path } => {
                         state.enqueue_ui(UiCommand::Save {
-                            force_picker: true,
+                            force_picker: false,
                             path: Some(path),
                         });
                     }

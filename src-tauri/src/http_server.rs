@@ -59,6 +59,11 @@ pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
         .route("/api/e2e/shortcut", post(e2e_shortcut))
         .route("/api/e2e/ui-command", post(e2e_ui_command))
         .route("/api/e2e/menu-click", post(e2e_menu_click))
+        .route("/api/e2e/dialog-invocations", get(e2e_dialog_invocations))
+        .route(
+            "/api/e2e/reset-dialog-invocations",
+            post(e2e_reset_dialog_invocations),
+        )
         .fallback_service(static_service)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,
@@ -446,6 +451,25 @@ async fn e2e_menu_click(
         return Json(json!({ "ok": false, "error": "run_on_main_thread failed" }));
     }
     let _ = rx.recv();
+    Json(json!({ "ok": true }))
+}
+
+async fn e2e_dialog_invocations(State(state): State<Arc<AppState>>) -> Json<Value> {
+    if !e2e_enabled() {
+        return Json(json!({ "ok": false, "error": "e2e disabled" }));
+    }
+    Json(json!({
+        "ok": true,
+        "saveExcalidraw": state.save_dialog_invocations.load(Ordering::Relaxed),
+        "openExcalidraw": state.open_dialog_invocations.load(Ordering::Relaxed),
+    }))
+}
+
+async fn e2e_reset_dialog_invocations(State(state): State<Arc<AppState>>) -> Json<Value> {
+    if !e2e_enabled() {
+        return Json(json!({ "ok": false, "error": "e2e disabled" }));
+    }
+    state.reset_dialog_invocation_counts();
     Json(json!({ "ok": true }))
 }
 

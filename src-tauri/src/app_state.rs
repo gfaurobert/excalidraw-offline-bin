@@ -1,6 +1,6 @@
 use crate::recent::RecentStore;
 use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -48,9 +48,24 @@ pub struct AppState {
     pub export_exit_code: Mutex<Option<i32>>,
     pub last_export_paths: Mutex<Option<Vec<String>>>,
     pub cli_json_output: Mutex<bool>,
+    pub save_dialog_invocations: AtomicU32,
+    pub open_dialog_invocations: AtomicU32,
 }
 
 impl AppState {
+    pub fn record_save_dialog_invocation(&self) {
+        self.save_dialog_invocations.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_open_dialog_invocation(&self) {
+        self.open_dialog_invocations.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn reset_dialog_invocation_counts(&self) {
+        self.save_dialog_invocations.store(0, Ordering::Relaxed);
+        self.open_dialog_invocations.store(0, Ordering::Relaxed);
+    }
+
     pub fn new(recent: RecentStore) -> Arc<Self> {
         Arc::new(Self {
             frontend_ready: AtomicBool::new(false),
@@ -66,6 +81,8 @@ impl AppState {
             export_exit_code: Mutex::new(None),
             last_export_paths: Mutex::new(None),
             cli_json_output: Mutex::new(false),
+            save_dialog_invocations: AtomicU32::new(0),
+            open_dialog_invocations: AtomicU32::new(0),
         })
     }
 

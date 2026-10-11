@@ -12,6 +12,7 @@ rm -f "$SAVE_FILE"
 
 export DISPLAY="${DISPLAY:-:99}"
 export EXCALIDRAW_E2E=1
+unset EXCALIDRAW_FORCE_SAVE_PATH EXCALIDRAW_FORCE_OPEN_PATH
 # Ensure zenity/kdialog are not on PATH (proof: no subprocess fallbacks).
 export PATH="/opt/cursor/artifacts/bin-empty-for-zenity:${PATH}"
 mkdir -p /opt/cursor/artifacts/bin-empty-for-zenity
@@ -49,9 +50,23 @@ wait_health() {
   return 1
 }
 
+wait_frontend_ready() {
+  for _ in $(seq 1 120); do
+    if [[ -f "${APP_LOG:-}" ]] && rg -q 'frontend reported ready' "$APP_LOG" 2>/dev/null; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
 setup_untitled_dirty() {
   api_post /api/e2e/ui-command '{"type":"new"}' >/dev/null
-  sleep 2
+  for _ in $(seq 1 40); do
+    mode=$(curl -sf "http://127.0.0.1:${PORT}/api/health" | python3 -c "import sys,json; print(json.load(sys.stdin).get('uiMode',''))")
+    [[ "$mode" == "canvas" ]] && break
+    sleep 0.25
+  done
   api_post /api/e2e/focus-canvas '{}' >/dev/null || true
   api_post /api/e2e/edit-marker '{"marker":"NATIVE_E2E_DIRTY"}' >/dev/null
   sleep 0.8
@@ -128,6 +143,83 @@ curl -sf "http://127.0.0.1:${PORT}/api/info" | python3 -c "import sys,json; prin
 kill "$APP_PID" 2>/dev/null || true
 wait "$APP_PID" 2>/dev/null || true
 sleep 1
+
+# --- Menu Save As / Open: exactly one native dialog per action ---
+SAVE_AS_MENU="$SAVE_DIR/menu-save-as-single.excalidraw"
+rm -f "$SAVE_AS_MENU"
+export EXCALIDRAW_FORCE_SAVE_PATH="$SAVE_AS_MENU"
+unset EXCALIDRAW_FORCE_OPEN_PATH
+APP_LOG="$ART/app-menu-save-as-single.log"
+: > "$APP_LOG"
+"$APP" >>"$APP_LOG" 2>&1 &
+APP_PID=$!
+PORT=$(discover_port_from_log "$APP_LOG")
+wait_health
+wait_frontend_ready || { echo "FAIL: frontend not ready for menu save-as"; exit 1; }
+setup_untitled_dirty
+api_post /api/e2e/reset-dialog-invocations '{}' >/dev/null
+api_post /api/e2e/menu-click '{"id":"save-as"}' >/dev/null
+for _ in $(seq 1 80); do
+  [[ -f "$SAVE_AS_MENU" ]] && break
+  sleep 0.25
+done
+sleep 0.5
+curl -sf "http://127.0.0.1:${PORT}/api/e2e/dialog-invocations" | tee "$ART/menu-save-as-dialog-counts.json"
+python3 -c "
+import json
+d = json.load(open('$ART/menu-save-as-dialog-counts.json'))
+assert d.get('saveExcalidraw') == 1, d
+assert d.get('openExcalidraw') == 0, d
+print('menu save-as: saveExcalidraw invocations == 1')
+" || { echo "FAIL menu save-as dialog count"; exit 1; }
+HEALTH_PATH=$(curl -sf "http://127.0.0.1:${PORT}/api/health" | python3 -c "import sys,json; print(json.load(sys.stdin).get('path') or '')")
+[[ "$HEALTH_PATH" == "$SAVE_AS_MENU" ]] || {
+  echo "FAIL menu save-as path not persisted: health=$HEALTH_PATH expected=$SAVE_AS_MENU"
+  exit 1
+}
+[[ -f "$SAVE_AS_MENU" ]] || { echo "FAIL menu save-as file missing"; exit 1; }
+api_post /api/e2e/reset-dialog-invocations '{}' >/dev/null
+api_post /api/e2e/menu-click '{"id":"save"}' >/dev/null
+sleep 1
+curl -sf "http://127.0.0.1:${PORT}/api/e2e/dialog-invocations" | tee "$ART/menu-save-silent-dialog-counts.json"
+python3 -c "
+import json
+d = json.load(open('$ART/menu-save-silent-dialog-counts.json'))
+assert d.get('saveExcalidraw') == 0, d
+print('menu save with path: saveExcalidraw invocations == 0')
+" || { echo "FAIL menu save silent dialog count"; exit 1; }
+kill "$APP_PID" 2>/dev/null || true
+wait "$APP_PID" 2>/dev/null || true
+unset EXCALIDRAW_FORCE_SAVE_PATH
+
+OPEN_FIX="$FIX/matrix-demo.excalidraw"
+[[ -f "$OPEN_FIX" ]] || OPEN_FIX="$ROOT/test-fixtures/e2e-export/matrix-demo.excalidraw"
+export EXCALIDRAW_FORCE_OPEN_PATH="$OPEN_FIX"
+APP_LOG="$ART/app-menu-open-single.log"
+: > "$APP_LOG"
+"$APP" >>"$APP_LOG" 2>&1 &
+APP_PID=$!
+PORT=$(discover_port_from_log "$APP_LOG")
+wait_health
+wait_frontend_ready || { echo "FAIL: frontend not ready for menu open"; exit 1; }
+api_post /api/e2e/reset-dialog-invocations '{}' >/dev/null
+api_post /api/e2e/menu-click '{"id":"open"}' >/dev/null
+for _ in $(seq 1 40); do
+  HEALTH_PATH=$(curl -sf "http://127.0.0.1:${PORT}/api/health" | python3 -c "import sys,json; print(json.load(sys.stdin).get('path') or '')")
+  [[ "$HEALTH_PATH" == "$OPEN_FIX" ]] && break
+  sleep 0.25
+done
+curl -sf "http://127.0.0.1:${PORT}/api/e2e/dialog-invocations" | tee "$ART/menu-open-dialog-counts.json"
+python3 -c "
+import json
+d = json.load(open('$ART/menu-open-dialog-counts.json'))
+assert d.get('openExcalidraw') == 1, d
+assert d.get('saveExcalidraw') == 0, d
+print('menu open: openExcalidraw invocations == 1')
+" || { echo "FAIL menu open dialog count"; exit 1; }
+kill "$APP_PID" 2>/dev/null || true
+wait "$APP_PID" 2>/dev/null || true
+unset EXCALIDRAW_FORCE_OPEN_PATH
 
 # --- Close → Discard (inject unsaved at Rust layer; GTK unsaved not drivable on Xvfb) ---
 export EXCALIDRAW_E2E_UNSAVED_CHOICE=discard

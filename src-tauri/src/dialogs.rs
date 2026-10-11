@@ -65,6 +65,7 @@ fn open_excalidraw_dialog_inner() -> DialogResult {
 }
 
 pub async fn open_excalidraw_dialog(state: &Arc<AppState>) -> DialogResult {
+    state.record_open_dialog_invocation();
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_OPEN_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -126,9 +127,10 @@ fn save_excalidraw_dialog_inner(default_name_or_path: &str) -> DialogResult {
 }
 
 pub async fn save_excalidraw_dialog(
-    _state: &Arc<AppState>,
+    state: &Arc<AppState>,
     default_name_or_path: &str,
 ) -> DialogResult {
+    state.record_save_dialog_invocation();
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_SAVE_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -161,7 +163,7 @@ pub async fn save_excalidraw_dialog(
     #[cfg(not(target_os = "linux"))]
     {
         let suggested = default_name_or_path.to_string();
-        match run_on_main(_state, move || save_excalidraw_dialog_inner(&suggested)).await {
+        match run_on_main(state, move || save_excalidraw_dialog_inner(&suggested)).await {
             Ok(r) => r,
             Err(detail) => DialogResult::Unavailable { detail },
         }

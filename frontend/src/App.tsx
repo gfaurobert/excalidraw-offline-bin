@@ -180,14 +180,10 @@ export default function App() {
     pathLabelRef.current = pathLabel;
   }, [pathLabel]);
 
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-
-  const enterCanvas = useCallback(() => {
+  const enterCanvas = useCallback(async () => {
     modeRef.current = "canvas";
     setMode("canvas");
-    void notifyMode("canvas");
+    await notifyMode("canvas");
   }, []);
 
   const returnToStart = useCallback(async () => {
@@ -347,6 +343,7 @@ export default function App() {
       dirtyRef.current = false;
       savedSceneKeyRef.current = sceneJson;
       await updateTitleRef.current(path, false);
+      await refreshRecent();
       setStatus(`Saved ${path}`);
       await apiLog("info", `save: done ${path}`);
       return true;
@@ -357,7 +354,7 @@ export default function App() {
     } finally {
       busyRef.current = false;
     }
-  }, []);
+  }, [refreshRecent]);
 
   const flushIfPathed = useCallback(async (): Promise<boolean> => {
     if (!pathRef.current || !dirtyRef.current) return true;
@@ -492,7 +489,7 @@ export default function App() {
     } catch {
       // ignore
     }
-    enterCanvas();
+    await enterCanvas();
     await updateTitleRef.current(null, false);
     setStatus("New drawing");
     await apiLog("info", "runNew done");
@@ -502,12 +499,16 @@ export default function App() {
     forcePicker: boolean,
     presetPath?: string,
   ): Promise<boolean> => {
+    const preset = presetPath?.trim();
     await apiLog(
       "info",
-      `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${presetPath ?? ""}`,
+      `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${preset ?? ""} modeRef=${modeRef.current}`,
     );
-    if (modeRef.current !== "canvas") {
-      await apiLog("info", "runSave skipped: not on canvas");
+    if (modeRef.current !== "canvas" && !preset) {
+      await apiLog(
+        "info",
+        `runSave skipped: not on canvas (modeRef=${modeRef.current})`,
+      );
       return false;
     }
     if (busyRef.current) {
@@ -515,8 +516,9 @@ export default function App() {
       return false;
     }
 
-    let path = presetPath?.trim() || pathRef.current;
-    if (forcePicker || !path) {
+    let path = preset || pathRef.current;
+    const needsPicker = !path || (forcePicker && !preset);
+    if (needsPicker) {
       const chosen = await pickSavePath(
         path ?? `${homeRef.current}/drawing.excalidraw`,
       );
@@ -531,6 +533,9 @@ export default function App() {
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
+    if (!path) {
+      return false;
+    }
     return await writeSceneToPath(path);
   }, [pickSavePath, writeSceneToPath]);
 
@@ -558,7 +563,7 @@ export default function App() {
         files: doc.files,
       });
       setDocKey((k) => k + 1);
-      enterCanvas();
+      await enterCanvas();
       await refreshRecent();
       await updateTitleRef.current(doc.path, false);
       setStatus(statusMessage);
@@ -875,7 +880,9 @@ export default function App() {
             body: JSON.stringify({}),
           });
           await refreshRecent();
-          await notifyMode("start");
+          if (modeRef.current === "start") {
+            await notifyMode("start");
+          }
           await updateTitleRef.current(null, false);
           setStatus("");
           return;
@@ -934,24 +941,24 @@ export default function App() {
               if (cmd.message) setStatus(cmd.message);
               break;
             case "new":
-              setTimeout(() => void runNew(), 0);
+              await runNew();
               break;
             case "open":
-              setTimeout(() => void runOpen(cmd.path), 0);
+              await runOpen(cmd.path);
               break;
             case "save": {
               const forcePicker = Boolean(cmd.forcePicker);
-              setTimeout(() => void runSave(forcePicker, cmd.path), 0);
+              await runSave(forcePicker, cmd.path);
               break;
             }
             case "close":
-              setTimeout(() => void runClose(), 0);
+              await runClose();
               break;
             case "quit":
-              setTimeout(() => void runQuit(), 0);
+              await runQuit();
               break;
             case "reload":
-              setTimeout(() => void runReload(), 0);
+              await runReload();
               break;
           }
         }
