@@ -1,9 +1,15 @@
 mod app_state;
 mod cli_export;
 mod dialogs;
+mod dialogs_main;
 #[cfg(target_os = "linux")]
 mod dialogs_linux;
 mod e2e;
+#[cfg(target_os = "linux")]
+mod gtk_dialogs;
+mod install_skill;
+#[cfg(target_os = "linux")]
+mod skill_install_flow;
 mod export;
 mod http_server;
 mod menu;
@@ -44,6 +50,7 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
             handle_menu_click(app, &state_events, event.id().as_ref());
         })
         .setup(move |app| {
+            dialogs_main::mark_gtk_main_thread();
             *state_setup.app_handle.lock() = Some(app.handle().clone());
             let url = app_url.parse().expect("app url");
             let win =

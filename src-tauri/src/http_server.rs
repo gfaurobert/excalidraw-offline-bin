@@ -7,7 +7,7 @@ use crate::dialogs::{
 use crate::export::{
     decode_png_base64, pick_unique_export_filename, resolve_export_output_location,
 };
-use crate::menu::refresh_menu;
+use crate::menu::{handle_menu_click, refresh_menu};
 use crate::paths::home_dir;
 use crate::scene::{read_image_file, read_scene, write_scene};
 use axum::{
@@ -54,6 +54,7 @@ pub async fn start_http_server(state: Arc<AppState>) -> u16 {
         .route("/api/e2e/edit-marker", post(e2e_edit_marker))
         .route("/api/e2e/shortcut", post(e2e_shortcut))
         .route("/api/e2e/ui-command", post(e2e_ui_command))
+        .route("/api/e2e/menu-click", post(e2e_menu_click))
         .fallback_service(static_service)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,
@@ -180,7 +181,7 @@ async fn set_path(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -
 }
 
 async fn pick_open(State(state): State<Arc<AppState>>) -> Json<Value> {
-    match open_excalidraw_dialog(&state) {
+    match open_excalidraw_dialog(&state).await {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -195,7 +196,7 @@ async fn pick_save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) 
         .and_then(|v| v.as_str())
         .unwrap_or("drawing.excalidraw")
         .to_string();
-    match save_excalidraw_dialog(&state, &suggested) {
+    match save_excalidraw_dialog(&state, &suggested).await {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -217,7 +218,7 @@ async fn pick_save_image(
     }
     let doc = state.current_path.lock().clone();
     let suggested = suggested_image_export_path(doc.as_deref(), &home_dir(), filename);
-    match save_image_export_dialog(&state, &suggested) {
+    match save_image_export_dialog(&state, &suggested).await {
         DialogResult::Ok { path } => Json(json!({ "ok": true, "path": path })),
         DialogResult::Cancelled => Json(json!({ "ok": true, "cancelled": true })),
         DialogResult::Unavailable { detail } => {
@@ -227,7 +228,7 @@ async fn pick_save_image(
 }
 
 async fn pick_image(State(state): State<Arc<AppState>>) -> Json<Value> {
-    match open_image_dialog(&state) {
+    match open_image_dialog(&state).await {
         DialogResult::Ok { path } => {
             match read_image_file(std::path::Path::new(&path)) {
                 Ok((name, mime_type, data_url)) => Json(json!({
@@ -335,7 +336,7 @@ async fn unsaved(State(state): State<Arc<AppState>>, Json(body): Json<Value>) ->
             "This drawing has no file path yet. Save, discard, or cancel?",
         ),
     };
-    match unsaved_changes_dialog(&state, title, text) {
+    match unsaved_changes_dialog(&state, title, text).await {
         Ok(choice) => Json(json!({ "ok": true, "choice": choice })),
         Err(DialogResult::Cancelled) => Json(json!({ "ok": true, "choice": "cancel" })),
         Err(DialogResult::Unavailable { detail }) => {
@@ -406,6 +407,41 @@ async fn e2e_shortcut(
         Ok(()) => Json(json!({ "ok": true })),
         Err(e) => Json(json!({ "ok": false, "error": e })),
     }
+}
+
+async fn e2e_menu_click(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    if !e2e_enabled() {
+        return Json(json!({ "ok": false, "error": "e2e disabled" }));
+    }
+    let id = body
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if id.is_empty() {
+        return Json(json!({ "ok": false, "error": "missing id" }));
+    }
+    let app = match state.app_handle.lock().clone() {
+        Some(a) => a,
+        None => return Json(json!({ "ok": false, "error": "no app handle" })),
+    };
+    let state2 = state.clone();
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let app_for_main = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            handle_menu_click(&app_for_main, &state2, &id);
+            let _ = tx.send(());
+        })
+        .is_err()
+    {
+        return Json(json!({ "ok": false, "error": "run_on_main_thread failed" }));
+    }
+    let _ = rx.recv();
+    Json(json!({ "ok": true }))
 }
 
 async fn e2e_ui_command(

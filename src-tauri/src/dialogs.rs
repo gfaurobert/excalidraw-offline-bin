@@ -1,7 +1,10 @@
 use crate::app_state::AppState;
+use crate::dialogs_main::{self, run_on_main, run_on_main_blocking};
 use crate::e2e::e2e_enabled;
 use crate::paths::{ensure_excalidraw_ext, home_dir};
 use rfd::FileDialog;
+#[cfg(not(target_os = "linux"))]
+use rfd::{MessageButtons, MessageDialog, MessageLevel};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -42,6 +45,8 @@ fn resolve_default_save_path(default_name_or_path: &str) -> PathBuf {
 }
 
 fn open_excalidraw_dialog_inner() -> DialogResult {
+    #[cfg(target_os = "linux")]
+    dialogs_main::assert_gtk_main_thread("open_excalidraw_dialog_inner");
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_OPEN_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -60,19 +65,24 @@ fn open_excalidraw_dialog_inner() -> DialogResult {
     }
 }
 
-/// Open dialog from menu (already on GTK main thread).
-pub fn open_excalidraw_dialog_on_menu(_state: &Arc<AppState>) -> DialogResult {
-    open_excalidraw_dialog_inner()
+/// Open dialog from menu (GTK main thread).
+pub fn open_excalidraw_dialog_on_menu(state: &Arc<AppState>) -> DialogResult {
+    match run_on_main_blocking(state, open_excalidraw_dialog_inner) {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
-pub fn open_excalidraw_dialog(state: &Arc<AppState>) -> DialogResult {
-    // rfd GTK backend runs the dialog on the thread that calls it; HTTP handlers
-    // must not block the Tauri main loop waiting on run_on_main_thread.
-    let _ = state;
-    open_excalidraw_dialog_inner()
+pub async fn open_excalidraw_dialog(state: &Arc<AppState>) -> DialogResult {
+    match run_on_main(state, open_excalidraw_dialog_inner).await {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
 fn save_excalidraw_dialog_inner(default_name_or_path: &str) -> DialogResult {
+    #[cfg(target_os = "linux")]
+    dialogs_main::assert_gtk_main_thread("save_excalidraw_dialog_inner");
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_SAVE_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -102,15 +112,25 @@ fn save_excalidraw_dialog_inner(default_name_or_path: &str) -> DialogResult {
 }
 
 pub fn save_excalidraw_dialog_on_menu(
-    _state: &Arc<AppState>,
+    state: &Arc<AppState>,
     default_name_or_path: &str,
 ) -> DialogResult {
-    save_excalidraw_dialog_inner(default_name_or_path)
+    let suggested = default_name_or_path.to_string();
+    match run_on_main_blocking(state, move || save_excalidraw_dialog_inner(&suggested)) {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
-pub fn save_excalidraw_dialog(state: &Arc<AppState>, default_name_or_path: &str) -> DialogResult {
-    let _ = state;
-    save_excalidraw_dialog_inner(default_name_or_path)
+pub async fn save_excalidraw_dialog(
+    state: &Arc<AppState>,
+    default_name_or_path: &str,
+) -> DialogResult {
+    let suggested = default_name_or_path.to_string();
+    match run_on_main(state, move || save_excalidraw_dialog_inner(&suggested)).await {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
 fn save_image_export_dialog_inner(suggested_path: &str) -> DialogResult {
@@ -134,9 +154,15 @@ fn save_image_export_dialog_inner(suggested_path: &str) -> DialogResult {
     }
 }
 
-pub fn save_image_export_dialog(state: &Arc<AppState>, suggested_path: &str) -> DialogResult {
-    let _ = state;
-    save_image_export_dialog_inner(suggested_path)
+pub async fn save_image_export_dialog(
+    state: &Arc<AppState>,
+    suggested_path: &str,
+) -> DialogResult {
+    let suggested = suggested_path.to_string();
+    match run_on_main(state, move || save_image_export_dialog_inner(&suggested)).await {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
 fn open_image_dialog_inner() -> DialogResult {
@@ -152,9 +178,11 @@ fn open_image_dialog_inner() -> DialogResult {
     }
 }
 
-pub fn open_image_dialog(state: &Arc<AppState>) -> DialogResult {
-    let _ = state;
-    open_image_dialog_inner()
+pub async fn open_image_dialog(state: &Arc<AppState>) -> DialogResult {
+    match run_on_main(state, open_image_dialog_inner).await {
+        Ok(r) => r,
+        Err(detail) => DialogResult::Unavailable { detail },
+    }
 }
 
 pub(crate) fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
@@ -166,6 +194,9 @@ pub(crate) fn map_unsaved_choice(choice: &str) -> Result<String, DialogResult> {
 }
 
 fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, DialogResult> {
+    #[cfg(target_os = "linux")]
+    dialogs_main::assert_gtk_main_thread("unsaved_changes_dialog_inner");
+
     if e2e_enabled() {
         if let Ok(forced) = std::env::var("EXCALIDRAW_E2E_UNSAVED_CHOICE") {
             return map_unsaved_choice(forced.trim());
@@ -196,20 +227,29 @@ fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, Dialo
 }
 
 pub fn unsaved_changes_dialog_on_menu(
-    _state: &Arc<AppState>,
-    title: &str,
-    text: &str,
-) -> Result<String, DialogResult> {
-    unsaved_changes_dialog_inner(title, text)
-}
-
-pub fn unsaved_changes_dialog(
     state: &Arc<AppState>,
     title: &str,
     text: &str,
 ) -> Result<String, DialogResult> {
-    let _ = state;
-    unsaved_changes_dialog_inner(title, text)
+    let title = title.to_string();
+    let text = text.to_string();
+    match run_on_main_blocking(state, move || unsaved_changes_dialog_inner(&title, &text)) {
+        Ok(inner) => inner,
+        Err(detail) => Err(DialogResult::Unavailable { detail }),
+    }
+}
+
+pub async fn unsaved_changes_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+) -> Result<String, DialogResult> {
+    let title = title.to_string();
+    let text = text.to_string();
+    match run_on_main(state, move || unsaved_changes_dialog_inner(&title, &text)).await {
+        Ok(inner) => inner,
+        Err(detail) => Err(DialogResult::Unavailable { detail }),
+    }
 }
 
 pub fn suggested_image_export_path(
