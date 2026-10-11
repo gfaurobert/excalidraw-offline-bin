@@ -8,7 +8,9 @@ mod embedded_dist;
 mod e2e;
 #[cfg(target_os = "linux")]
 mod gtk_async;
+#[cfg(target_os = "linux")]
 mod gtk_dialogs;
+#[cfg(target_os = "linux")]
 mod install_skill;
 #[cfg(target_os = "linux")]
 mod skill_install_flow;

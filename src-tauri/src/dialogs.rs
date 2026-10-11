@@ -64,7 +64,7 @@ fn open_excalidraw_dialog_inner() -> DialogResult {
     }
 }
 
-pub async fn open_excalidraw_dialog(_state: &Arc<AppState>) -> DialogResult {
+pub async fn open_excalidraw_dialog(state: &Arc<AppState>) -> DialogResult {
     if let Ok(forced) = std::env::var("EXCALIDRAW_FORCE_OPEN_PATH") {
         let t = forced.trim();
         if !t.is_empty() {
@@ -73,6 +73,7 @@ pub async fn open_excalidraw_dialog(_state: &Arc<AppState>) -> DialogResult {
     }
     #[cfg(target_os = "linux")]
     {
+        let _ = state;
         match AsyncFileDialog::new()
             .set_title("Open Excalidraw file")
             .add_filter("Excalidraw", &["excalidraw"])
