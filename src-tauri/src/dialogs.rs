@@ -257,11 +257,13 @@ fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, Dialo
 
     let choice = rfd::MessageDialog::new()
         .set_title(title)
-        .set_description(format!(
-            "{text}\n\nYes = Save, No = Discard, Cancel = keep editing."
-        ))
+        .set_description(text)
         .set_level(rfd::MessageLevel::Warning)
-        .set_buttons(rfd::MessageButtons::YesNoCancel)
+        .set_buttons(rfd::MessageButtons::YesNoCancelCustom(
+            "Save".into(),
+            "Don't save".into(),
+            "Cancel".into(),
+        ))
         .show();
     match choice {
         rfd::MessageDialogResult::Yes => Ok("save".into()),
