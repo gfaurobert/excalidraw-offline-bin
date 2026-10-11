@@ -19,12 +19,6 @@ pub fn is_gtk_main_thread() -> bool {
 }
 
 /// Panics in debug builds if GTK widgets would run off the main thread.
-pub fn assert_gtk_main_thread(context: &str) {
-    if !is_gtk_main_thread() {
-        panic!("GTK dialog invoked off main thread: {context}");
-    }
-}
-
 pub async fn run_on_main<R: Send + 'static>(
     state: &Arc<AppState>,
     f: impl FnOnce() -> R + Send + 'static,
@@ -43,27 +37,6 @@ pub async fn run_on_main<R: Send + 'static>(
     })
     .map_err(|e| format!("run_on_main_thread failed: {e}"))?;
     rx.await
-        .map_err(|_| "main-thread dialog channel closed".to_string())
-}
-
-pub fn run_on_main_blocking<R: Send + 'static>(
-    state: &Arc<AppState>,
-    f: impl FnOnce() -> R + Send + 'static,
-) -> Result<R, String> {
-    if is_gtk_main_thread() {
-        return Ok(f());
-    }
-    let app = state
-        .app_handle
-        .lock()
-        .clone()
-        .ok_or_else(|| "app handle not ready".to_string())?;
-    let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    app.run_on_main_thread(move || {
-        let _ = tx.send(f());
-    })
-    .map_err(|e| format!("run_on_main_thread failed: {e}"))?;
-    rx.recv()
         .map_err(|_| "main-thread dialog channel closed".to_string())
 }
 

@@ -832,11 +832,20 @@ export default function App() {
     });
   }, [mode, docKey]);
 
-  // Prove HTTP desktop API is reachable (not Deno bindings).
+  const apiBootstrappedRef = useRef(false);
+
+  // Load recent list from the same /api/recent endpoint as the native menu.
   useEffect(() => {
+    void refreshRecent();
+  }, [refreshRecent]);
+
+  // Prove HTTP desktop API is reachable (not Deno bindings) — once per app load.
+  useEffect(() => {
+    if (apiBootstrappedRef.current) return;
     let cancelled = false;
     (async () => {
       for (let i = 0; i < 50; i++) {
+        if (cancelled || apiBootstrappedRef.current) return;
         try {
           const info = await apiJson<{
             home: string;
@@ -844,7 +853,8 @@ export default function App() {
             excalidrawVersion?: string;
             e2e?: boolean;
           }>("/api/info");
-          if (cancelled) return;
+          if (cancelled || apiBootstrappedRef.current) return;
+          apiBootstrappedRef.current = true;
           homeRef.current = info.home || ".";
           if (info.excalidrawVersion) {
             excalidrawVersionRef.current = info.excalidrawVersion;
@@ -854,12 +864,11 @@ export default function App() {
               getApi: () => apiRef.current,
               getPathLabel: () => pathLabelRef.current,
               getDirty: () => dirtyRef.current,
-              syncSceneFromApi,
+              syncSceneFromApi: () => syncSceneFromApi(),
               saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
               excalidrawPackageVersion: excalidrawVersionRef.current,
             });
           }
-          await apiLog("info", `api/info ok home=${homeRef.current}`);
           await apiJson("/api/ready", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -877,9 +886,8 @@ export default function App() {
           await new Promise((r) => setTimeout(r, 100));
         }
       }
-      if (!cancelled) {
+      if (!cancelled && !apiBootstrappedRef.current) {
         setStatus("HTTP API unavailable");
-        await apiLog("error", "api/info failed after retries");
       }
     })();
     return () => {

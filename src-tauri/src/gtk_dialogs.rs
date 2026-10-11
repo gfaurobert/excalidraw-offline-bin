@@ -1,6 +1,9 @@
 //! Native GTK3 dialogs for Info menu and skill installer (Linux only).
 
-use crate::dialogs_main::{assert_gtk_main_thread, is_gtk_main_thread};
+use crate::app_state::AppState;
+use crate::gtk_async;
+use rfd::AsyncFileDialog;
+use std::sync::{Arc, Mutex};
 use crate::e2e::e2e_enabled;
 use gtk::prelude::*;
 use gtk::{
@@ -22,13 +25,13 @@ pub enum DialogError {
 
 pub type DialogResult<T> = Result<T, DialogError>;
 
+#[derive(Clone)]
 pub struct ChoiceOption {
     pub id: String,
     pub label: String,
 }
 
 fn ensure_gtk() -> Result<(), DialogError> {
-    assert_gtk_main_thread("gtk_dialogs");
     let mut init_err: Option<String> = None;
     GTK_INIT.call_once(|| {
         if let Err(e) = gtk::init() {
@@ -38,8 +41,75 @@ fn ensure_gtk() -> Result<(), DialogError> {
     if let Some(detail) = init_err {
         return Err(DialogError::Unavailable { detail });
     }
-    debug_assert!(is_gtk_main_thread());
     Ok(())
+}
+
+fn active_radio_label(dialog: &Dialog) -> Option<String> {
+    let area = dialog.content_area();
+    for child in area.children() {
+        if let Ok(box_) = child.downcast::<GtkBox>() {
+            for row in box_.children() {
+                if let Ok(rb) = row.downcast::<gtk::RadioButton>() {
+                    if rb.is_active() {
+                        return rb.label().map(|s| s.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn active_checklist_ids(dialog: &Dialog, options: &[ChoiceOption]) -> Vec<String> {
+    let mut ids = Vec::new();
+    let area = dialog.content_area();
+    for child in area.children() {
+        if let Ok(outer) = child.downcast::<GtkBox>() {
+            for outer_child in outer.children() {
+                if let Ok(scroll) = outer_child.downcast::<ScrolledWindow>() {
+                    if let Some(list) = scroll.child() {
+                        if let Ok(list_box) = list.downcast::<GtkBox>() {
+                            for row in list_box.children() {
+                                if let Ok(cb) = row.downcast::<CheckButton>() {
+                                    if cb.is_active() {
+                                        if let Some(label) = cb.label() {
+                                            if let Some(opt) =
+                                                options.iter().find(|o| o.label == label.as_str())
+                                            {
+                                                ids.push(opt.id.clone());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ids
+}
+
+fn wire_dialog_response<D, R>(
+    dialog: &D,
+    tx: tokio::sync::oneshot::Sender<R>,
+    map: impl Fn(ResponseType, &Dialog) -> R + Send + Sync + 'static,
+) where
+    D: IsA<Dialog> + Clone + 'static,
+    R: Send + 'static,
+{
+    let tx = Mutex::new(Some(tx));
+    let map = Arc::new(map);
+    let dialog = dialog.clone();
+    dialog.connect_response(move |d, resp| {
+        if let Ok(mut guard) = tx.lock() {
+            if let Some(sender) = guard.take() {
+                let value = map(resp, d.as_ref());
+                let _ = sender.send(value);
+            }
+        }
+    });
 }
 
 fn e2e_pause_ms() -> u64 {
@@ -63,7 +133,12 @@ pub fn open_url_in_browser(url: &str) {
     let _ = Command::new("xdg-open").arg(url).spawn();
 }
 
-pub fn info_dialog(title: &str, text: &str, link_url: Option<&str>) -> DialogResult<()> {
+pub async fn info_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+    link_url: Option<&str>,
+) -> DialogResult<()> {
     if e2e_skill_cancelled() {
         return Err(DialogError::Cancelled);
     }
@@ -78,36 +153,56 @@ pub fn info_dialog(title: &str, text: &str, link_url: Option<&str>) -> DialogRes
         return Ok(());
     }
 
-    let dialog = MessageDialog::new(
-        None::<&gtk::Window>,
-        DialogFlags::MODAL,
-        MessageType::Info,
-        ButtonsType::Ok,
-        text,
-    );
-    dialog.set_title(title);
-    if let Some(url) = link_url {
-        dialog.add_button("Open in browser", ResponseType::Apply);
-        let url = url.to_string();
-        dialog.connect_response(move |d, r| {
-            if r == ResponseType::Apply {
-                open_url_in_browser(&url);
-            }
-            d.close();
-        });
-    }
+    let title = title.to_string();
+    let text = text.to_string();
+    let link = link_url.map(|s| s.to_string());
     if pause > 0 {
+        let dialog = MessageDialog::new(
+            None::<&gtk::Window>,
+            DialogFlags::MODAL,
+            MessageType::Info,
+            ButtonsType::Ok,
+            &text,
+        );
+        dialog.set_title(&title);
         dialog.show_all();
         thread::sleep(Duration::from_millis(pause));
         dialog.response(ResponseType::Ok);
-    } else {
-        dialog.run();
         dialog.close();
+    } else {
+        let _ = gtk_async::wait_dialog_response(state, move |tx| {
+            let dialog = MessageDialog::new(
+                None::<&gtk::Window>,
+                DialogFlags::MODAL,
+                MessageType::Info,
+                ButtonsType::Ok,
+                &text,
+            );
+            dialog.set_title(&title);
+            if let Some(url) = link {
+                dialog.add_button("Open in browser", ResponseType::Apply);
+                let url = url.clone();
+                wire_dialog_response(&dialog, tx, move |r, _| {
+                    if r == ResponseType::Apply {
+                        open_url_in_browser(&url);
+                    }
+                    r
+                });
+            } else {
+                wire_dialog_response(&dialog, tx, |r, _| r);
+            }
+            dialog.show_all();
+        })
+        .await;
     }
     Ok(())
 }
 
-pub fn confirm_dialog(title: &str, text: &str) -> DialogResult<bool> {
+pub async fn confirm_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+) -> DialogResult<bool> {
     if e2e_skill_cancelled() {
         return Err(DialogError::Cancelled);
     }
@@ -118,15 +213,17 @@ pub fn confirm_dialog(title: &str, text: &str) -> DialogResult<bool> {
         }
     }
     let pause = e2e_pause_ms();
-    let dialog = MessageDialog::new(
-        None::<&gtk::Window>,
-        DialogFlags::MODAL,
-        MessageType::Question,
-        ButtonsType::YesNo,
-        text,
-    );
-    dialog.set_title(title);
+    let title = title.to_string();
+    let text = text.to_string();
     let response = if pause > 0 {
+        let dialog = MessageDialog::new(
+            None::<&gtk::Window>,
+            DialogFlags::MODAL,
+            MessageType::Question,
+            ButtonsType::YesNo,
+            &text,
+        );
+        dialog.set_title(&title);
         dialog.show_all();
         thread::sleep(Duration::from_millis(pause));
         if e2e_enabled() {
@@ -139,12 +236,24 @@ pub fn confirm_dialog(title: &str, text: &str) -> DialogResult<bool> {
                 ResponseType::No
             }
         } else {
-            dialog.run()
+            ResponseType::No
         }
     } else {
-        dialog.run()
+        gtk_async::wait_dialog_response(state, move |tx| {
+            let dialog = MessageDialog::new(
+                None::<&gtk::Window>,
+                DialogFlags::MODAL,
+                MessageType::Question,
+                ButtonsType::YesNo,
+                &text,
+            );
+            dialog.set_title(&title);
+            wire_dialog_response(&dialog, tx, |r, _| r);
+            dialog.show_all();
+        })
+        .await
+        .unwrap_or(ResponseType::Cancel)
     };
-    dialog.close();
     match response {
         ResponseType::Yes => Ok(true),
         ResponseType::No => Ok(false),
@@ -152,7 +261,8 @@ pub fn confirm_dialog(title: &str, text: &str) -> DialogResult<bool> {
     }
 }
 
-pub fn choice_dialog(
+pub async fn choice_dialog(
+    state: &Arc<AppState>,
     title: &str,
     text: &str,
     options: &[ChoiceOption],
@@ -179,66 +289,76 @@ pub fn choice_dialog(
     }
 
     ensure_gtk()?;
-    let dialog = Dialog::new();
-    dialog.set_title(title);
-    dialog.set_modal(true);
-    dialog.add_button("Cancel", ResponseType::Cancel);
-    dialog.add_button("OK", ResponseType::Accept);
-    let vbox = GtkBox::new(Orientation::Vertical, 8);
-    vbox.set_margin_start(12);
-    vbox.set_margin_end(12);
-    vbox.set_margin_top(8);
-    vbox.set_margin_bottom(8);
-    vbox.pack_start(&gtk::Label::new(Some(text)), false, false, 0);
-
-    let mut first: Option<gtk::RadioButton> = None;
-    let mut id_for_button: Vec<(gtk::RadioButton, String)> = Vec::new();
-    for opt in options {
-        let rb = if let Some(ref f) = first {
-            gtk::RadioButton::with_label_from_widget(f, &opt.label)
-        } else {
-            let b = gtk::RadioButton::with_label(&opt.label);
-            first = Some(b.clone());
-            b
-        };
-        if opt.id == default_id {
-            rb.set_active(true);
-        }
-        id_for_button.push((rb.clone(), opt.id.clone()));
-        vbox.pack_start(&rb, false, false, 0);
-    }
-    dialog.content_area().pack_start(&vbox, true, true, 0);
-    dialog.show_all();
-
-    let response = if pause > 0 {
-        thread::sleep(Duration::from_millis(pause));
+    if pause > 0 {
         if let Ok(mode) = std::env::var("EXCALIDRAW_E2E_SKILL_MODE") {
-            for (rb, id) in &id_for_button {
-                if id == &mode {
-                    rb.set_active(true);
-                    break;
-                }
+            if options.iter().any(|o| o.id == mode) {
+                return Ok(mode);
             }
         }
-        dialog.response(ResponseType::Accept);
-        ResponseType::Accept
-    } else {
-        dialog.run()
-    };
-    dialog.close();
+        return options
+            .iter()
+            .find(|o| o.id == default_id)
+            .map(|o| o.id.clone())
+            .ok_or(DialogError::Cancelled);
+    }
 
-    if response != ResponseType::Accept {
-        return Err(DialogError::Cancelled);
-    }
-    for (rb, id) in id_for_button {
-        if rb.is_active() {
-            return Ok(id);
+    let title = title.to_string();
+    let text = text.to_string();
+    let options: Vec<ChoiceOption> = options.to_vec();
+    let default_id = default_id.to_string();
+
+    let options_for_map = options.clone();
+    let picked = gtk_async::run_dialog(state, move |tx| {
+        let dialog = Dialog::new();
+        dialog.set_title(&title);
+        dialog.set_modal(true);
+        dialog.add_button("Cancel", ResponseType::Cancel);
+        dialog.add_button("OK", ResponseType::Accept);
+        let vbox = GtkBox::new(Orientation::Vertical, 8);
+        vbox.set_margin_start(12);
+        vbox.set_margin_end(12);
+        vbox.set_margin_top(8);
+        vbox.set_margin_bottom(8);
+        vbox.pack_start(&gtk::Label::new(Some(&text)), false, false, 0);
+        let mut first: Option<gtk::RadioButton> = None;
+        for opt in &options {
+            let rb = if let Some(ref f) = first {
+                gtk::RadioButton::with_label_from_widget(f, &opt.label)
+            } else {
+                let b = gtk::RadioButton::with_label(&opt.label);
+                first = Some(b.clone());
+                b
+            };
+            if opt.id == default_id {
+                rb.set_active(true);
+            }
+            vbox.pack_start(&rb, false, false, 0);
         }
+        dialog.content_area().pack_start(&vbox, true, true, 0);
+        let options_for_map = options_for_map.clone();
+        wire_dialog_response(&dialog, tx, move |r, d| {
+            if r != ResponseType::Accept {
+                return None;
+            }
+            active_radio_label(d).and_then(|label| {
+                options_for_map
+                    .iter()
+                    .find(|o| o.label == label)
+                    .map(|o| o.id.clone())
+            })
+        });
+        dialog.show_all();
+    })
+    .await;
+
+    match picked {
+        Ok(Some(id)) => Ok(id),
+        _ => Err(DialogError::Cancelled),
     }
-    Err(DialogError::Cancelled)
 }
 
-pub fn multi_select_checklist_dialog(
+pub async fn multi_select_checklist_dialog(
+    state: &Arc<AppState>,
     title: &str,
     text: &str,
     options: &[ChoiceOption],
@@ -270,76 +390,77 @@ pub fn multi_select_checklist_dialog(
     }
 
     ensure_gtk()?;
-    let dialog = Dialog::new();
-    dialog.set_title(title);
-    dialog.set_modal(true);
-    dialog.add_button("Cancel", ResponseType::Cancel);
-    dialog.add_button("OK", ResponseType::Accept);
-    dialog.set_default_size(920, 500);
-
-    let outer = GtkBox::new(Orientation::Vertical, 8);
-    outer.set_margin_start(12);
-    outer.set_margin_end(12);
-    outer.set_margin_top(8);
-    outer.set_margin_bottom(8);
-    outer.pack_start(&gtk::Label::new(Some(text)), false, false, 0);
-
-    let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-    let list = GtkBox::new(Orientation::Vertical, 4);
+    let title = title.to_string();
+    let text = text.to_string();
+    let options = options.to_vec();
     let checked: std::collections::HashSet<String> =
         default_checked_ids.iter().map(|s| s.to_string()).collect();
 
-    let mut checkboxes: Vec<(CheckButton, String)> = Vec::new();
-    for opt in options {
-        let cb = CheckButton::with_label(&opt.label);
-        cb.set_active(checked.contains(&opt.id));
-        cb.set_halign(Align::Start);
-        checkboxes.push((cb.clone(), opt.id.clone()));
-        list.pack_start(&cb, false, false, 0);
-    }
-    scroll.add(&list);
-    outer.pack_start(&scroll, true, true, 0);
-    dialog.content_area().pack_start(&outer, true, true, 0);
-    dialog.show_all();
-
-    let response = if pause > 0 {
-        thread::sleep(Duration::from_millis(pause));
+    if pause > 0 {
         if let Ok(raw) = std::env::var("EXCALIDRAW_E2E_SKILL_HARNESS") {
-            let want: std::collections::HashSet<String> = if raw == "all" {
-                ["agents", "claude", "kiro", "cline", "all"]
-                    .into_iter()
-                    .map(String::from)
-                    .collect()
+            if raw == "cancel" {
+                return Err(DialogError::Cancelled);
+            }
+            let ids: Vec<String> = if raw == "all" {
+                options.iter().map(|o| o.id.clone()).collect()
             } else {
                 raw.split(',').map(|s| s.trim().to_string()).collect()
             };
-            for (cb, id) in &checkboxes {
-                cb.set_active(want.contains(id) || (want.contains("all") && id == "all"));
+            if !ids.is_empty() {
+                return Ok(ids);
             }
         }
-        dialog.response(ResponseType::Accept);
-        ResponseType::Accept
-    } else {
-        dialog.run()
-    };
-    dialog.close();
+    }
 
-    if response != ResponseType::Accept {
-        return Err(DialogError::Cancelled);
-    }
-    let mut ids = Vec::new();
-    for (cb, id) in checkboxes {
-        if cb.is_active() {
-            ids.push(id);
+    let options_for_map = options.clone();
+    let picked = gtk_async::run_dialog(state, move |tx| {
+        let dialog = Dialog::new();
+        dialog.set_title(&title);
+        dialog.set_modal(true);
+        dialog.add_button("Cancel", ResponseType::Cancel);
+        dialog.add_button("OK", ResponseType::Accept);
+        dialog.set_default_size(920, 500);
+        let outer = GtkBox::new(Orientation::Vertical, 8);
+        outer.set_margin_start(12);
+        outer.set_margin_end(12);
+        outer.set_margin_top(8);
+        outer.set_margin_bottom(8);
+        outer.pack_start(&gtk::Label::new(Some(&text)), false, false, 0);
+        let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+        let list = GtkBox::new(Orientation::Vertical, 4);
+        for opt in &options {
+            let cb = CheckButton::with_label(&opt.label);
+            cb.set_active(checked.contains(&opt.id));
+            cb.set_halign(Align::Start);
+            list.pack_start(&cb, false, false, 0);
         }
-    }
+        scroll.add(&list);
+        outer.pack_start(&scroll, true, true, 0);
+        dialog.content_area().pack_start(&outer, true, true, 0);
+        let options_for_map = options_for_map.clone();
+        wire_dialog_response(&dialog, tx, move |r, d| {
+            if r != ResponseType::Accept {
+                return None;
+            }
+            let ids = active_checklist_ids(d, &options_for_map);
+            if ids.is_empty() { None } else { Some(ids) }
+        });
+        dialog.show_all();
+    })
+    .await;
+
+    let ids = picked.ok().flatten().ok_or(DialogError::Cancelled)?;
     if ids.is_empty() {
         return Err(DialogError::Cancelled);
     }
     Ok(ids)
 }
 
-pub fn open_directory_dialog(title: &str, start: &std::path::Path) -> DialogResult<String> {
+pub async fn open_directory_dialog(
+    _state: &Arc<AppState>,
+    title: &str,
+    start: &std::path::Path,
+) -> DialogResult<String> {
     if e2e_skill_cancelled() {
         return Err(DialogError::Cancelled);
     }
@@ -363,13 +484,12 @@ pub fn open_directory_dialog(title: &str, start: &std::path::Path) -> DialogResu
         }
     }
 
-    use rfd::FileDialog;
-    let mut dialog = FileDialog::new().set_title(title);
+    let mut dialog = AsyncFileDialog::new().set_title(title);
     if start.is_dir() {
         dialog = dialog.set_directory(start);
     }
-    match dialog.pick_folder() {
-        Some(p) => Ok(p.to_string_lossy().into_owned()),
+    match dialog.pick_folder().await {
+        Some(h) => Ok(h.path().to_string_lossy().into_owned()),
         None => Err(DialogError::Cancelled),
     }
 }

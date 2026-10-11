@@ -1,8 +1,6 @@
 use crate::app_state::{AppState, UiCommand, UiMode};
 use crate::quit_flow::request_application_quit;
-use crate::dialogs::{
-    open_excalidraw_dialog_on_menu, save_excalidraw_dialog_on_menu, DialogResult,
-};
+use crate::dialogs::{open_excalidraw_dialog, save_excalidraw_dialog, DialogResult};
 use crate::recent::recent_display_labels;
 use std::sync::Arc;
 use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -175,21 +173,24 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
             state.enqueue_ui(UiCommand::Status {
                 message: "Choose file to open…".into(),
             });
-            match open_excalidraw_dialog_on_menu(state) {
-                DialogResult::Ok { path } => {
-                    state.enqueue_ui(UiCommand::Open { path: Some(path) });
+            let state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                match open_excalidraw_dialog(&state).await {
+                    DialogResult::Ok { path } => {
+                        state.enqueue_ui(UiCommand::Open { path: Some(path) });
+                    }
+                    DialogResult::Cancelled => {
+                        state.enqueue_ui(UiCommand::Status {
+                            message: "Open cancelled".into(),
+                        });
+                    }
+                    DialogResult::Unavailable { .. } => {
+                        state.enqueue_ui(UiCommand::Status {
+                            message: picker_unavailable(),
+                        });
+                    }
                 }
-                DialogResult::Cancelled => {
-                    state.enqueue_ui(UiCommand::Status {
-                        message: "Open cancelled".into(),
-                    });
-                }
-                DialogResult::Unavailable { .. } => {
-                    state.enqueue_ui(UiCommand::Status {
-                        message: picker_unavailable(),
-                    });
-                }
-            }
+            });
         }
         "save" => {
             let path = state.current_path.lock().clone();
@@ -202,10 +203,44 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
                 state.enqueue_ui(UiCommand::Status {
                     message: "Choose save location…".into(),
                 });
-                match save_excalidraw_dialog_on_menu(state, "drawing.excalidraw") {
+                let state = state.clone();
+                tauri::async_runtime::spawn(async move {
+                    match save_excalidraw_dialog(&state, "drawing.excalidraw").await {
+                        DialogResult::Ok { path } => {
+                            state.enqueue_ui(UiCommand::Save {
+                                force_picker: false,
+                                path: Some(path),
+                            });
+                        }
+                        DialogResult::Cancelled => {
+                            state.enqueue_ui(UiCommand::Status {
+                                message: "Save cancelled".into(),
+                        });
+                        }
+                        DialogResult::Unavailable { .. } => {
+                            state.enqueue_ui(UiCommand::Status {
+                                message: picker_unavailable(),
+                            });
+                        }
+                    }
+                });
+            }
+        }
+        "save-as" => {
+            state.enqueue_ui(UiCommand::Status {
+                message: "Choose save location…".into(),
+            });
+            let suggested = state
+                .current_path
+                .lock()
+                .clone()
+                .unwrap_or_else(|| "drawing.excalidraw".into());
+            let state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                match save_excalidraw_dialog(&state, &suggested).await {
                     DialogResult::Ok { path } => {
                         state.enqueue_ui(UiCommand::Save {
-                            force_picker: false,
+                            force_picker: true,
                             path: Some(path),
                         });
                     }
@@ -220,35 +255,7 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
                         });
                     }
                 }
-            }
-        }
-        "save-as" => {
-            state.enqueue_ui(UiCommand::Status {
-                message: "Choose save location…".into(),
             });
-            let suggested = state
-                .current_path
-                .lock()
-                .clone()
-                .unwrap_or_else(|| "drawing.excalidraw".into());
-            match save_excalidraw_dialog_on_menu(state, &suggested) {
-                DialogResult::Ok { path } => {
-                    state.enqueue_ui(UiCommand::Save {
-                        force_picker: true,
-                        path: Some(path),
-                    });
-                }
-                DialogResult::Cancelled => {
-                    state.enqueue_ui(UiCommand::Status {
-                        message: "Save cancelled".into(),
-                    });
-                }
-                DialogResult::Unavailable { .. } => {
-                    state.enqueue_ui(UiCommand::Status {
-                        message: picker_unavailable(),
-                    });
-                }
-            }
         }
         "reload" => state.enqueue_ui(UiCommand::Reload),
         "close" => state.enqueue_ui(UiCommand::Close),

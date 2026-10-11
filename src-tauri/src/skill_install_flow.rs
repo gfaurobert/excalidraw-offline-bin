@@ -62,7 +62,7 @@ fn status(state: &Arc<AppState>, message: impl Into<String>) {
 }
 
 #[cfg(target_os = "linux")]
-pub fn run_install_sketching_skill(state: &Arc<AppState>) {
+async fn install_sketching_skill_async(state: &Arc<AppState>) {
     let home = home_dir();
     let choice_opts: Vec<ChoiceOption> = INSTALL_SKILL_OPTIONS
         .iter()
@@ -73,11 +73,14 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
         .collect();
 
     let mode_id = match gtk_dialogs::choice_dialog(
+        state,
         "Install skill",
         "Where should excalidraw-sketching be installed?",
         &choice_opts,
         "global",
-    ) {
+    )
+    .await
+    {
         Ok(id) => id,
         Err(DialogError::Cancelled) => {
             status(state, "Skill install cancelled");
@@ -85,10 +88,12 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
         }
         Err(DialogError::Unavailable { detail }) => {
             let _ = gtk_dialogs::info_dialog(
+                state,
                 "Install skill",
                 &format!("Cannot show install options: {detail}"),
                 None,
-            );
+            )
+            .await;
             return;
         }
     };
@@ -105,7 +110,7 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
         } else {
             "Select destination folder"
         };
-        match gtk_dialogs::open_directory_dialog(title, &home) {
+        match gtk_dialogs::open_directory_dialog(state, title, &home).await {
             Ok(p) => picked = Some(PathBuf::from(p)),
             Err(DialogError::Cancelled) => {
                 status(state, "Skill install cancelled");
@@ -113,10 +118,12 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
             }
             Err(DialogError::Unavailable { detail }) => {
                 let _ = gtk_dialogs::info_dialog(
+                    state,
                     "Install skill",
                     &format!("Cannot pick folder: {detail}"),
                     None,
-                );
+                )
+                .await;
                 return;
             }
         }
@@ -126,7 +133,7 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
         InstallMode::Custom => match resolve_install_target(mode, &home, picked.as_deref()) {
             Ok(p) => vec![p],
             Err(e) => {
-                let _ = gtk_dialogs::info_dialog("Install skill", &e, None);
+                let _ = gtk_dialogs::info_dialog(state, "Install skill", &e, None).await;
                 return;
             }
         },
@@ -143,11 +150,14 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
                 .map(|s| s.as_str())
                 .collect();
             let selected_ids = match gtk_dialogs::multi_select_checklist_dialog(
+                state,
                 "Install skill — targets",
                 scope,
                 &harness_opts,
                 &defaults,
-            ) {
+            )
+            .await
+            {
                 Ok(ids) => ids,
                 Err(DialogError::Cancelled) => {
                     status(state, "Skill install cancelled");
@@ -155,10 +165,12 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
                 }
                 Err(DialogError::Unavailable { detail }) => {
                     let _ = gtk_dialogs::info_dialog(
+                        state,
                         "Install skill",
                         &format!("Cannot show target list: {detail}"),
                         None,
-                );
+                    )
+                    .await;
                     return;
                 }
             };
@@ -174,7 +186,7 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    let _ = gtk_dialogs::info_dialog("Install skill", &e, None);
+                    let _ = gtk_dialogs::info_dialog(state, "Install skill", &e, None).await;
                     return;
                 }
             }
@@ -193,11 +205,14 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
             .collect::<Vec<_>>()
             .join("\n");
         match gtk_dialogs::confirm_dialog(
+            state,
             "Overwrite skill?",
             &format!(
                 "Skill already exists at:\n{list}\n\nReplace at all listed locations?"
             ),
-        ) {
+        )
+        .await
+        {
             Ok(true) => {}
             Ok(false) => {
                 status(state, "Skill install cancelled");
@@ -209,10 +224,12 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
             }
             Err(DialogError::Unavailable { detail }) => {
                 let _ = gtk_dialogs::info_dialog(
+                    state,
                     "Install skill",
                     &format!("Cannot confirm overwrite: {detail}"),
                     None,
-                );
+                )
+                .await;
                 return;
             }
         }
@@ -233,10 +250,12 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
                 .collect::<Vec<_>>()
                 .join("\n");
             let _ = gtk_dialogs::info_dialog(
+                state,
                 "Install skill",
                 &format!("Installed {SKILL_ID} to:\n{listing}"),
                 None,
-            );
+            )
+            .await;
             status(
                 state,
                 format!(
@@ -248,77 +267,108 @@ pub fn run_install_sketching_skill(state: &Arc<AppState>) {
         }
         Err(detail) => {
             let _ = gtk_dialogs::info_dialog(
+                state,
                 "Install skill",
                 &format!("Install failed:\n{detail}"),
                 None,
-            );
+            )
+            .await;
             status(state, "Skill install failed");
         }
     }
 }
 
 #[cfg(target_os = "linux")]
+pub fn run_install_sketching_skill(state: &Arc<AppState>) {
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        install_sketching_skill_async(&state).await;
+    });
+}
+
+#[cfg(target_os = "linux")]
 pub fn run_info_runtime(state: &Arc<AppState>) {
-    let text = format!("Ready · dialog: {}+http", dialog_backend_label());
-    if gtk_dialogs::info_dialog("Runtime", &text, None).is_err() {
-        status(
-            state,
-            "Info dialog unavailable or cancelled".to_string(),
-        );
-    }
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        let text = format!("Ready · dialog: {}+http", dialog_backend_label());
+        if gtk_dialogs::info_dialog(&state, "Runtime", &text, None)
+            .await
+            .is_err()
+        {
+            status(
+                &state,
+                "Info dialog unavailable or cancelled".to_string(),
+            );
+        }
+    });
 }
 
 #[cfg(target_os = "linux")]
 pub fn run_info_assets(state: &Arc<AppState>) {
-    if gtk_dialogs::info_dialog(
-        "Assets",
-        "Images save into assets/ next to the .excalidraw file.",
-        None,
-    )
-    .is_err()
-    {
-        status(
-            state,
-            "Info dialog unavailable or cancelled".to_string(),
-        );
-    }
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        if gtk_dialogs::info_dialog(
+            &state,
+            "Assets",
+            "Images save into assets/ next to the .excalidraw file.",
+            None,
+        )
+        .await
+        .is_err()
+        {
+            status(
+                &state,
+                "Info dialog unavailable or cancelled".to_string(),
+            );
+        }
+    });
 }
 
 #[cfg(target_os = "linux")]
 pub fn run_info_about_app(state: &Arc<AppState>) {
-    let version = env!("CARGO_PKG_VERSION");
-    let text = format!(
-        "Excalidraw Offline\nVersion: {version}\n\n\
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        let version = env!("CARGO_PKG_VERSION");
+        let text = format!(
+            "Excalidraw Offline\nVersion: {version}\n\n\
          A Tauri desktop wrapper around @excalidraw/excalidraw for offline local files."
-    );
-    if gtk_dialogs::info_dialog(
-        "About Excalidraw Offline",
-        &text,
-        Some("https://github.com/gfaurobert/excalidraw-offline-bin"),
-    )
-    .is_err()
-    {
-        status(
-            state,
-            "Info dialog unavailable or cancelled".to_string(),
         );
-    }
+        if gtk_dialogs::info_dialog(
+            &state,
+            "About Excalidraw Offline",
+            &text,
+            Some("https://github.com/gfaurobert/excalidraw-offline-bin"),
+        )
+        .await
+        .is_err()
+        {
+            status(
+                &state,
+                "Info dialog unavailable or cancelled".to_string(),
+            );
+        }
+    });
 }
 
 #[cfg(target_os = "linux")]
 pub fn run_info_about_excalidraw(state: &Arc<AppState>) {
-    let text = "Excalidraw\nRelease: 0.18.0-4ce38fb\n\n\
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        let text = "Excalidraw\nRelease: 0.18.0-4ce38fb\n\n\
          Upstream @excalidraw/excalidraw packaged by this app.";
-    if gtk_dialogs::info_dialog(
-        "About Excalidraw",
-        text,
-        Some("https://github.com/excalidraw/excalidraw"),
-    )
-    .is_err()
-    {
-        status(
-            state,
-            "Info dialog unavailable or cancelled".to_string(),
-        );
-    }
+        if gtk_dialogs::info_dialog(
+            &state,
+            "About Excalidraw",
+            text,
+            Some("https://github.com/excalidraw/excalidraw"),
+        )
+        .await
+        .is_err()
+        {
+            status(
+                &state,
+                "Info dialog unavailable or cancelled".to_string(),
+            );
+        }
+    });
 }

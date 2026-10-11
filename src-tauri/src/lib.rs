@@ -7,6 +7,7 @@ mod dialogs_linux;
 mod embedded_dist;
 mod e2e;
 #[cfg(target_os = "linux")]
+mod gtk_async;
 mod gtk_dialogs;
 mod install_skill;
 #[cfg(target_os = "linux")]
@@ -29,7 +30,7 @@ use recent::RecentStore;
 use std::sync::Arc;
 use quit_flow::request_application_quit;
 use std::time::Duration;
-use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Listener, Manager, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 pub use cli_export::run_cli_export;
 pub use export::{
@@ -52,7 +53,19 @@ fn warm_webview_navigation(win: &tauri::WebviewWindow, app_url: &str) {
 }
 
 pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
-    desktop_log::init();
+    #[cfg(windows)]
+    {
+        std::env::set_var(
+            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            "--disable-gpu --disable-gpu-compositing --in-process-gpu",
+        );
+        desktop_log::init();
+        desktop_log::info("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS set for software rendering fallback");
+    }
+    #[cfg(not(windows))]
+    {
+        desktop_log::init();
+    }
     let recent = RecentStore::load(recent_file_path());
     let state = AppState::new(recent);
 
@@ -68,7 +81,24 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
             handle_menu_click(app, &state_events, event.id().as_ref());
         })
         .setup(move |app| {
+            #[cfg(target_os = "linux")]
+            {
+                if gtk::init().is_err() {
+                    desktop_log::error("gtk::init failed in setup");
+                }
+            }
             dialogs_main::mark_gtk_main_thread();
+            #[cfg(target_os = "linux")]
+            if std::env::var("EXCALIDRAW_E2E_MAIN_LOOP_HEARTBEAT")
+                .ok()
+                .as_deref()
+                == Some("1")
+            {
+                gtk::glib::timeout_add_seconds(1, move || {
+                    desktop_log::info("main-loop-heartbeat");
+                    gtk::glib::ControlFlow::Continue
+                });
+            }
             *state_setup.app_handle.lock() = Some(app.handle().clone());
             let dist = resolve_dist_dir_for_app(app.handle());
             let index_ok = dist.join("index.html").is_file();
@@ -92,6 +122,10 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
                     .visible(false)
                     .build()?;
             warm_webview_navigation(&win, &app_url);
+            let win_events = win.clone();
+            win_events.listen("tauri://error", |event| {
+                desktop_log::error(&format!("webview error: {}", event.payload()));
+            });
             win.show()?;
             win.set_focus()?;
             if let Some(path) = startup_open {
