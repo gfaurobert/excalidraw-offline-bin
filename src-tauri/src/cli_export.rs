@@ -10,7 +10,7 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 pub fn run_cli_export(command: ParsedExportCli) -> i32 {
     let dist_dir = resolve_dist_dir();
     let recent = RecentStore::load(recent_file_path());
-    let state = AppState::new(dist_dir, recent);
+    let state = AppState::new(recent);
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let scene = rt.block_on(read_scene(&command.document_path));
@@ -90,7 +90,7 @@ pub fn run_cli_export(command: ParsedExportCli) -> i32 {
         });
     }
 
-    let port = rt.block_on(start_http_server(state.clone()));
+    let port = rt.block_on(start_http_server(state.clone(), dist_dir));
     let app_url = format!("http://127.0.0.1:{port}/export-cli.html");
     eprintln!("[cli-export] loading {app_url}");
 

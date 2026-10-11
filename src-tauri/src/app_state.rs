@@ -2,7 +2,6 @@ use crate::recent::RecentStore;
 use parking_lot::Mutex;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::AppHandle;
 
@@ -34,7 +33,6 @@ pub struct CliExportState {
 }
 
 pub struct AppState {
-    pub dist_dir: PathBuf,
     pub recent: RecentStore,
     pub current_path: Mutex<Option<String>>,
     pub ui_mode: Mutex<UiMode>,
@@ -50,9 +48,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(dist_dir: PathBuf, recent: RecentStore) -> Arc<Self> {
+    pub fn new(recent: RecentStore) -> Arc<Self> {
         Arc::new(Self {
-            dist_dir,
             recent,
             current_path: Mutex::new(None),
             ui_mode: Mutex::new(UiMode::Start),

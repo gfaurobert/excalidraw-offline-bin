@@ -17,14 +17,15 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Manager;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
-pub async fn start_http_server(state: Arc<AppState>) -> u16 {
-    let dist = state.dist_dir.clone();
-    let static_service = ServeDir::new(&dist).append_index_html_on_directories(true);
+pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
+    eprintln!("[desktop] serving static files from {}", dist.display());
+    let static_service = ServeDir::new(dist).append_index_html_on_directories(true);
 
     let app = Router::new()
         .route("/api/health", get(health))

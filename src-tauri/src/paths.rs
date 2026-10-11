@@ -1,4 +1,6 @@
+use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::Manager;
 
 pub fn home_dir() -> PathBuf {
     dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
@@ -40,21 +42,110 @@ pub fn manifest_dist_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../frontend/dist")
 }
 
-pub fn resolve_dist_dir() -> PathBuf {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidates = [
-                dir.join("../lib/excalidraw-offline/resources"),
-                dir.join("../resources"),
-                dir.join("resources"),
-            ];
-            for c in candidates {
-                let p = c.canonicalize().unwrap_or(c);
-                if p.join("index.html").is_file() {
-                    return p;
-                }
+fn find_dist_with_index(root: &Path) -> Option<PathBuf> {
+    if root.join("index.html").is_file() {
+        return Some(root.to_path_buf());
+    }
+    let subdirs = [
+        "dist",
+        "web",
+        "frontend",
+        "resources",
+        "_up_",
+        "frontend/dist",
+    ];
+    for name in subdirs {
+        let p = root.join(name);
+        if p.join("index.html").is_file() {
+            return Some(p);
+        }
+    }
+    if let Ok(read) = fs::read_dir(root) {
+        for entry in read.flatten() {
+            let p = entry.path();
+            if p.is_dir() && p.join("index.html").is_file() {
+                return Some(p);
             }
         }
     }
-    manifest_dist_dir()
+    None
+}
+
+fn resolve_dist_from_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    #[cfg(windows)]
+    let bases = vec![
+        dir.to_path_buf(),
+        dir.join("resources"),
+        dir.join("_up_"),
+        dir.join("resources").join("_up_"),
+        dir.join("resources").join("web"),
+        dir.join("web"),
+    ];
+    #[cfg(not(windows))]
+    let bases = vec![
+        dir.to_path_buf(),
+        dir.join("resources"),
+        dir.join("_up_"),
+        dir.join("resources").join("_up_"),
+    ];
+    for base in bases {
+        if let Some(found) = find_dist_with_index(&base) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+pub fn resolve_dist_dir_for_app(app: &tauri::AppHandle) -> PathBuf {
+    if let Ok(resource) = app.path().resource_dir() {
+        if let Some(found) = find_dist_with_index(&resource) {
+            eprintln!(
+                "[desktop] frontend dist: {} (tauri resource_dir)",
+                found.display()
+            );
+            return found;
+        }
+    }
+    if let Some(found) = resolve_dist_from_exe() {
+        eprintln!(
+            "[desktop] frontend dist: {} (exe layout)",
+            found.display()
+        );
+        return found;
+    }
+    let dev = manifest_dist_dir();
+    if dev.join("index.html").is_file() {
+        eprintln!(
+            "[desktop] frontend dist: {} (dev manifest)",
+            dev.display()
+        );
+        return dev;
+    }
+    match crate::embedded_dist::materialize_embedded_dist() {
+        Ok(p) => {
+            eprintln!(
+                "[desktop] frontend dist: {} (embedded extract)",
+                p.display()
+            );
+            p
+        }
+        Err(e) => {
+            eprintln!("[desktop] embedded frontend extract failed: {e}");
+            dev
+        }
+    }
+}
+
+/// Used by CLI export before Tauri starts (dev / CI).
+pub fn resolve_dist_dir() -> PathBuf {
+    if let Some(found) = resolve_dist_from_exe() {
+        return found;
+    }
+    let dev = manifest_dist_dir();
+    if dev.join("index.html").is_file() {
+        return dev;
+    }
+    crate::embedded_dist::materialize_embedded_dist().unwrap_or(dev)
 }

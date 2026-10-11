@@ -27,6 +27,10 @@
       "appimage": {
         "bundleMediaFramework": false
       }
-    }
+    },
+    "resources": [
+      "../skills/excalidraw-sketching/SKILL.md",
+      "../skills/excalidraw-sketching/references/cheatsheet.md"
+    ]
   }
 }

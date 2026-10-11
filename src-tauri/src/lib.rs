@@ -4,6 +4,7 @@ mod dialogs;
 mod dialogs_main;
 #[cfg(target_os = "linux")]
 mod dialogs_linux;
+mod embedded_dist;
 mod e2e;
 #[cfg(target_os = "linux")]
 mod gtk_dialogs;
@@ -20,7 +21,7 @@ mod scene;
 use app_state::{AppState, UiCommand};
 use http_server::start_http_server;
 use menu::{build_menu, handle_menu_click};
-use paths::{recent_file_path, resolve_dist_dir};
+use paths::{recent_file_path, resolve_dist_dir_for_app};
 use recent::RecentStore;
 use std::sync::Arc;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
@@ -32,18 +33,15 @@ pub use export::{
 };
 
 pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
-    let dist_dir = resolve_dist_dir();
     let recent = RecentStore::load(recent_file_path());
-    let state = AppState::new(dist_dir, recent);
+    let state = AppState::new(recent);
 
-    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let port = rt.block_on(start_http_server(state.clone()));
-    let app_url = format!("http://127.0.0.1:{port}/");
-    println!("[desktop] app url {app_url}");
+    let rt = std::sync::Arc::new(tokio::runtime::Runtime::new().expect("tokio runtime"));
 
     let state_menu = state.clone();
     let state_events = state.clone();
     let state_setup = state.clone();
+    let rt_setup = rt.clone();
     tauri::Builder::default()
         .menu(move |app| build_menu(app, &state_menu))
         .on_menu_event(move |app, event| {
@@ -52,6 +50,10 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
         .setup(move |app| {
             dialogs_main::mark_gtk_main_thread();
             *state_setup.app_handle.lock() = Some(app.handle().clone());
+            let dist = resolve_dist_dir_for_app(app.handle());
+            let port = rt_setup.block_on(start_http_server(state_setup.clone(), dist));
+            let app_url = format!("http://127.0.0.1:{port}/");
+            println!("[desktop] app url {app_url}");
             let url = app_url.parse().expect("app url");
             let win =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
