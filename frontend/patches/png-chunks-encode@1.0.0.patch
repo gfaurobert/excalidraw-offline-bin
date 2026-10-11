@@ -1,0 +1,32 @@
+diff --git a/index.js b/index.js
+index 8c1070dee8ddc2bf509fe84e9797412f7da132aa..c4f696045c76f745966225ea3b73e4d0dab5b1b2 100644
+--- a/index.js
++++ b/index.js
+@@ -1,4 +1,3 @@
+-var sliced = require('sliced')
+ var crc32 = require('crc-32')
+ 
+ module.exports = encodeChunks
+@@ -58,7 +57,7 @@ function encodeChunks (chunks) {
+       output[idx++] = data[j++]
+     }
+ 
+-    var crcCheck = nameChars.concat(sliced(data))
++    var crcCheck = nameChars.concat(Array.from(data))
+     var crc = crc32.buf(crcCheck)
+ 
+     int32[0] = crc
+diff --git a/package.json b/package.json
+index 901afa5a380df8739714f4a0423a8047829a0a8f..0f277a420d20a2fcf94134a5a68f86e5ff423471 100644
+--- a/package.json
++++ b/package.json
+@@ -10,8 +10,7 @@
+     "url": "https://github.com/hughsk"
+   },
+   "dependencies": {
+-    "crc-32": "^0.3.0",
+-    "sliced": "^1.0.1"
++    "crc-32": "^0.3.0"
+   },
+   "devDependencies": {
+     "png-chunks-extract": "^1.0.0",

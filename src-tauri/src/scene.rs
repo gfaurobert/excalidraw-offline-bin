@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde_json::{json, Map, Value};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const SOURCE: &str = "excalidraw-offline-bin";
 

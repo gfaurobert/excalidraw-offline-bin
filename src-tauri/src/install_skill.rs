@@ -91,7 +91,7 @@ pub fn harness_skills_dir(harness: HarnessId, root: &Path) -> PathBuf {
 }
 
 pub fn expand_harness_selection(selected: &[HarnessId]) -> Vec<HarnessId> {
-    if selected.iter().any(|h| *h == HarnessId::All) {
+    if selected.contains(&HarnessId::All) {
         return vec![
             HarnessId::Agents,
             HarnessId::Claude,

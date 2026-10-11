@@ -307,13 +307,11 @@ pub fn run_info_about_app(state: &Arc<AppState>) {
 
 #[cfg(target_os = "linux")]
 pub fn run_info_about_excalidraw(state: &Arc<AppState>) {
-    let text = format!(
-        "Excalidraw\nRelease: 0.18.0-4ce38fb\n\n\
-         Upstream @excalidraw/excalidraw packaged by this app."
-    );
+    let text = "Excalidraw\nRelease: 0.18.0-4ce38fb\n\n\
+         Upstream @excalidraw/excalidraw packaged by this app.";
     if gtk_dialogs::info_dialog(
         "About Excalidraw",
-        &text,
+        text,
         Some("https://github.com/excalidraw/excalidraw"),
     )
     .is_err()

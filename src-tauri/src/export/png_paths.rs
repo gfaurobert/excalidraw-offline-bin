@@ -9,50 +9,11 @@ pub fn decode_png_base64(b64: &str) -> Result<Vec<u8>, String> {
     STANDARD.decode(trimmed).map_err(|e| e.to_string())
 }
 
-fn sanitize_filename_part(part: &str) -> String {
-    let mut s: String = part
-        .trim()
-        .chars()
-        .map(|c| {
-            if r#"\/:*?"<>|"#.contains(c) {
-                '_'
-            } else {
-                c
-            }
-        })
-        .collect();
-    while s.contains("  ") {
-        s = s.replace("  ", " ");
-    }
-    s = s.trim_end_matches(['.', ' ']).to_string();
-    if s.is_empty() {
-        "drawing".to_string()
-    } else {
-        s
-    }
-}
-
 pub fn drawing_directory_for_document(document_path: &Path) -> PathBuf {
     document_path
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf()
-}
-
-pub fn drawing_base_name_from_path(document_path: &Path) -> String {
-    let file = document_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("drawing");
-    let lower = file.to_lowercase();
-    let stem = if lower.ends_with(".excalidraw") {
-        &file[..file.len() - ".excalidraw".len()]
-    } else if let Some(dot) = file.rfind('.') {
-        &file[..dot]
-    } else {
-        file
-    };
-    sanitize_filename_part(stem)
 }
 
 fn with_collision_suffix(filename: &str, attempt: u32) -> String {

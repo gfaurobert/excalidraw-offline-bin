@@ -23,10 +23,6 @@ pub enum UiCommand {
     Quit,
 }
 
-pub struct CliExportJobState {
-    pub job_id: String,
-}
-
 pub struct CliExportState {
     pub document_path: String,
     pub scene: Value,

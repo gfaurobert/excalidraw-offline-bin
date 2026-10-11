@@ -5,8 +5,7 @@ use crate::paths::{recent_file_path, resolve_dist_dir};
 use crate::recent::RecentStore;
 use crate::scene::read_scene;
 use serde_json::{json, Value};
-use std::sync::Arc;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 pub fn run_cli_export(command: ParsedExportCli) -> i32 {
     let dist_dir = resolve_dist_dir();

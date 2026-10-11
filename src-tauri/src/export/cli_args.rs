@@ -168,7 +168,7 @@ pub fn parse_export_cli(args: &[String], cwd: &Path) -> Result<Option<ParsedExpo
         return Err("Export path must end with .excalidraw".into());
     }
 
-    let mut document_path = resolve_open_path(document_raw, cwd);
+    let document_path = resolve_open_path(document_raw, cwd);
     if let Some(ref o) = out {
         let resolved = resolve_open_path(o, cwd);
         out = Some(resolved.to_string_lossy().into_owned());

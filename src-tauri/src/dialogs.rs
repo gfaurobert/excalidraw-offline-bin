@@ -18,15 +18,15 @@ pub enum DialogResult {
 pub fn dialog_backend_label() -> &'static str {
     #[cfg(target_os = "linux")]
     {
-        return "rfd (GTK3 native)";
+        "rfd (GTK3 native)"
     }
     #[cfg(target_os = "windows")]
     {
-        return "rfd (Win32 native)";
+        "rfd (Win32 native)"
     }
     #[cfg(target_os = "macos")]
     {
-        return "rfd (AppKit native)";
+        "rfd (AppKit native)"
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
@@ -205,7 +205,7 @@ fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, Dialo
 
     #[cfg(target_os = "linux")]
     {
-        return crate::dialogs_linux::linux_unsaved_changes_dialog(title, text);
+        crate::dialogs_linux::linux_unsaved_changes_dialog(title, text)
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -223,19 +223,6 @@ fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, Dialo
             rfd::MessageDialogResult::No => Ok("discard".into()),
             _ => Err(DialogResult::Cancelled),
         }
-    }
-}
-
-pub fn unsaved_changes_dialog_on_menu(
-    state: &Arc<AppState>,
-    title: &str,
-    text: &str,
-) -> Result<String, DialogResult> {
-    let title = title.to_string();
-    let text = text.to_string();
-    match run_on_main_blocking(state, move || unsaved_changes_dialog_inner(&title, &text)) {
-        Ok(inner) => inner,
-        Err(detail) => Err(DialogResult::Unavailable { detail }),
     }
 }
 

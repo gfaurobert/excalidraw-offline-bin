@@ -176,8 +176,13 @@ export default function App() {
   const pathLabelRef = useRef(pathLabel);
   const excalidrawVersionRef = useRef("unknown");
 
-  pathLabelRef.current = pathLabel;
-  modeRef.current = mode;
+  useEffect(() => {
+    pathLabelRef.current = pathLabel;
+  }, [pathLabel]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const enterCanvas = useCallback(() => {
     modeRef.current = "canvas";
@@ -244,7 +249,10 @@ export default function App() {
       // non-fatal
     }
   }, []);
-  updateTitleRef.current = updateTitle;
+
+  useEffect(() => {
+    updateTitleRef.current = updateTitle;
+  }, [updateTitle]);
 
   const cancelPendingAutosave = useCallback(() => {
     if (autosaveTimer.current !== null) {
@@ -872,7 +880,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [refreshRecent]);
+  }, [refreshRecent, syncSceneFromApi]);
 
   // Tell desktop which window was focused last (single-instance handoff).
   useEffect(() => {
