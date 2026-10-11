@@ -1,11 +1,13 @@
 //! Native rfd dialogs for Info menu and skill installer (Windows).
 //!
-//! Harness multi-select uses sequential Yes/No prompts (Vista+ TaskDialog-style UX)
-//! because rfd has no checklist control; each target is a native modal on the UI thread
-//! via `run_on_main`, keeping the webview responsive between prompts.
+//! Harness multi-select uses a modeless Win32 checklist (`win32_harness_checklist`).
 
 use crate::app_state::AppState;
 use crate::dialogs_main::run_on_main;
+#[cfg(windows)]
+use crate::win32_async;
+#[cfg(windows)]
+use crate::win32_harness_checklist;
 use crate::e2e::e2e_enabled;
 use crate::skill_dialog_common::{
     e2e_pause_ms, e2e_skill_cancelled, e2e_sleep_pause, open_url_in_browser, ChoiceOption,
@@ -221,24 +223,14 @@ pub async fn choice_dialog(
         .map_err(|detail| DialogError::Unavailable { detail })?
 }
 
-fn multi_select_checklist_sync(
-    title: &str,
-    text: &str,
-    options: &[ChoiceOption],
-    default_checked_ids: &[&str],
-) -> DialogResult<Vec<String>> {
-    if options.is_empty() {
-        return Err(DialogError::Unavailable {
-            detail: "no options".into(),
-        });
-    }
+fn harness_selection_from_e2e(options: &[ChoiceOption]) -> Option<DialogResult<Vec<String>>> {
     if e2e_skill_cancelled() {
-        return Err(DialogError::Cancelled);
+        return Some(Err(DialogError::Cancelled));
     }
     if e2e_enabled() && e2e_pause_ms() == 0 {
         if let Ok(raw) = std::env::var("EXCALIDRAW_E2E_SKILL_HARNESS") {
             if raw == "cancel" {
-                return Err(DialogError::Cancelled);
+                return Some(Err(DialogError::Cancelled));
             }
             let ids: Vec<String> = if raw == "all" {
                 options.iter().map(|o| o.id.clone()).collect()
@@ -249,7 +241,7 @@ fn multi_select_checklist_sync(
                     .collect()
             };
             if !ids.is_empty() {
-                return Ok(ids);
+                return Some(Ok(ids));
             }
         }
     }
@@ -257,80 +249,22 @@ fn multi_select_checklist_sync(
         e2e_sleep_pause();
         if let Ok(raw) = std::env::var("EXCALIDRAW_E2E_SKILL_HARNESS") {
             if raw == "cancel" {
-                return Err(DialogError::Cancelled);
+                return Some(Err(DialogError::Cancelled));
             }
             let ids: Vec<String> = if raw == "all" {
                 options.iter().map(|o| o.id.clone()).collect()
             } else {
-                raw.split(',').map(|s| s.trim().to_string()).collect()
+                raw.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
             };
             if !ids.is_empty() {
-                return Ok(ids);
+                return Some(Ok(ids));
             }
         }
     }
-
-    let defaults: std::collections::HashSet<&str> = default_checked_ids.iter().copied().collect();
-    let mut selected: Vec<String> = Vec::new();
-
-    if options.iter().any(|o| o.id == "all") {
-        let result = rfd::MessageDialog::new()
-            .set_title(title)
-            .set_description(format!(
-                "{text}\n\nInstall to all supported agent tools?"
-            ))
-            .set_level(rfd::MessageLevel::Info)
-            .set_buttons(rfd::MessageButtons::YesNoCancel)
-            .show();
-        if result == rfd::MessageDialogResult::Yes {
-            return Ok(
-                options
-                    .iter()
-                    .filter(|o| o.id != "all")
-                    .map(|o| o.id.clone())
-                    .collect(),
-            );
-        }
-        if result == rfd::MessageDialogResult::Cancel {
-            return Err(DialogError::Cancelled);
-        }
-    }
-
-    for opt in options {
-        if opt.id == "all" {
-            continue;
-        }
-
-        let prechecked = defaults.contains(opt.id.as_str());
-        let prompt = format!(
-            "{text}\n\nInclude this target?\n\n{}\n\n(Default: {})",
-            opt.label,
-            if prechecked { "Yes" } else { "No" }
-        );
-        let result = rfd::MessageDialog::new()
-            .set_title(title)
-            .set_description(&prompt)
-            .set_level(rfd::MessageLevel::Info)
-            .set_buttons(rfd::MessageButtons::YesNoCancel)
-            .show();
-
-        match result {
-            rfd::MessageDialogResult::Yes => selected.push(opt.id.clone()),
-            rfd::MessageDialogResult::No => {}
-            _ => {
-                if selected.is_empty() {
-                    return Err(DialogError::Cancelled);
-                }
-                return Ok(selected);
-            }
-        }
-    }
-
-    if selected.is_empty() {
-        Err(DialogError::Cancelled)
-    } else {
-        Ok(selected)
-    }
+    None
 }
 
 pub async fn multi_select_checklist_dialog(
@@ -340,15 +274,31 @@ pub async fn multi_select_checklist_dialog(
     options: &[ChoiceOption],
     default_checked_ids: &[&str],
 ) -> DialogResult<Vec<String>> {
+    if options.is_empty() {
+        return Err(DialogError::Unavailable {
+            detail: "no options".into(),
+        });
+    }
+    if let Some(result) = harness_selection_from_e2e(options) {
+        return result;
+    }
+
     let title = title.to_string();
     let text = text.to_string();
     let options = options.to_vec();
     let defaults: Vec<String> = default_checked_ids.iter().map(|s| s.to_string()).collect();
-    let default_refs: Vec<&str> = defaults.iter().map(|s| s.as_str()).collect();
-    run_on_main(
-        state,
-        move || multi_select_checklist_sync(&title, &text, &options, &default_refs),
-    )
+    let default_refs: Vec<String> = defaults;
+
+    win32_async::run_dialog(state, move |tx| {
+        let default_id_refs: Vec<&str> = default_refs.iter().map(|s| s.as_str()).collect();
+        win32_harness_checklist::show_harness_checklist(
+            &title,
+            &text,
+            &options,
+            &default_id_refs,
+            tx,
+        );
+    })
     .await
     .map_err(|detail| DialogError::Unavailable { detail })?
 }

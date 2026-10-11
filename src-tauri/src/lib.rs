@@ -16,6 +16,10 @@ mod skill_dialogs;
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 mod skill_install_flow;
 #[cfg(windows)]
+mod win32_async;
+#[cfg(windows)]
+mod win32_harness_checklist;
+#[cfg(windows)]
 mod win_dialogs;
 mod desktop_log;
 mod export;
