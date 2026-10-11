@@ -49,7 +49,7 @@ jobs:
       - name: Clippy Windows (deny warnings)
         working-directory: src-tauri
         env:
-          TAURI_CONFIG: tauri.windows.ci.json
+          TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
         run: |
           rustup component add clippy --target x86_64-pc-windows-msvc
           cargo clippy --target x86_64-pc-windows-msvc -- -D warnings
