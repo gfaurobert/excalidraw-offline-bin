@@ -1,4 +1,7 @@
 use crate::app_state::{AppState, UiCommand, UiMode};
+use crate::desktop_log;
+use crate::quit_flow::finish_quit;
+use std::sync::atomic::Ordering;
 use crate::e2e::{e2e_enabled, eval_in_main_webview};
 use crate::dialogs::{
     dialog_backend_label, open_excalidraw_dialog, open_image_dialog, save_excalidraw_dialog,
@@ -19,7 +22,6 @@ use axum::{
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::Manager;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
@@ -29,6 +31,7 @@ pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
 
     let app = Router::new()
         .route("/api/health", get(health))
+        .route("/api/ready", post(frontend_ready))
         .route("/api/info", get(info))
         .route("/api/recent", get(recent))
         .route("/api/poll", get(poll))
@@ -71,6 +74,12 @@ pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
         axum::serve(listener, app).await.ok();
     });
     port
+}
+
+async fn frontend_ready(State(state): State<Arc<AppState>>) -> Json<Value> {
+    state.frontend_ready.store(true, Ordering::Relaxed);
+    desktop_log::info("frontend reported ready (/api/ready)");
+    Json(json!({ "ok": true }))
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<Value> {
@@ -348,13 +357,8 @@ async fn unsaved(State(state): State<Arc<AppState>>, Json(body): Json<Value>) ->
 }
 
 async fn quit(State(state): State<Arc<AppState>>) -> Json<Value> {
-    *state.quit_pending.lock() = false;
-    *state.allow_close.lock() = true;
     if let Some(app) = state.app_handle.lock().clone() {
-        if let Some(win) = app.get_webview_window("main") {
-            let _ = win.close();
-        }
-        app.exit(0);
+        finish_quit(&app, &state, 0);
     }
     Json(json!({ "ok": true }))
 }

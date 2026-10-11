@@ -860,6 +860,11 @@ export default function App() {
             });
           }
           await apiLog("info", `api/info ok home=${homeRef.current}`);
+          await apiJson("/api/ready", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({}),
+          });
           await refreshRecent();
           await notifyMode("start");
           await updateTitleRef.current(null, false);

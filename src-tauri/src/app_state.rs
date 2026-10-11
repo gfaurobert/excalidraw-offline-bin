@@ -1,5 +1,6 @@
 use crate::recent::RecentStore;
 use parking_lot::Mutex;
+use std::sync::atomic::AtomicBool;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,6 +34,8 @@ pub struct CliExportState {
 }
 
 pub struct AppState {
+    /// Set when the web UI has successfully reached /api/info (poll/quit works).
+    pub frontend_ready: AtomicBool,
     pub recent: RecentStore,
     pub current_path: Mutex<Option<String>>,
     pub ui_mode: Mutex<UiMode>,
@@ -50,6 +53,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(recent: RecentStore) -> Arc<Self> {
         Arc::new(Self {
+            frontend_ready: AtomicBool::new(false),
             recent,
             current_path: Mutex::new(None),
             ui_mode: Mutex::new(UiMode::Start),

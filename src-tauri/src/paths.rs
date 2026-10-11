@@ -6,6 +6,21 @@ pub fn home_dir() -> PathBuf {
     dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
 }
 
+pub fn desktop_log_dir() -> PathBuf {
+    #[cfg(windows)]
+    {
+        std::env::var("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| home_dir())
+            .join("ExcalidrawOffline")
+            .join("logs")
+    }
+    #[cfg(not(windows))]
+    {
+        config_dir().join("logs")
+    }
+}
+
 pub fn config_dir() -> PathBuf {
     if cfg!(target_os = "linux") {
         std::env::var("XDG_CONFIG_HOME")

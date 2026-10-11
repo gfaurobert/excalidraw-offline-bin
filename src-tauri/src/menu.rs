@@ -1,4 +1,5 @@
 use crate::app_state::{AppState, UiCommand, UiMode};
+use crate::quit_flow::request_application_quit;
 use crate::dialogs::{
     open_excalidraw_dialog_on_menu, save_excalidraw_dialog_on_menu, DialogResult,
 };
@@ -147,7 +148,7 @@ fn picker_unavailable() -> String {
     "File picker unavailable (native dialog failed)".to_string()
 }
 
-pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
+pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
     if id.starts_with("recent:") {
         let path = id.strip_prefix("recent:").unwrap_or("").to_string();
         if std::path::Path::new(&path).is_file() {
@@ -251,7 +252,7 @@ pub fn handle_menu_click(_app: &AppHandle, state: &Arc<AppState>, id: &str) {
         }
         "reload" => state.enqueue_ui(UiCommand::Reload),
         "close" => state.enqueue_ui(UiCommand::Close),
-        "quit" => state.enqueue_ui(UiCommand::Quit),
+        "quit" => request_application_quit(app, state),
         "skills-install-sketching" => {
             #[cfg(target_os = "linux")]
             {

@@ -75,8 +75,23 @@ function Test-ExeLaunch {
     try {
         $port = Wait-For-AppUrl -LogPath $log
         Assert-Frontend -Port $port -Label $Label
-        Start-Sleep -Seconds 3
+        Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/ready" -Method POST -UseBasicParsing -ContentType "application/json" -Body "{}" | Out-Null
+        $logDir = Join-Path $env:LOCALAPPDATA "ExcalidrawOffline\logs"
+        if (Test-Path $logDir) {
+            Write-Host "$Label`: desktop log dir $logDir"
+        }
+        Start-Sleep -Seconds 2
         Capture-Screenshot -OutPath $ScreenshotPath
+        Write-Host "$Label`: POST /api/quit"
+        Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/quit" -Method POST -UseBasicParsing -ContentType "application/json" -Body "{}" -TimeoutSec 30 | Out-Null
+        $deadline = (Get-Date).AddSeconds(12)
+        while ((Get-Date) -lt $deadline -and -not $proc.HasExited) {
+            Start-Sleep -Milliseconds 250
+        }
+        if (-not $proc.HasExited) {
+            throw "$Label`: process did not exit after /api/quit"
+        }
+        Write-Host "$Label`: graceful exit ok"
     }
     finally {
         if (-not $proc.HasExited) {
