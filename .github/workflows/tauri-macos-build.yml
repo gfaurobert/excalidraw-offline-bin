@@ -1,0 +1,86 @@
+# Branch / manual Tauri macOS build (not used by release workflows).
+name: Tauri macOS build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/tauri2-poc-fd6a
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-14
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Clippy macOS (deny warnings)
+        working-directory: src-tauri
+        run: |
+          cargo clippy --target aarch64-apple-darwin -- -D warnings
+          cargo clippy --target x86_64-apple-darwin -- -D warnings
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked --version "^2.0.0"
+
+      - name: Build arm64 .app
+        working-directory: src-tauri
+        run: cargo tauri build --target aarch64-apple-darwin --config tauri.macos.ci.json
+
+      - name: Build universal .app
+        working-directory: src-tauri
+        run: cargo tauri build --target universal-apple-darwin --config tauri.macos.ci.json
+
+      - name: Ad-hoc sign
+        run: |
+          for app in src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app \
+                     src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app; do
+            codesign --force --deep -s - "$app"
+          done
+
+      - name: Verify arm64 app (codesign, lipo, /api/health)
+        run: scripts/verify-tauri-macos.sh "$(ls -d src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app)" arm64
+
+      - name: Verify universal app (codesign, lipo, /api/health)
+        run: scripts/verify-tauri-macos.sh "$(ls -d src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app)" "arm64 x86_64"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          ditto -c -k --keepParent src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app dist/excalidraw-offline-macos-arm64.zip
+          ditto -c -k --keepParent src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app dist/excalidraw-offline-macos-universal.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: excalidraw-offline-tauri-macos
+          path: dist/*.zip
+          if-no-files-found: error

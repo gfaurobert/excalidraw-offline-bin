@@ -1,0 +1,14 @@
+{
+  "build": {
+    "beforeBuildCommand": "",
+    "beforeDevCommand": ""
+  },
+  "bundle": {
+    "targets": ["app"],
+    "icon": ["../icons/icon.png"],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}
