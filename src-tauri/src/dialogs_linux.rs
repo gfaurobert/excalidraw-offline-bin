@@ -9,23 +9,21 @@ use gtk::prelude::*;
 #[cfg(target_os = "linux")]
 use gtk::{ButtonsType, DialogFlags, MessageDialog, MessageType, ResponseType};
 #[cfg(target_os = "linux")]
-use std::sync::{Arc, Once};
+use std::sync::Arc;
 
-#[cfg(target_os = "linux")]
-static GTK_INIT: Once = Once::new();
-
+/// GTK is initialized exactly once, on the main thread, in `setup()` (lib.rs).
+/// This handler runs on a tokio worker: calling `gtk::init()` here panics with
+/// "Attempted to initialize GTK from two different threads", which kills the axum
+/// connection and surfaces in WebKitGTK as `TypeError: Load failed`. Only check the flag.
 #[cfg(target_os = "linux")]
 fn ensure_gtk_initialized() -> Result<(), DialogResult> {
-    let mut init_err: Option<String> = None;
-    GTK_INIT.call_once(|| {
-        if let Err(e) = gtk::init() {
-            init_err = Some(format!("gtk init failed: {e}"));
-        }
-    });
-    if let Some(detail) = init_err {
-        return Err(DialogResult::Unavailable { detail });
+    if gtk::is_initialized() {
+        Ok(())
+    } else {
+        Err(DialogResult::Unavailable {
+            detail: "GTK is not initialized on the main thread".into(),
+        })
     }
-    Ok(())
 }
 
 #[cfg(target_os = "linux")]
@@ -34,7 +32,7 @@ pub async fn linux_unsaved_changes_dialog(
     title: &str,
     text: &str,
 ) -> Result<String, DialogResult> {
-    let _ = ensure_gtk_initialized();
+    ensure_gtk_initialized()?;
 
     let title = title.to_string();
     let text = text.to_string();
