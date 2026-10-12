@@ -55,22 +55,14 @@ fn info_dialog_sync(title: &str, text: &str, link_url: Option<&str>) -> DialogRe
         dialog.set_buttons(rfd::MessageButtons::Ok).show()
     };
 
-    match result {
-        rfd::MessageDialogResult::Cancel if link_url.is_some() => {
-            if let Some(url) = link_url {
-                open_url_in_browser(url);
-            }
-            Ok(())
+    // rfd on Windows returns Custom(<label>) for OkCancelCustom buttons (also for "OK");
+    // Esc / X yields Cancel. Only the explicit "Open in browser" button opens the link.
+    if let (rfd::MessageDialogResult::Custom(label), Some(url)) = (&result, link_url) {
+        if label == "Open in browser" {
+            open_url_in_browser(url);
         }
-        rfd::MessageDialogResult::Custom(_) if link_url.is_some() => {
-            if let Some(url) = link_url {
-                open_url_in_browser(url);
-            }
-            Ok(())
-        }
-        rfd::MessageDialogResult::Ok | rfd::MessageDialogResult::Custom(_) => Ok(()),
-        _ => Ok(()),
     }
+    Ok(())
 }
 
 pub async fn info_dialog(
@@ -182,12 +174,14 @@ fn choice_dialog_sync(
                 "Custom".into(),
             ))
             .show();
+        // rfd on Windows reports YesNoCancelCustom buttons as Custom(<label>), never Yes/No;
+        // closing the dialog (Esc / X) yields Cancel, which must cancel the install.
         return match result {
             rfd::MessageDialogResult::Yes => Ok(options[0].id.clone()),
             rfd::MessageDialogResult::No => Ok(options[1].id.clone()),
-            rfd::MessageDialogResult::Cancel | rfd::MessageDialogResult::Custom(_) => {
-                Ok(options[2].id.clone())
-            }
+            rfd::MessageDialogResult::Custom(label) if label == "Global" => Ok(options[0].id.clone()),
+            rfd::MessageDialogResult::Custom(label) if label == "Project" => Ok(options[1].id.clone()),
+            rfd::MessageDialogResult::Custom(label) if label == "Custom" => Ok(options[2].id.clone()),
             _ => Err(DialogError::Cancelled),
         };
     }
