@@ -10,8 +10,12 @@ mod e2e;
 mod gtk_async;
 #[cfg(target_os = "linux")]
 mod gtk_dialogs;
+// Skills/Info flow is only wired on Linux and Windows (see menu.rs); macOS has no dialog backend yet.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 mod install_skill;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 mod skill_dialog_common;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 mod skill_dialogs;
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 mod skill_install_flow;
