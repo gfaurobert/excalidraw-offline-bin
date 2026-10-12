@@ -1002,6 +1002,12 @@ export default function App() {
         void runOpen();
         return;
       }
+      if (key === "q" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runQuit();
+        return;
+      }
       if (modeRef.current !== "canvas") return;
       if (key === "w" && !e.shiftKey) {
         e.preventDefault();
@@ -1040,6 +1046,7 @@ export default function App() {
     runOpen,
     runSave,
     runClose,
+    runQuit,
     runReload,
     openExportImageDialog,
   ]);
