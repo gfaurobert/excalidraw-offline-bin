@@ -58,8 +58,18 @@ pub fn ensure_excalidraw_ext(path: &str) -> String {
     }
 }
 
-pub fn manifest_dist_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../frontend/dist")
+/// Dev-only fallback: the checkout's `frontend/dist` (live rebuilds without a cargo rebuild).
+/// Release builds never look there, so packaged binaries carry no build path and always
+/// serve their own embedded frontend.
+fn manifest_dist_dir() -> Option<PathBuf> {
+    #[cfg(debug_assertions)]
+    {
+        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../frontend/dist");
+        if dev.join("index.html").is_file() {
+            return Some(dev);
+        }
+    }
+    None
 }
 
 fn find_dist_with_index(root: &Path) -> Option<PathBuf> {
@@ -135,8 +145,7 @@ pub fn resolve_dist_dir_for_app(app: &tauri::AppHandle) -> PathBuf {
         );
         return found;
     }
-    let dev = manifest_dist_dir();
-    if dev.join("index.html").is_file() {
+    if let Some(dev) = manifest_dist_dir() {
         eprintln!(
             "[desktop] frontend dist: {} (dev manifest)",
             dev.display()
@@ -153,7 +162,7 @@ pub fn resolve_dist_dir_for_app(app: &tauri::AppHandle) -> PathBuf {
         }
         Err(e) => {
             eprintln!("[desktop] embedded frontend extract failed: {e}");
-            dev
+            std::env::temp_dir().join("excalidraw-offline-web")
         }
     }
 }
@@ -163,9 +172,9 @@ pub fn resolve_dist_dir() -> PathBuf {
     if let Some(found) = resolve_dist_from_exe() {
         return found;
     }
-    let dev = manifest_dist_dir();
-    if dev.join("index.html").is_file() {
+    if let Some(dev) = manifest_dist_dir() {
         return dev;
     }
-    crate::embedded_dist::materialize_embedded_dist().unwrap_or(dev)
+    crate::embedded_dist::materialize_embedded_dist()
+        .unwrap_or_else(|_| std::env::temp_dir().join("excalidraw-offline-web"))
 }
