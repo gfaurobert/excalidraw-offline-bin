@@ -41,7 +41,9 @@ jobs:
 
       - name: Clippy Linux (deny warnings)
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: |
+          rustup component add clippy
+          cargo clippy -- -D warnings
 
       - name: Install cargo-xwin
         run: cargo install cargo-xwin --locked
