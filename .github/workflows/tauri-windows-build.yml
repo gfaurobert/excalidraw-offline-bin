@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev llvm
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -60,6 +60,7 @@ jobs:
           TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
         run: |
           rustup target add x86_64-pc-windows-msvc
+          llvm-rc --version || ls /usr/bin/llvm-rc* /usr/lib/llvm-*/bin/llvm-rc
           cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings
 
   windows-x64:
