@@ -270,6 +270,9 @@ fn unsaved_changes_dialog_inner(title: &str, text: &str) -> Result<String, Dialo
     match choice {
         rfd::MessageDialogResult::Yes => Ok("save".into()),
         rfd::MessageDialogResult::No => Ok("discard".into()),
+        // rfd reports custom-labelled buttons as Custom(<label>) on Windows and macOS.
+        rfd::MessageDialogResult::Custom(label) if label == "Save" => Ok("save".into()),
+        rfd::MessageDialogResult::Custom(label) if label == "Don't save" => Ok("discard".into()),
         _ => Err(DialogResult::Cancelled),
     }
 }

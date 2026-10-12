@@ -27,6 +27,11 @@ pub fn config_dir() -> PathBuf {
             .map(PathBuf::from)
             .unwrap_or_else(|_| home_dir().join(".config"))
             .join("excalidraw-offline")
+    } else if cfg!(target_os = "macos") {
+        home_dir()
+            .join("Library")
+            .join("Application Support")
+            .join("excalidraw-offline")
     } else {
         home_dir().join(".config").join("excalidraw-offline")
     }

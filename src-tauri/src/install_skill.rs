@@ -173,6 +173,8 @@ fn on_disk_skill_dir() -> Option<PathBuf> {
         dir.join("../skills/excalidraw-sketching"),
         // Tauri maps "../skills/..." resources to "_up_/skills/..." in bundles.
         dir.join("_up_/skills/excalidraw-sketching"),
+        // macOS .app: Contents/MacOS/<exe> -> Contents/Resources/_up_/skills/...
+        dir.join("../Resources/_up_/skills/excalidraw-sketching"),
     ];
     #[cfg(windows)]
     {

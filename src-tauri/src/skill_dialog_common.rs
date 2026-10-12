@@ -51,7 +51,11 @@ pub fn open_url_in_browser(url: &str) {
             .args(["/C", "start", "", url])
             .spawn();
     }
-    #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
         let _ = url;
     }

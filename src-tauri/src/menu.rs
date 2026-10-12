@@ -261,41 +261,41 @@ pub fn handle_menu_click(app: &AppHandle, state: &Arc<AppState>, id: &str) {
         "close" => state.enqueue_ui(UiCommand::Close),
         "quit" => request_application_quit(app, state),
         "skills-install-sketching" => {
-            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
             crate::skill_install_flow::run_install_sketching_skill(state);
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
             state.enqueue_ui(UiCommand::Status {
                 message: "Skills install is not supported on this platform".into(),
             });
         }
         "info-runtime" => {
-            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
             crate::skill_install_flow::run_info_runtime(state);
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
             state.enqueue_ui(UiCommand::Status {
                 message: "Info menu is not supported on this platform".into(),
             });
         }
         "info-assets" => {
-            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
             crate::skill_install_flow::run_info_assets(state);
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
             state.enqueue_ui(UiCommand::Status {
                 message: "Info menu is not supported on this platform".into(),
             });
         }
         "info-about-app" => {
-            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
             crate::skill_install_flow::run_info_about_app(state);
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
             state.enqueue_ui(UiCommand::Status {
                 message: "Info menu is not supported on this platform".into(),
             });
         }
         "info-about-excalidraw" => {
-            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
             crate::skill_install_flow::run_info_about_excalidraw(state);
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
             state.enqueue_ui(UiCommand::Status {
                 message: "Info menu is not supported on this platform".into(),
             });
