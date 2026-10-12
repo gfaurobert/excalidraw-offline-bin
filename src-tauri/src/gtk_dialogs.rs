@@ -13,23 +13,21 @@ use gtk::{
     Align, Box as GtkBox, ButtonsType, CheckButton, Dialog, DialogFlags, MessageDialog,
     MessageType, Orientation, ResponseType, ScrolledWindow,
 };
-use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
-static GTK_INIT: Once = Once::new();
 
 fn ensure_gtk() -> Result<(), DialogError> {
-    let mut init_err: Option<String> = None;
-    GTK_INIT.call_once(|| {
-        if let Err(e) = gtk::init() {
-            init_err = Some(format!("gtk init failed: {e}"));
-        }
-    });
-    if let Some(detail) = init_err {
-        return Err(DialogError::Unavailable { detail });
+    // GTK is initialized once on the main thread in setup(); these async helpers run on
+    // tokio workers, where gtk::init() panics ("initialize GTK from two different threads")
+    // and poisons the Once. Only check the flag here.
+    if gtk::is_initialized() {
+        Ok(())
+    } else {
+        Err(DialogError::Unavailable {
+            detail: "GTK is not initialized on the main thread".into(),
+        })
     }
-    Ok(())
 }
 
 fn active_radio_label(dialog: &Dialog) -> Option<String> {
