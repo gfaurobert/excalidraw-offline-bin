@@ -840,9 +840,26 @@ export default function App() {
   const apiBootstrappedRef = useRef(false);
 
   // Load recent list from the same /api/recent endpoint as the native menu.
+  // State is set from the fetch callback (not synchronously in the effect body).
   useEffect(() => {
-    void refreshRecent();
-  }, [refreshRecent]);
+    let cancelled = false;
+    apiJson<{ paths: string[]; labels: string[] }>("/api/recent")
+      .then((data) => {
+        if (cancelled) return;
+        setRecent(
+          data.paths.map((path, i) => ({
+            path,
+            label: data.labels[i] ?? path.split("/").pop() ?? path,
+          })),
+        );
+      })
+      .catch((err) => {
+        void apiLog("error", `recent refresh failed: ${String(err)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Prove HTTP desktop API is reachable (not Deno bindings) — once per app load.
   useEffect(() => {
