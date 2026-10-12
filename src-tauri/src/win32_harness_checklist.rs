@@ -5,12 +5,13 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{GetStockObject, DEFAULT_GUI_FONT};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{IsDlgButtonChecked, BST_CHECKED};
 use windows::Win32::UI::HiDpi::{
-    SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    AdjustWindowRectExForDpi, SetProcessDpiAwarenessContext,
+    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, LoadCursorW, RegisterClassW,
@@ -26,6 +27,28 @@ const ID_CAPTION: i32 = 100;
 const ID_CHECK_BASE: i32 = 200;
 const IDOK_LOCAL: i32 = 1;
 const IDCANCEL_LOCAL: i32 = 2;
+const WINDOW_STYLE_FLAGS: WINDOW_STYLE =
+    WINDOW_STYLE(WS_OVERLAPPED.0 | WS_CAPTION.0 | WS_SYSMENU.0);
+
+/// Outer window size for a desired client size. Window APIs take the outer size,
+/// which includes the caption bar and borders; without this the OK/Cancel row is clipped.
+fn outer_size_for_client(dpi: u32, client_w: i32, client_h: i32) -> (i32, i32) {
+    let mut rc = RECT {
+        left: 0,
+        top: 0,
+        right: client_w,
+        bottom: client_h,
+    };
+    // SAFETY: rc is a valid, initialized RECT for the duration of the call.
+    let ok = unsafe {
+        AdjustWindowRectExForDpi(&mut rc, WINDOW_STYLE_FLAGS, false, WINDOW_EX_STYLE(0), dpi)
+    };
+    if ok.is_ok() {
+        (rc.right - rc.left, rc.bottom - rc.top)
+    } else {
+        (client_w, client_h)
+    }
+}
 
 thread_local! {
     static DIALOG_CTX: RefCell<Option<DialogCtx>> = const { RefCell::new(None) };
@@ -251,13 +274,14 @@ unsafe extern "system" fn wnd_proc(
             );
 
             let total_h = ok_y + btn_h + margin;
+            let (outer_w, outer_h) = outer_size_for_client(dpi, width, total_h);
             let _ = SetWindowPos(
                 hwnd,
                 Some(HWND_TOP),
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                width,
-                total_h,
+                0,
+                0,
+                outer_w,
+                outer_h,
                 SWP_NOMOVE | SWP_NOZORDER,
             );
             apply_gui_font(hwnd);
@@ -340,6 +364,7 @@ pub fn show_harness_checklist(
         + scale(dpi, 12)
         + btn_h
         + margin;
+    let (outer_w, outer_h) = outer_size_for_client(dpi, width, height);
 
     unsafe {
         let module = match GetModuleHandleW(None) {
@@ -358,11 +383,11 @@ pub fn show_harness_checklist(
             WINDOW_EX_STYLE(0),
             PCWSTR(wide(CLASS_NAME).as_ptr()),
             PCWSTR(wide(title).as_ptr()),
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+            WINDOW_STYLE_FLAGS,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            width,
-            height,
+            outer_w,
+            outer_h,
             None,
             None,
             Some(HINSTANCE::from(module)),
