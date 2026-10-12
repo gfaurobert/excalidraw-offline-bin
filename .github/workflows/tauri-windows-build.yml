@@ -58,7 +58,9 @@ jobs:
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
-        run: cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings
 
   windows-x64:
     runs-on: windows-latest

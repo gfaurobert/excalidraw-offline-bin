@@ -43,30 +43,13 @@ use paths::{recent_file_path, resolve_dist_dir_for_app};
 use recent::RecentStore;
 use std::sync::Arc;
 use quit_flow::request_application_quit;
-use std::time::Duration;
-use tauri::{Listener, Manager, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 pub use cli_export::run_cli_export;
 pub use export::{
     parse_export_cli, print_export_help, print_top_level_help, wants_export_help,
     wants_top_level_help,
 };
-
-fn warm_webview_navigation(win: tauri::WebviewWindow, app_url: String) {
-    // WebView2 can show a blank page if the first navigation races the listener; retry navigations.
-    std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(600));
-        for attempt in 1..=5 {
-            desktop_log::info(&format!("webview navigation attempt {attempt} for {app_url}"));
-            if attempt > 1 {
-                if let Ok(url) = Url::parse(&app_url) {
-                    let _ = win.navigate(url);
-                }
-                std::thread::sleep(Duration::from_millis(600));
-            }
-        }
-    });
-}
 
 pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
     desktop_log::init();
@@ -125,7 +108,10 @@ pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
                     .inner_size(1280.0, 800.0)
                     .visible(false)
                     .build()?;
-            warm_webview_navigation(win.clone(), app_url.clone());
+            // Listener is bound and serving (wait_until_http_ready) before the window exists,
+            // so the initial WebviewUrl load is the only navigation. Re-navigating here made
+            // the page blank/re-render several times on launch.
+            desktop_log::info(&format!("webview loading {app_url} (single navigation)"));
             let win_events = win.clone();
             win_events.listen("tauri://error", |event| {
                 desktop_log::error(&format!("webview error: {}", event.payload()));
