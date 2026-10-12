@@ -46,6 +46,9 @@ jobs:
       - name: Clippy macOS (deny warnings)
         working-directory: src-tauri
         run: |
+          rustup show active-toolchain
+          rustup component add clippy
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
           cargo clippy --target aarch64-apple-darwin -- -D warnings
           cargo clippy --target x86_64-apple-darwin -- -D warnings
 
