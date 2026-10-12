@@ -1,7 +1,9 @@
 use crate::app_state::AppState;
+#[cfg(not(target_os = "linux"))]
 use crate::dialogs_main::run_on_main;
 use crate::e2e::e2e_enabled;
 use crate::paths::{ensure_excalidraw_ext, home_dir};
+#[cfg(not(target_os = "linux"))]
 use rfd::FileDialog;
 #[cfg(target_os = "linux")]
 use rfd::AsyncFileDialog;
@@ -170,11 +172,26 @@ pub async fn save_excalidraw_dialog(
     }
 }
 
+/// PNG or SVG filter, from the extension Excalidraw picked for the download.
+fn image_export_filter(default_path: &std::path::Path) -> (&'static str, &'static [&'static str]) {
+    let is_svg = default_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("svg"));
+    if is_svg {
+        ("SVG", &["svg"])
+    } else {
+        ("PNG", &["png"])
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
 fn save_image_export_dialog_inner(suggested_path: &str) -> DialogResult {
     let default_path = resolve_default_save_path(suggested_path);
+    let (filter_name, filter_ext) = image_export_filter(&default_path);
     let mut dialog = FileDialog::new()
         .set_title("Export image")
-        .add_filter("PNG", &["png"]);
+        .add_filter(filter_name, filter_ext);
     if let Some(parent) = default_path.parent() {
         if parent.is_dir() {
             dialog = dialog.set_directory(parent);
@@ -195,10 +212,38 @@ pub async fn save_image_export_dialog(
     state: &Arc<AppState>,
     suggested_path: &str,
 ) -> DialogResult {
-    let suggested = suggested_path.to_string();
-    match run_on_main(state, move || save_image_export_dialog_inner(&suggested)).await {
-        Ok(r) => r,
-        Err(detail) => DialogResult::Unavailable { detail },
+    // Linux: the blocking rfd/GTK dialog deadlocks when run on the GTK main thread
+    // (it waits for a loop it is blocking), so use the async dialog like Open/Save.
+    #[cfg(target_os = "linux")]
+    {
+        let _ = state;
+        let default_path = resolve_default_save_path(suggested_path);
+        let (filter_name, filter_ext) = image_export_filter(&default_path);
+        let mut dialog = AsyncFileDialog::new()
+            .set_title("Export image")
+            .add_filter(filter_name, filter_ext);
+        if let Some(parent) = default_path.parent() {
+            if parent.is_dir() {
+                dialog = dialog.set_directory(parent);
+            }
+        }
+        if let Some(name) = default_path.file_name().and_then(|n| n.to_str()) {
+            dialog = dialog.set_file_name(name);
+        }
+        match dialog.save_file().await {
+            Some(h) => DialogResult::Ok {
+                path: h.path().to_string_lossy().into_owned(),
+            },
+            None => DialogResult::Cancelled,
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let suggested = suggested_path.to_string();
+        match run_on_main(state, move || save_image_export_dialog_inner(&suggested)).await {
+            Ok(r) => r,
+            Err(detail) => DialogResult::Unavailable { detail },
+        }
     }
 }
 

@@ -819,6 +819,7 @@ export default function App() {
       saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
       onSaved: (path) => setStatus(`Exported ${path}`),
       onError: (message) => setStatus(`Export failed: ${message}`),
+      log: (message) => void apiLog("info", message),
     });
   }, []);
 

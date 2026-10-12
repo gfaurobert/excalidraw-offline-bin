@@ -10,6 +10,7 @@ export interface OfflineExportSaveHandlers {
   }) => Promise<{ ok: true; path: string } | { ok: false; cancelled: boolean; message?: string }>;
   onSaved?: (path: string) => void;
   onError?: (message: string) => void;
+  log?: (message: string) => void;
 }
 
 let handlers: OfflineExportSaveHandlers | null = null;
@@ -63,6 +64,7 @@ export function installOfflineExportDownloadHook(
       ) {
         void (async () => {
           const h = handlers;
+          h?.log?.(`export download intercepted: ${anchor.download}`);
           if (!h) {
             origClick();
             return;
@@ -75,16 +77,21 @@ export function installOfflineExportDownloadHook(
               blob,
             });
             URL.revokeObjectURL(anchor.href);
+            h.log?.(`export save result: ${JSON.stringify(result)}`);
             if (result.ok) {
               h.onSaved?.(result.path);
             } else if (!result.cancelled && result.message) {
               h.onError?.(result.message);
             }
           } catch (err) {
+            h.log?.(`export save failed: ${String(err)}`);
             h.onError?.(String(err));
           }
         })();
         return;
+      }
+      if (anchor.download) {
+        handlers?.log?.(`download not intercepted: ${anchor.download} ${anchor.href.slice(0, 16)}`);
       }
       origClick();
     };
