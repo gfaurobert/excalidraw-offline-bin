@@ -125,7 +125,18 @@ pub async fn read_scene(document_path: &Path) -> Result<Value, String> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("application/octet-stream");
                 let absolute = dir.join(path_rel);
-                let bytes = tokio::fs::read(&absolute).await.map_err(|e| e.to_string())?;
+                // A missing/unreadable sidecar asset must not make the whole drawing
+                // unreadable: skip it (Excalidraw shows an empty image placeholder).
+                let bytes = match tokio::fs::read(&absolute).await {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!(
+                            "[excalidraw-offline] skipping image asset {}: {e}",
+                            absolute.display()
+                        );
+                        continue;
+                    }
+                };
                 let mut f = Map::new();
                 f.insert("mimeType".into(), json!(mime));
                 f.insert("id".into(), json!(id));
@@ -176,4 +187,26 @@ pub fn read_image_file(path: &Path) -> Result<(String, String, String), String> 
         .to_string();
     let mime = mime_from_path(path);
     Ok((name, mime.clone(), bytes_to_data_url(&bytes, &mime)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_scene;
+
+    #[test]
+    fn missing_asset_is_skipped_not_fatal() {
+        let dir = std::env::temp_dir().join(format!("exoff-scene-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let doc = dir.join("d.excalidraw");
+        std::fs::write(
+            &doc,
+            r#"{"elements":[{"id":"a"}],"files":{"f1":{"id":"f1","mimeType":"image/png","path":"assets/missing.png"}}}"#,
+        )
+        .unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let scene = rt.block_on(read_scene(&doc)).expect("scene loads");
+        assert_eq!(scene["elements"].as_array().unwrap().len(), 1);
+        assert!(scene["files"].as_object().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
