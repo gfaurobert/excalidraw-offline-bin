@@ -1,4 +1,8 @@
+use include_dir::{include_dir, Dir};
 use std::path::{Path, PathBuf};
+
+/// Skill files compiled into the binary so portable builds work without a resources folder.
+static EMBEDDED_SKILL: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../skills/excalidraw-sketching");
 
 pub const SKILL_ID: &str = "excalidraw-sketching";
 
@@ -158,34 +162,72 @@ pub fn resolve_install_target(
     }
 }
 
-pub fn resolve_bundled_skill_dir() -> PathBuf {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            #[cfg_attr(not(windows), allow(unused_mut))]
-            let mut candidates = vec![
-                dir.join("resources/skills/excalidraw-sketching"),
-                dir.join("../resources/skills/excalidraw-sketching"),
-                dir.join("../lib/excalidraw-offline/resources/skills/excalidraw-sketching"),
-                dir.join("../skills/excalidraw-sketching"),
-            ];
-            #[cfg(windows)]
-            {
-                candidates.insert(0, dir.join("skills/excalidraw-sketching"));
-                if let Some(res) = std::env::var_os("RESOURCE") {
-                    candidates.push(
-                        PathBuf::from(res).join("skills/excalidraw-sketching"),
-                    );
-                }
-            }
-            for c in candidates {
-                let p = c.canonicalize().unwrap_or(c);
-                if p.join("SKILL.md").is_file() {
-                    return p;
-                }
-            }
+fn on_disk_skill_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut candidates = vec![
+        dir.join("resources/skills/excalidraw-sketching"),
+        dir.join("../resources/skills/excalidraw-sketching"),
+        dir.join("../lib/excalidraw-offline/resources/skills/excalidraw-sketching"),
+        dir.join("../skills/excalidraw-sketching"),
+        // Tauri maps "../skills/..." resources to "_up_/skills/..." in bundles.
+        dir.join("_up_/skills/excalidraw-sketching"),
+    ];
+    #[cfg(windows)]
+    {
+        candidates.insert(0, dir.join("skills/excalidraw-sketching"));
+        if let Some(res) = std::env::var_os("RESOURCE") {
+            candidates.push(PathBuf::from(res).join("skills/excalidraw-sketching"));
         }
     }
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../skills/excalidraw-sketching")
+    candidates
+        .into_iter()
+        .map(|c| c.canonicalize().unwrap_or(c))
+        .find(|p| p.join("SKILL.md").is_file())
+}
+
+fn write_embedded_dir(dir: &Dir<'_>, root: &Path) -> std::io::Result<()> {
+    // include_dir paths are relative to the embed root, so always join onto `root`.
+    for file in dir.files() {
+        let dest = root.join(file.path());
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(dest, file.contents())?;
+    }
+    for sub in dir.dirs() {
+        write_embedded_dir(sub, root)?;
+    }
+    Ok(())
+}
+
+/// Extract the embedded skill into a fresh temp folder named after the skill.
+pub fn materialize_embedded_skill() -> std::io::Result<PathBuf> {
+    let base = std::env::temp_dir().join(format!(
+        "excalidraw-offline-skill-{}-{}",
+        env!("CARGO_PKG_VERSION"),
+        std::process::id()
+    ));
+    let dest = base.join(SKILL_ID);
+    if dest.exists() {
+        std::fs::remove_dir_all(&dest)?;
+    }
+    std::fs::create_dir_all(&dest)?;
+    write_embedded_dir(&EMBEDDED_SKILL, &dest)?;
+    Ok(dest)
+}
+
+/// Skill source folder: an on-disk copy shipped next to the app if present,
+/// otherwise the copy embedded in the binary (extracted to a temp folder).
+pub fn resolve_bundled_skill_dir() -> PathBuf {
+    if let Some(p) = on_disk_skill_dir() {
+        return p;
+    }
+    match materialize_embedded_skill() {
+        Ok(p) => p,
+        Err(e) => std::env::temp_dir().join(format!("embedded-skill-extract-failed-{e}")),
+    }
 }
 
 fn path_exists(path: &Path) -> bool {
@@ -275,6 +317,19 @@ pub fn existing_dests(dests: &[PathBuf]) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_skill_has_files() {
+        assert!(EMBEDDED_SKILL.get_file("SKILL.md").is_some());
+        assert!(EMBEDDED_SKILL
+            .get_file("references/cheatsheet.md")
+            .is_some());
+        let dir = materialize_embedded_skill().expect("extract");
+        assert!(dir.join("SKILL.md").is_file());
+        assert!(dir.join("references/cheatsheet.md").is_file());
+        assert_eq!(dir.file_name().and_then(|n| n.to_str()), Some(SKILL_ID));
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+    }
 
     #[test]
     fn expand_all() {
