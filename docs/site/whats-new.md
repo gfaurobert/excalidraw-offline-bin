@@ -5,9 +5,20 @@ nav_order: 5
 
 # What's new
 
-**Current release:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux x86_64 — AppImage and tar.xz).
+**Current release:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux, Deno Desktop). Windows and Apple Silicon macOS: [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0). See [Install]({{ '/install.html' | relative_url }}).
 
-Windows and macOS builds for v0.6.0, v0.7.0, v0.7.1, and v0.7.2 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({{ '/install.html' | relative_url }}).
+---
+
+## Unreleased — Tauri 2 port (Linux, Windows 11, macOS)
+
+- **Tauri 2 shell** replaces Deno Desktop: ~19 MB Linux binary (stripped) vs ~155 MB, system webview (WebKitGTK / WebView2 / WKWebView)
+- **All three platforms** end-to-end tested: File menu (incl. unsaved **Save / Don't save / Cancel** on close and quit), Skills, Info
+- **macOS universal** `.app` (Apple Silicon + Intel), ad-hoc signed; **Windows** NSIS installer + portable zip
+- **Native dialogs** everywhere — GTK, Win32, AppKit (no zenity/kdialog/PowerShell/osascript)
+- **Skills** installer: Global / Project / Custom + agent checklist on every platform; the skill is embedded in the binary
+- **Info** menu: **OK** closes, **Open in browser** opens the link
+- Settings on macOS move to `~/Library/Application Support/excalidraw-offline/`
+- Not ported yet: single-instance handoff and OS file associations
 
 ---
 

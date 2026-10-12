@@ -5,84 +5,86 @@ nav_order: 2
 
 # Install
 
-**Current version:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux x86_64 only).
-
-| Platform | Download |
-|----------|----------|
-| **Linux** | [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (v0.7.2: AppImage + tar.xz) |
-| **Windows 11** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (MSI + zip) — newer Win builds not published yet |
-| **macOS arm64** | [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) (DMG + zip) — newer mac builds not published yet |
-
-Releases **v0.6.0**, **v0.7.0**, **v0.7.1**, and **v0.7.2** are **Linux-only** (export CLI, `--help`, and Export image dialog are in those Linux builds only until Windows/macOS catch up).
+**Status:** the **Tauri 2** port is end-to-end tested on Linux, Windows 11, and macOS (universal). It is not in a GitHub release yet — releases still ship the previous Deno Desktop builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Get Tauri builds from CI artifacts or build from source.
 
 ## Requirements
+
+| OS | Runtime |
+|----|---------|
+| **Linux** | WebKitGTK 4.1 + GTK 3 (no zenity/kdialog needed) |
+| **Windows 11** | WebView2 (preinstalled) |
+| **macOS 11+** | WKWebView (system); universal binary for Apple Silicon and Intel |
+
 ### Arch
 ```shell
-sudo pacman -S --needed webkit2gtk-4.1 gtk3 zenity
+sudo pacman -S --needed webkit2gtk-4.1 gtk3
 ```
 ### Debian / Ubuntu
 ```shell
-sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 zenity
+sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0
 ```
-
 ### Fedora
 ```shell
-sudo dnf install webkit2gtk4.1 gtk3 zenity
+sudo dnf install webkit2gtk4.1 gtk3
 ```
 
-### Qt based Desktop Environment
-Replace 'zenity' with 'kdialog'
+## Tauri builds (CI artifacts)
 
-## Linux (GitHub Releases)
+| Platform | Workflow | Artifact contents |
+|----------|----------|-------------------|
+| **Windows 11 x64** | [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | `excalidraw-offline-tauri-windows-x64`: NSIS installer (`*-setup.exe`) + `excalidraw-offline-windows-x64-portable.zip` |
+| **macOS** | [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | `excalidraw-offline-tauri-macos`: `excalidraw-offline-macos-universal.zip` + `excalidraw-offline-macos-arm64.zip` |
+| **Linux** | — | [Build from source](#build-from-source) (`cargo tauri build` also makes an AppImage and `.deb`) |
 
-Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.2**):
+Download artifacts from a green run (GitHub login required), or with the GitHub CLI: `gh run download <run-id> -R gfaurobert/excalidraw-offline-bin -n <artifact>`.
 
-- **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run). Release builds embed MIME/`%F` in the AppImage desktop entry when `appimagetool` is available during packaging (first-run AppImage integration registers the association).
-- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree). The portable tarball does **not** register MIME types.
+### Windows
 
-Runtime deps: `webkit2gtk-4.1`, `gtk3`, and `zenity` (or `kdialog`).
+Run the installer, or extract the portable zip and start `Excalidraw-Offline.exe` — the Agent Skill is embedded, so the portable build needs no extra files. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
-Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs `.github/workflows/release-linux.yml`. Local dry-run: `deno task package:release`.
+### macOS
 
-## Windows 11 (GitHub Releases)
+The `.app` is **ad-hoc signed** (not notarized). Extract the zip (Finder, or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to Applications, then right-click → **Open** on first launch, or clear the quarantine flag:
 
-Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (not the latest tag — v0.6+ Windows assets were skipped):
-
-- **MSI** — `excalidraw-offline-0.5.0-windows-x86_64.msi`
-- **Zip** — `excalidraw-offline-0.5.0-windows-x86_64.zip` (portable)
-
-Runtime: WebView2 (preinstalled on Windows 11) and Windows PowerShell for open/save/unsaved dialogs. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
-
-The packaged app registers a per-user `.excalidraw` file association on first launch. **File → Reload** (Ctrl+R) is available; **Export image…** and `excalidraw-offline export` arrive in a future Windows release (already on Linux v0.6+).
+```bash
+xattr -cr "/Applications/Excalidraw Offline.app"
+```
 
 CLI:
 
-```powershell
-excalidraw-offline C:\path\to\drawing.excalidraw
+```bash
+"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw
 ```
 
-Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-windows.yml`. Local dry-run: `deno task package:windows:release`.
+### Where settings live
 
-## macOS Apple Silicon (GitHub Releases)
+| OS | Config (recent files) | Logs |
+|----|-----------------------|------|
+| Linux | `$XDG_CONFIG_HOME/excalidraw-offline/` (fallback `~/.config/excalidraw-offline/`) | `<config>/logs/` |
+| Windows | `%USERPROFILE%\.config\excalidraw-offline\` | `%LOCALAPPDATA%\ExcalidrawOffline\logs\` |
+| macOS | `~/Library/Application Support/excalidraw-offline/` | `<config>/logs/` |
 
-Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (not the latest tag — v0.6+ macOS assets were skipped):
+## Build from source
 
-- **DMG** — `excalidraw-offline-0.5.0-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
-- **Zip** — `excalidraw-offline-0.5.0-macos-arm64.zip` (extract the `.app`)
-
-Runtime: WKWebView and `osascript` for open/save/unsaved dialogs. Ad-hoc signed builds hit Gatekeeper (right-click → **Open**, or `xattr -d com.apple.quarantine` on the `.app`).
-
-**File → Reload** (⌘R) is available; **Export image…** and `excalidraw-offline export` arrive in a future macOS release (already on Linux v0.6+).
-
-CLI (pass the drawing as argv; Finder double-click currently only launches the app):
+Prereqs: Node.js + pnpm 10, Rust **≥ 1.90** (the repo pins 1.90.0 in `rust-toolchain.toml`; a system Rust ≥ 1.90 works), and platform deps — Linux: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev` (Debian/Ubuntu names); Windows: MSVC build tools; macOS: Xcode Command Line Tools.
 
 ```bash
-open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
+cd src-tauri && cargo build --release
+./target/release/excalidraw-offline
+# optional bundles: cargo install tauri-cli --locked --version "^2.0.0" && cargo tauri build
 ```
 
-Maintainers: tagging `vX.Y.Z` also runs `.github/workflows/release-macos.yml`. Local dry-run on a Mac: `deno task package:macos:release`.
+The release binary is ~19 MB on Linux (stripped), versus ~155 MB for the previous Deno Desktop build.
 
-## Arch Linux (makepkg)
+## Previous Deno Desktop releases
+
+Still on the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page:
+
+- **Linux** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) — `excalidraw-offline-<version>-linux-x86_64.AppImage` and `.tar.xz` (needs `zenity` or `kdialog` for dialogs)
+- **Windows 11** and **Apple Silicon macOS** [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) — MSI/zip and DMG/zip
+
+## Arch Linux (makepkg, Deno build)
 
 Install from a local git checkout with `packaging/PKGBUILD.local`:
 

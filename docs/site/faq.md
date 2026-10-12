@@ -7,7 +7,7 @@ nav_order: 6
 
 ## Is this a fork of Excalidraw?
 
-No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Deno Desktop wrapper. Drawing UX stays upstream Excalidraw.
+No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Tauri 2 wrapper (system webview; the previous releases used Deno Desktop). Drawing UX stays upstream Excalidraw.
 
 ## Does it need a network connection?
 
@@ -15,21 +15,21 @@ No for core drawing. There is no account, sync, or collaboration in the first ve
 
 ## Which platforms are supported?
 
-Linux x86_64 (GitHub Releases AppImage/tarball; Arch `makepkg`), Windows 11 x86_64 (MSI and zip), and Apple Silicon macOS (DMG and zip of the `.app`). Intel Macs are not packaged yet.
+Linux x86_64, Windows 11 x64, and macOS 11+ (universal `.app` for Apple Silicon and Intel) — all end-to-end tested with the Tauri 2 build.
 
-**Which release should I install?** **Current version is [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux only).** On Linux, use [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest). On Windows and macOS, use **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** — v0.6.0, v0.7.0, v0.7.1, and v0.7.2 did not ship Win/mac assets.
+**Which build should I install?** The Tauri 2 build (CI artifacts or build from source) until it is released; the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page still has the previous Deno builds (Linux v0.7.2, Windows/macOS v0.5.0). See [Install]({{ '/install.html' | relative_url }}).
 
 ## Where are Export image and `excalidraw-offline export`?
 
-From **v0.6.0** (Linux builds today): **Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`**. Windows and macOS **v0.5.0** builds do not include them yet; **File → Reload** (Ctrl+R / ⌘R) is available on v0.5.0 on all platforms. See [Usage]({{ '/usage.html' | relative_url }}) and [What's new]({{ '/whats-new.html' | relative_url }}).
+**Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`** are in the Tauri build on all platforms (and in Deno Linux releases v0.6.0+). See [Usage]({{ '/usage.html' | relative_url }}).
 
-## Why do I need zenity, kdialog, PowerShell, or osascript?
+## Which dialogs does it use?
 
-Open/save pickers and the unsaved Cancel / Save / Discard dialog use native OS dialogs: zenity or kdialog on Linux, PowerShell WinForms on Windows, and `osascript` on macOS. If they are unavailable, the app reports a status error rather than falling back to typed paths.
+Native OS dialogs: GTK on Linux, Win32 on Windows, and AppKit on macOS — no zenity, kdialog, PowerShell, or `osascript` needed in the Tauri build.
 
 ## Where are recent files stored?
 
-Up to 10 recent paths are persisted locally: `$XDG_CONFIG_HOME/excalidraw-offline/recent.json` on Linux (fallback `~/.config/...`), `%APPDATA%\excalidraw-offline\recent.json` on Windows, and `~/Library/Application Support/excalidraw-offline/recent.json` on macOS.
+Up to 10 recent paths are persisted locally: `$XDG_CONFIG_HOME/excalidraw-offline/recent.json` on Linux (fallback `~/.config/...`), `%USERPROFILE%\.config\excalidraw-offline\recent.json` on Windows, and `~/Library/Application Support/excalidraw-offline/recent.json` on macOS.
 
 ## Why is there an `assets/` folder next to my drawing?
 
@@ -41,15 +41,15 @@ Use **Skills → Install excalidraw-sketching skill**. Choose **Global** or **Pr
 
 ## macOS says the app is damaged or cannot be opened
 
-Release builds are ad-hoc signed, not notarized. Gatekeeper may block the first launch. Right-click the app → **Open**, or:
+macOS builds are ad-hoc signed, not notarized. Gatekeeper may block the first launch. Right-click the app → **Open**, or:
 
 ```bash
-xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"
+xattr -cr "/Applications/Excalidraw Offline.app"
 ```
 
-## Does Finder double-click open a drawing on macOS?
+## Does double-clicking a `.excalidraw` file open it?
 
-The `.app` declares a `.excalidraw` UTI so the file type is associated, but Deno Desktop does not yet deliver macOS Open Documents Apple Events into the app. Use File → Open, or pass the path as argv (`open -a "Excalidraw Offline" --args ~/drawing.excalidraw`).
+Not yet: OS file associations and single-instance handoff are not ported to the Tauri build. Use File → Open, or pass the path as an argument (`excalidraw-offline ~/drawing.excalidraw`; on macOS the binary is `Excalidraw Offline.app/Contents/MacOS/excalidraw-offline`).
 
 ## An agent (or another app) changed my `.excalidraw` on disk — why doesn’t the canvas update?
 

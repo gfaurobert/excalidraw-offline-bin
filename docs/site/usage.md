@@ -14,17 +14,17 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 ## Files
 
 - **New** (File → New / Ctrl+N)— blank Untitled drawing on the canvas
-- **Open** (File → Open / Ctrl+O or ⌘O) — native file picker (zenity/kdialog on Linux, WinForms on Windows, osascript on macOS) for `.excalidraw` files anywhere on disk
+- **Open** (File → Open / Ctrl+O or ⌘O) — native file picker (GTK on Linux, Win32 on Windows, AppKit on macOS) for `.excalidraw` files anywhere on disk
 - **Save** (File → Save / Ctrl+S or ⌘S) / **Save As**  (File → Save As / Ctrl+Shift+S or ⌘⇧S) — native file picker for `.excalidraw` files anywhere on disk
-- **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline\recent.json`; macOS: `~/Library/Application Support/excalidraw-offline/recent.json`). Missing or unreadable paths are removed when selected
+- **Open Recent** (File → Open recent) — up to 10 recently opened or saved paths (Linux: `$XDG_CONFIG_HOME/excalidraw-offline/recent.json`, fallback `~/.config/…`; Windows: `%USERPROFILE%\.config\excalidraw-offline\recent.json`; macOS: `~/Library/Application Support/excalidraw-offline/recent.json`). Missing or unreadable paths are removed when selected
 - **Close** (File → Close / Ctrl+W) — returns to the start screen (after unsaved prompts if needed)
-- **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Available on **all platforms** in published builds (v0.5.0+). Use when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
+- **Reload** (File → Reload / Ctrl+R or ⌘R) — re-reads the current file from disk and refreshes the canvas (disabled on the start screen and for Untitled drawings). Use when something else changed the file on disk (e.g. a coding agent). Unsaved local edits trigger **Cancel / Save / Discard** (not a silent autosave) so reload does not overwrite external changes by accident
 - **Quit** (File → Quit) — exits the app
-- **Export image…** (Excalidraw main menu → Export image, or **Ctrl+Shift+E** / ⌘⇧E) — **v0.6.0+** (Linux releases today; not in Windows/macOS **v0.5.0** builds yet). Upstream Excalidraw export dialog (preview, Only selected / Background / Dark mode / Embed scene, scale 1×–3×, filename, PNG / SVG / Copy to clipboard). PNG and SVG use the **native save dialog** (default folder: same directory as the saved `.excalidraw` file, or home when Untitled); the header shows the saved path. Copy to clipboard uses the webview when supported; otherwise a clear header error. Embed scene and other toggles match upstream behavior
+- **Export image…** (Excalidraw main menu → Export image, or **Ctrl+Shift+E** / ⌘⇧E). Upstream Excalidraw export dialog (preview, Only selected / Background / Dark mode / Embed scene, scale 1×–3×, filename, PNG / SVG / Copy to clipboard). PNG and SVG use the **native save dialog** (default folder: same directory as the saved `.excalidraw` file, or home when Untitled); the header shows the saved path. Copy to clipboard uses the webview when supported; otherwise a clear header error. Embed scene and other toggles match upstream behavior
 
 ### CLI export (agents)
 
-**v0.6.0+** on Linux (same flags will apply on future Windows/macOS releases). Not available in published **v0.5.0** Win/mac builds.
+Included in the Tauri build on all platforms (and Deno Linux releases v0.6.0+).
 
 Run PNG export without opening the interactive window (uses a short-lived hidden webview with the same `exportToBlob` path as the GUI). This command **does not** hand off to an already-running instance.
 
@@ -35,7 +35,6 @@ excalidraw-offline --help
 excalidraw-offline -h
 excalidraw-offline export --help
 excalidraw-offline export -h
-deno task export -- --help
 ```
 
 **Packaged app:**
@@ -50,15 +49,12 @@ excalidraw-offline export sketches/demo.excalidraw --out /tmp/custom --json
 excalidraw-offline export sketches/demo.excalidraw --all-frames -d ~/sketches/export
 ```
 
-**From a repo checkout** (builds frontend, compiles the local `dist/linux/excalidraw-offline` bundle if needed, then execs it — same argv as the packaged app):
+**From a repo checkout** (after [building from source]({{ '/install.html#build-from-source' | relative_url }})):
 
 ```bash
-deno task export -- sketches/demo.excalidraw
-deno task export -- sketches/demo.excalidraw --frame "Login screen" --json
-deno task export -- sketches/demo.excalidraw --all-frames -d ./exports
+./src-tauri/target/release/excalidraw-offline export sketches/demo.excalidraw --frame "Login screen" --json
 ```
 
-Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging launcher argv.
 
 | Flag | Meaning |
 |------|---------|
@@ -73,13 +69,12 @@ Set `EXCALIDRAW_DEBUG_ARGV=1` to print `Deno.args` on stderr when debugging laun
 
 Default output filenames: `{drawingBase}_{YYYYMMDD-HHMMSS}.png`, or `{drawingBase}_{frame}_{YYYYMMDD-HHMMSS}.png` when exporting a named frame. Collision suffixes (`-2`, `-3`, …) are added if the name already exists.
 
-Stdout lists written file paths; stderr has diagnostics. Exit code `1` with a clear message if the file, frame, or element is missing. **Headless export requires `deno desktop` / the packaged app webview** (same as the GUI). Pure WSL without a Windows/macOS/Linux GUI webview may fail — run the command on the host OS or use File → Export in the GUI.
+Stdout lists written file paths; stderr has diagnostics. Exit code `1` with a clear message if the file, frame, or element is missing. **Headless export uses the app's own webview** (same renderer as the GUI). Pure WSL without a Windows/macOS/Linux GUI webview may fail — run the command on the host OS or use File → Export in the GUI.
 
 ### Open from CLI or file manager
 
 ```bash
 excalidraw-offline /path/to/drawing.excalidraw
-xdg-open /path/to/drawing.excalidraw   # Linux, after MIME install (package / AppImage integration)
 ```
 
 ```powershell
@@ -87,24 +82,20 @@ excalidraw-offline C:\path\to\drawing.excalidraw
 ```
 
 ```bash
-open -a "Excalidraw Offline" --args /path/to/drawing.excalidraw   # macOS
 "/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" /path/to/drawing.excalidraw
 ```
 
-If the path does not exist yet, `excalidraw-offline` creates a blank `.excalidraw` there (parent directories included) and opens it. Existing files are opened as usual.
-
-If another Excalidraw Offline window is already open on the **start screen** or a **saved** drawing, the file opens there (after a silent flush when the current drawing has a path). If the focused window is an **Untitled** sketch, a new window opens so you are not interrupted with Save/Discard.
+Single-instance handoff and OS file associations (double-click) from the Deno build are **not ported to Tauri yet**: each launch opens its own window, so pass the path as an argument.
 
 ### Cursor / agent note
 
-Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the editor**, not in Excalidraw Offline. Agents should run `excalidraw-offline <path>` (or `xdg-open` on Linux, or `open -a "Excalidraw Offline" --args <path>` on macOS) instead of relying on chat links.
+Clicking a `.excalidraw` path in Cursor chat usually opens the file **inside the editor**, not in Excalidraw Offline. Agents should run `excalidraw-offline <path>` (on macOS: the binary inside `Excalidraw Offline.app/Contents/MacOS/`) instead of relying on chat links.
 
 ### Unsaved changes
 
 - Dirty drawing with a path (Open, Close, New, Quit): flush/autosave write, then continue
 - Dirty drawing with a path (**Reload**): native **Cancel / Save / Discard** — Discard drops local edits and loads disk; Save writes your version first, then reloads
-- Dirty Untitled: native **Cancel / Save / Discard** dialog
-- If zenity/kdialog (Linux), PowerShell WinForms (Windows), or osascript (macOS) is unavailable: status error; there is no typed-path fallback
+- Dirty Untitled (Close, Quit / Ctrl+Q, window close): native **Save / Don't save / Cancel** dialog
 
 
 
@@ -124,7 +115,7 @@ Choose scope:
 - **Project** — pick a project root folder
 - **Custom** — pick any folder; the skill is copied to `<folder>/excalidraw-sketching/` (no extra suffix)
 
-For **Global** and **Project**, a checklist asks which agent tools should receive the skill (defaults: `.agents/skills` and Claude Code):
+For **Global** and **Project**, a native checklist asks which agent tools should receive the skill (defaults: `.agents/skills` and Claude Code):
 
 | Target | Global | Project |
 |--------|--------|---------|
@@ -146,6 +137,6 @@ Missing parent folders (for example `~/.claude/skills`) are created automaticall
 
 ## Menus
 
-- **Info** (native dialogs): Runtime backend, Assets tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version, e.g. `0.18.0-4ce38fb` on Linux v0.7+)
+- **Info** (native dialogs): Runtime backend, Assets tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version, e.g. `0.18.0-4ce38fb`). **OK** closes; **Open in browser** opens the project link
 
 Transient open/save status appears in the app header (not a footer).
