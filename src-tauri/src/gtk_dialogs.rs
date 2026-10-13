@@ -88,6 +88,8 @@ fn wire_dialog_response<D, R>(
     let tx = Mutex::new(Some(tx));
     let map = Arc::new(map);
     let dialog = dialog.clone();
+    // Button clicks only emit `response`; GTK does not hide the dialog for us (Escape works
+    // because it goes through delete-event). Read widget state via `map`, then close.
     dialog.connect_response(move |d, resp| {
         if let Ok(mut guard) = tx.lock() {
             if let Some(sender) = guard.take() {
@@ -95,6 +97,7 @@ fn wire_dialog_response<D, R>(
                 let _ = sender.send(value);
             }
         }
+        d.upcast_ref::<Dialog>().close();
     });
 }
 

@@ -43,7 +43,34 @@ pub fn e2e_sleep_pause() {
 pub fn open_url_in_browser(url: &str) {
     #[cfg(target_os = "linux")]
     {
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+        let mut cmd = std::process::Command::new("xdg-open");
+        cmd.arg(url);
+        // Inside an AppImage, AppRun points these at bundled libs/modules; the system
+        // browser launched by xdg-open must not inherit them.
+        if std::env::var_os("APPIMAGE").is_some() {
+            for key in [
+                "LD_LIBRARY_PATH",
+                "LD_PRELOAD",
+                "GDK_PIXBUF_MODULE_FILE",
+                "GDK_PIXBUF_MODULEDIR",
+                "GIO_MODULE_DIR",
+                "GIO_EXTRA_MODULES",
+                "GTK_PATH",
+                "GTK_EXE_PREFIX",
+                "GTK_DATA_PREFIX",
+                "GSETTINGS_SCHEMA_DIR",
+                "PYTHONHOME",
+                "PYTHONPATH",
+                "PERLLIB",
+                "QT_PLUGIN_PATH",
+            ] {
+                cmd.env_remove(key);
+            }
+        }
+        match cmd.spawn() {
+            Ok(_) => crate::desktop_log::info(&format!("open_url_in_browser: xdg-open {url}")),
+            Err(e) => crate::desktop_log::error(&format!("open_url_in_browser: xdg-open failed: {e}")),
+        }
     }
     #[cfg(target_os = "windows")]
     {
