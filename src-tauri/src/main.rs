@@ -8,8 +8,31 @@ use std::env;
 use excalidraw_offline_lib::paths::resolve_open_path;
 use std::path::Path;
 
+/// The release exe uses the GUI subsystem, so a console that runs the CLI
+/// (`export`, `--help`) gives it no stdout/stderr. Attach to the parent console
+/// in that case so paths, `--json` output and errors are visible.
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows::Win32::System::Console::{
+        AttachConsole, GetStdHandle, ATTACH_PARENT_PROCESS, STD_OUTPUT_HANDLE,
+    };
+    // SAFETY: plain Win32 calls without pointers; a failed attach is ignored.
+    unsafe {
+        let has_stdout = GetStdHandle(STD_OUTPUT_HANDLE)
+            .map(|h| !h.is_invalid() && !h.0.is_null())
+            .unwrap_or(false);
+        if !has_stdout {
+            let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
+    #[cfg(windows)]
+    if wants_top_level_help(&args) || args.iter().skip(1).any(|a| a == "export") {
+        attach_parent_console();
+    }
     if wants_top_level_help(&args) {
         print_top_level_help();
         return;
