@@ -30,50 +30,96 @@ jobs:
   windows-x86_64:
     needs: linux-only-tag-check
     if: ${{ needs.linux-only-tag-check.outputs.skip_non_linux != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    env:
+      RUSTFLAGS: -D warnings
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: pnpm/action-setup@v4
         with:
-          deno-version: v2.9.4
+          version: 10
 
-      - name: Resolve version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Resolve + check version
         id: ver
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            V="${GITHUB_REF_NAME#v}"
-          else
-            V="$(deno eval --quiet 'import { readDenoJsonVersion } from "./scripts/release-names.ts"; console.log(readDenoJsonVersion(await Deno.readTextFile("deno.json")));')"
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "RELEASE_VERSION=$V" >> "$GITHUB_ENV"
-
-      - name: Package Windows release artifacts
-        run: deno task package:windows:release
+        shell: bash
         env:
-          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
-          GITHUB_REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: echo "version=$(scripts/release-version.sh)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload workflow artifacts (dispatch / always retain)
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Clippy Windows (deny warnings)
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
+        run: |
+          rustup component add clippy --target x86_64-pc-windows-msvc
+          cargo clippy --target x86_64-pc-windows-msvc -- -D warnings
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked --version "^2.0.0" --force
+
+      - name: Build Tauri (NSIS + exe)
+        working-directory: src-tauri
+        run: cargo tauri build --target x86_64-pc-windows-msvc --config tauri.windows.ci.json
+
+      - name: Stage portable zip + installer
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $release = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          $port = "dist/tauri-windows-portable"
+          New-Item -ItemType Directory -Force -Path $port, dist/release-windows | Out-Null
+          Copy-Item "$release/excalidraw-offline.exe" "$port/Excalidraw-Offline.exe"
+          Copy-Item "$release/*.dll" $port -ErrorAction SilentlyContinue
+          if (Test-Path "$release/resources") { Copy-Item -Recurse "$release/resources" "$port/resources" }
+          # verify script expects the CI-named zip
+          Compress-Archive -Path "$port/*" -DestinationPath "dist/excalidraw-offline-windows-x64-portable.zip" -Force
+          Copy-Item "dist/excalidraw-offline-windows-x64-portable.zip" "dist/release-windows/excalidraw-offline-$v-windows-x86_64-portable.zip"
+          $setup = Get-ChildItem "$release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          Copy-Item $setup.FullName "dist/release-windows/excalidraw-offline-$v-windows-x86_64-setup.exe"
+
+      - name: Verify portable and NSIS app serve frontend
+        shell: pwsh
+        run: ./scripts/verify-tauri-windows.ps1
+
+      - name: Checksums
+        shell: bash
+        run: cd dist/release-windows && sha256sum *.zip *.exe > SHA256SUMS-windows-x86_64 && cat SHA256SUMS-windows-x86_64
+
+      - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-x86_64-${{ steps.ver.outputs.version }}
-          path: |
-            dist/release-windows/*.msi
-            dist/release-windows/*.zip
-            dist/release-windows/SHA256SUMS-windows-x86_64
+          path: dist/release-windows/*
+          if-no-files-found: error
 
       - name: Publish GitHub Release (tags only)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/release-windows/*.msi
-            dist/release-windows/*.zip
-            dist/release-windows/SHA256SUMS-windows-x86_64
+          files: dist/release-windows/*
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
