@@ -4,7 +4,7 @@
   "version": "0.7.2",
   "identifier": "dev.excalidraw.offline",
   "build": {
-    "frontendDist": "../frontend/dist",
+    "frontendDist": "tauri-stub",
     "beforeBuildCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build && cp -f ../icons/icon.png public/icon.png 2>/dev/null || true'",
     "beforeDevCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build'",
     "devUrl": "http://127.0.0.1:17342"
