@@ -130,6 +130,10 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-tauri-windows.ps1
 
+      - name: Verify export CLI (portable exe)
+        shell: pwsh
+        run: ./scripts/verify-windows-export.ps1
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -138,6 +142,13 @@ jobs:
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
             dist/excalidraw-offline-windows-x64-portable.zip
           if-no-files-found: error
+
+      - name: Upload export test outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-export-test
+          path: dist/windows-export/*
 
       - name: Upload verification screenshots
         uses: actions/upload-artifact@v4
