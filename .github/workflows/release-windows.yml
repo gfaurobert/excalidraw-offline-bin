@@ -52,7 +52,9 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: echo "version=$(scripts/release-version.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          V=$(scripts/release-version.sh)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - name: Build frontend
         working-directory: frontend
