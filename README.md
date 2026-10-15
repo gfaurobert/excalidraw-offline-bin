@@ -68,7 +68,13 @@ Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/release
 - **DMG** — `excalidraw-offline-0.5.0-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
 - **Zip** — `excalidraw-offline-0.5.0-macos-arm64.zip` (extract the `.app`)
 
-Runtime: WKWebView (system) and `osascript` for native dialogs. Ad-hoc signed builds hit Gatekeeper; right-click the app → **Open**, or remove quarantine with `xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"`.
+Runtime: WKWebView (system) and `osascript` for native dialogs. Builds are **ad-hoc signed** (not notarized), so Gatekeeper often blocks the first launch: double-click may say the app is **damaged or incomplete**, and Finder can show a prohibitory badge on the icon. That is quarantine, not a bad download. Clear it once:
+
+```bash
+xattr -cr "/Applications/Excalidraw Offline.app"
+```
+
+Then open the app normally (or right-click → **Open**). Apple Silicon only — Intel Macs are not supported yet.
 
 CLI (argv is the reliable file-open path):
 
