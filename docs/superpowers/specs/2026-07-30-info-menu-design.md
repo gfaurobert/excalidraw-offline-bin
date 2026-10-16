@@ -13,7 +13,7 @@ Move permanent footer tips into a native **Info** application menu with zenity/k
 | Dialog backend | zenity/kdialog info box (same family as file pickers) |
 | Footer | Remove entirely |
 | Transient status | Header (existing `status` state / poll commands) |
-| App version source | Root `deno.json` `version` |
+| App version source | Root `src-tauri/tauri.conf.json` `version` |
 | Upstream version source | Installed `@excalidraw/excalidraw` (package.json / lock) |
 | Ownership | Desktop owns Info menu + info dialogs; frontend only relocates status UI |
 
@@ -23,7 +23,7 @@ Move permanent footer tips into a native **Info** application menu with zenity/k
 Info → Runtime | Assets | About Excalidraw Offline | About Excalidraw
         │
         ▼
-  menuclick (Deno)
+  menuclick (Tauri)
         │
         ▼
   infoDialog(title, text)  →  zenity --info / kdialog --msgbox
@@ -58,7 +58,7 @@ Startup no longer enqueues `Ready · dialog: …` as a UI status message. That s
 |------|-------|------|
 | Runtime | Runtime | `Ready · dialog: {dialogBackend}+http` (same meaning as today’s footer/status string) |
 | Assets | Assets | `Images save into assets/ next to the .excalidraw file.` |
-| About Excalidraw Offline | About Excalidraw Offline | App name, wrapper version from `deno.json`, one-line description that this is a Deno Desktop offline wrapper |
+| About Excalidraw Offline | About Excalidraw Offline | App name, wrapper version from `src-tauri/tauri.conf.json`, one-line description that this is a Tauri 2 offline wrapper |
 | About Excalidraw | About Excalidraw | Upstream `@excalidraw/excalidraw` resolved version (e.g. `0.18.1`) |
 
 ### Frontend status
@@ -95,7 +95,7 @@ Startup no longer enqueues `Ready · dialog: …` as a UI status message. That s
 1. Footer gone; header shows transient status after Open/Save/cancel
 2. Info → Runtime shows Ready · dialog string
 3. Info → Assets shows assets/ tip
-4. Info → About Excalidraw Offline shows app version from `deno.json`
+4. Info → About Excalidraw Offline shows app version from `src-tauri/tauri.conf.json`
 5. Info → About Excalidraw shows upstream package version
 6. No Ready string auto-injected into header on successful `/api/info`
 

@@ -7,7 +7,7 @@ nav_order: 6
 
 ## Is this a fork of Excalidraw?
 
-No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Tauri 2 wrapper (system webview; the previous releases used Deno Desktop). Drawing UX stays upstream Excalidraw.
+No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Tauri 2 wrapper (system webview). Drawing UX stays upstream Excalidraw.
 
 ## Does it need a network connection?
 
@@ -17,11 +17,11 @@ No for core drawing. There is no account, sync, or collaboration in the first ve
 
 Linux x86_64, Windows 11 x64, and macOS 11+ (universal `.app` for Apple Silicon and Intel) — all end-to-end tested with the Tauri 2 build.
 
-**Which build should I install?** The Tauri 2 build (CI artifacts or build from source) until it is released; the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page still has the previous Deno builds (Linux v0.7.2, Windows/macOS v0.5.0). See [Install]({{ '/install.html' | relative_url }}).
+**Which build should I install?** The Tauri 2 build (CI artifacts or build from source) until it is released; the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page still lists older tags (Linux v0.7.2, Windows/macOS v0.5.0). See [Install]({{ '/install.html' | relative_url }}).
 
 ## Where are Export image and `excalidraw-offline export`?
 
-**Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`** are in the Tauri build on all platforms (and in Deno Linux releases v0.6.0+). See [Usage]({{ '/usage.html' | relative_url }}).
+**Export image…** (Ctrl+Shift+E / ⌘⇧E) and the headless **`excalidraw-offline export`** CLI plus **`--help`** are in the Tauri build on all platforms. See [Usage]({{ '/usage.html' | relative_url }}).
 
 ## Which dialogs does it use?
 

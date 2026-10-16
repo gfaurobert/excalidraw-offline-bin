@@ -1,6 +1,6 @@
 /** Pure helpers for CLI PNG export paths and naming. */
 
-import { basename, dirname, join } from "./path.ts";
+import { basename, dirname, join } from "./path";
 
 export interface ExportElementStub {
   id: string;

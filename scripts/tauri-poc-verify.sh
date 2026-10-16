@@ -126,38 +126,30 @@ ls -la "$AUTO_DIR" | tee "$ART/export-mkdir.ls"
 
 "$APP" export --help | tee "$ART/export-help.txt"
 
-# Packaging comparison
+# Lean tarball payload size
 bash "$ROOT/scripts/package-tauri-linux-tarball.sh" 2>&1 | tee "$ART/tauri-tarball-build.log"
-TAURI_XZ=$(find "$ROOT/dist/tauri-linux" -name '*.tar.xz' | head -1)
-DENO_XZ="$ROOT/dist/linux/excalidraw-offline/payload.tar.xz"
+TAURI_XZ=$(find "$ROOT/dist/tauri-linux-lean" -name '*.tar.xz' | head -1)
 
 {
-  echo "=== Like-for-like compressed payloads ==="
+  echo "=== Lean payload tarball ==="
   if [[ -f "$TAURI_XZ" ]]; then
-    stat -c 'tauri payload.tar.xz (inside release dir): %s bytes (%n)' \
-      "$ROOT/dist/tauri-linux/excalidraw-offline-tauri/payload.tar.xz"
-    stat -c 'tauri release wrapper .tar.xz: %s bytes (%n)' "$TAURI_XZ"
-  fi
-  if [[ -f "$DENO_XZ" ]]; then
-    stat -c 'deno payload.tar.xz: %s bytes (%n)' "$DENO_XZ"
+    stat -c 'lean payload.tar.xz: %s bytes (%n)' "$TAURI_XZ"
   fi
   echo ""
   echo "=== Full distribution artifacts ==="
-  stat -c 'tauri release binary: %s bytes' "$APP" 2>/dev/null || true
-  if [[ -f "$APPIMAGE" ]]; then stat -c 'tauri AppImage: %s bytes' "$APPIMAGE"; fi
+  stat -c 'release binary: %s bytes' "$APP" 2>/dev/null || true
+  if [[ -f "$APPIMAGE" ]]; then stat -c 'AppImage: %s bytes' "$APPIMAGE"; fi
   echo ""
-  ls -lh "$APP" "$APPIMAGE" "$TAURI_XZ" "$DENO_XZ" 2>/dev/null || true
+  ls -lh "$APP" "$APPIMAGE" "$TAURI_XZ" 2>/dev/null || true
   echo ""
   echo "AppImage ~82MiB bundles WebKitGTK/GTK/libs (linuxdeploy). Lean tar.xz relies on system webkit2gtk-4.1."
 } | tee "$ART/sizes.txt"
 
-if [[ -x "$ROOT/dist/linux/excalidraw-offline/excalidraw-offline" ]]; then
-  cd "$ROOT"
-  "$ROOT/dist/linux/excalidraw-offline/excalidraw-offline" "$FIXTURE" &
-  DP=$!
-  sleep 18
-  ps -o rss= -p "$DP" | awk '{print "deno_idle_rss_kb=" $1}' >> "$ART/memory.txt"
-  kill "$DP" 2>/dev/null || true
-fi
+cd "$ROOT"
+"$APP" "$FIXTURE" &
+DP=$!
+sleep 18
+ps -o rss= -p "$DP" | awk '{print "idle_rss_kb=" $1}' >> "$ART/memory.txt"
+kill "$DP" 2>/dev/null || true
 
 echo "Verification complete: $ART"

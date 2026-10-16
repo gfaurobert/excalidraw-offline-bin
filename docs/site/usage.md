@@ -24,7 +24,7 @@ On cold start the app shows a start screen (New / Open / Recent). The Excalidraw
 
 ### CLI export (agents)
 
-Included in the Tauri build on all platforms (and Deno Linux releases v0.6.0+).
+Included in the Tauri build on all platforms.
 
 Run PNG export without opening the interactive window (uses a short-lived hidden webview with the same `exportToBlob` path as the GUI). This command **does not** hand off to an already-running instance.
 
@@ -85,7 +85,7 @@ excalidraw-offline C:\path\to\drawing.excalidraw
 "/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" /path/to/drawing.excalidraw
 ```
 
-Single-instance handoff and OS file associations (double-click) from the Deno build are **not ported to Tauri yet**: each launch opens its own window, so pass the path as an argument.
+Single-instance handoff and OS file associations (double-click) from the Tauri build are **not ported to Tauri yet**: each launch opens its own window, so pass the path as an argument.
 
 ### Cursor / agent note
 

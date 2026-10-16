@@ -4,17 +4,17 @@
 
 **Goal:** Port Excalidraw Offline to Apple Silicon macOS: WKWebView, osascript dialogs, Application Support/TMPDIR paths, CLI argv open, Info.plist UTI, DMG+zip GitHub Release assets.
 
-**Architecture:** Shared frontend and file format. New `desktop/dialogs-macos.ts` and `desktop/file-association-macos.ts` isolate OS differences. `desktop/dialogs.ts` dispatches. Packaging is a Deno script so it can run on macOS CI (and compile `.app` from Linux).
+**Architecture:** Shared frontend and file format. New `desktop/dialogs-macos.ts` and `desktop/file-association-macos.ts` isolate OS differences. `desktop/dialogs.ts` dispatches. Packaging is a Tauri script so it can run on macOS CI (and compile `.app` from Linux).
 
-**Tech Stack:** Deno ≥ 2.9 (`deno desktop --backend=webview`), `/usr/bin/osascript`, GitHub Actions `macos-latest` + `--target aarch64-apple-darwin`.
+**Tech Stack:** Tauri ≥ 2.9 (`Tauri 2 --backend=webview`), `/usr/bin/osascript`, GitHub Actions `macos-latest` + `--target aarch64-apple-darwin`.
 
 ## Global Constraints
 
 - Keep Linux zenity/kdialog and Windows PowerShell / release artifacts unchanged
 - macOS **arm64** only
 - Artifact names: `excalidraw-offline-<version>-macos-arm64.dmg`, `.zip`, `SHA256SUMS-macos-arm64`
-- Tag `vX.Y.Z` must match `deno.json` version
-- Reuse `deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills`
+- Tag `vX.Y.Z` must match `src-tauri/tauri.conf.json` version
+- Reuse `Tauri 2 -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills`
 - No Developer ID, notarization, Homebrew, Intel, or CEF work
 - Build `.app` with a dot-free basename then rename/zip (Laufey last-`.` pitfall)
 - Patch Info.plist **then** ad-hoc re-sign before DMG
@@ -32,7 +32,7 @@
 | `scripts/release-names.ts` | `macosArtifactBasenames` |
 | `scripts/package-macos-release.ts` | Build `.app` + patch + sign + DMG/zip + checksums |
 | `.github/workflows/release-macos.yml` | Tag/dispatch CI on macos-latest |
-| `deno.json` | macOS icon/output + tasks |
+| `src-tauri/tauri.conf.json` | macOS icon/output + tasks |
 | README / docs/site / use-cases / handoff | macOS install and smoke test |
 
 ---
@@ -47,7 +47,7 @@
 
 **Files:** `desktop/dialogs-macos.ts`, `desktop/dialogs-macos_test.ts`, `desktop/dialogs.ts`, `desktop/dialogs_test.ts`
 
-**Produces:** AppleScript builders; `parseMacUnsavedOutcome`; `runMacDialog` spawn; dialogs.ts calls macOS backend when `Deno.build.os === "darwin"`.
+**Produces:** AppleScript builders; `parseMacUnsavedOutcome`; `runMacDialog` spawn; dialogs.ts calls macOS backend when `Tauri.build.os === "darwin"`.
 
 ### Task 3: File association + main
 
@@ -55,7 +55,7 @@
 
 ### Task 4: Packaging + CI + docs
 
-**Files:** `scripts/release-names.ts`, `scripts/package-macos-release.ts`, `.github/workflows/release-macos.yml`, `deno.json`, README, docs, handoff.
+**Files:** `scripts/release-names.ts`, `scripts/package-macos-release.ts`, `.github/workflows/release-macos.yml`, `src-tauri/tauri.conf.json`, README, docs, handoff.
 
 ---
 

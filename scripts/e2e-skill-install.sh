@@ -2,14 +2,14 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-export PATH="${HOME}/.deno/bin:${PATH:-}"
 
 ARTIFACTS="${ARTIFACTS:-/opt/cursor/artifacts/skill-install-e2e}"
-LAUNCHER="${LAUNCHER:-$ROOT/dist/linux/excalidraw-offline/excalidraw-offline}"
+LAUNCHER="${LAUNCHER:-$ROOT/src-tauri/target/release/excalidraw-offline}"
 
 if [[ ! -x "$LAUNCHER" ]]; then
-  echo "Building packaged app…"
-  deno task package:linux
+  echo "Building release binary…"
+  (cd frontend && CI=true pnpm install --frozen-lockfile && pnpm run build)
+  RUSTFLAGS=-D warnings cargo build --release --manifest-path src-tauri/Cargo.toml
 fi
 
 E2E_HOME=$(mktemp -d /tmp/excal-skill-home-XXXXXX)

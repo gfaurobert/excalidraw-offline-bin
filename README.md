@@ -4,7 +4,7 @@ Thin [Tauri 2](https://tauri.app/) desktop wrapper around [`@excalidraw/excalidr
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
-**Status:** the Tauri 2 port (branch `cursor/tauri2-poc-fd6a`, PR #18) is end-to-end tested on **Linux, Windows 11, and macOS**. It is not in a GitHub release yet. The Linux release workflow now builds Tauri (AppImage + Arch package); the Windows/macOS release workflows and the published releases are still the previous Deno Desktop builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Until a Tauri release is tagged, get builds from CI artifacts or [build from source](#build-from-source).
+**Status:** the Tauri 2 app (branch `cursor/tauri2-poc-fd6a`, PR #18) is end-to-end tested on **Linux, Windows 11, and macOS**. It is not in a GitHub release yet. Published [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) still ship older builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux-only refresh; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Until the Tauri release is tagged, get builds from CI artifacts or [build from source](#build-from-source).
 
 https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 
@@ -21,14 +21,14 @@ https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 - CLI: `excalidraw-offline /path/to/file.excalidraw` opens a drawing; `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png | -d dir] [--scale N] [--json]` renders PNGs headlessly (same renderer as the GUI); `--help` and `export --help` print usage
 - Upstream editor from `@excalidraw/excalidraw` **0.18.0-4ce38fb** (sticky notes `N`, right-click drag pan, lasso, bucket fill, draw-to-shape)
 
-**Not ported from the Deno build yet:** single-instance handoff (a second launch opens a second window) and OS file associations (double-click `.excalidraw`). Pass the path as an argument instead.
+**Not ported yet:** single-instance handoff (a second launch opens a second window) and OS file associations (double-click `.excalidraw`). Pass the path as an argument instead.
 
 ### Size
 
 | Build | Size |
 |-------|------|
 | Tauri 2 Linux binary (stripped, release) | ~19 MB |
-| Previous Deno Desktop build | ~155 MB |
+| Legacy v0.7.2 Linux bundle | ~155 MB |
 
 Tauri uses the system webview instead of bundling a runtime.
 
@@ -44,8 +44,8 @@ Tauri uses the system webview instead of bundling a runtime.
 
 | Platform | Workflow | Artifact |
 |----------|----------|----------|
-| Windows 11 x64 | [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | `excalidraw-offline-tauri-windows-x64`: NSIS installer (`*-setup.exe`) + `excalidraw-offline-windows-x64-portable.zip` |
-| macOS | [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | `excalidraw-offline-tauri-macos`: `excalidraw-offline-macos-universal.zip` + `excalidraw-offline-macos-arm64.zip` |
+| Windows 11 x64 | [Release Windows](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-windows.yml) or [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | Portable zip + NSIS `*-setup.exe` |
+| macOS | [Release macOS](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-macos.yml) or [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | Universal + arm64 `.zip` (`.app` inside) |
 | Linux x86_64 | [Release Linux](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-linux.yml) (manual run) | `linux-appimage-<version>`: `excalidraw-offline-<version>-linux-x86_64.AppImage` + `PKGBUILD`; `linux-arch-package`: `excalidraw-offline-<version>-1-x86_64.pkg.tar.zst` |
 
 **Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it, or on Arch install the package with `sudo pacman -U excalidraw-offline-*-x86_64.pkg.tar.zst` (or build it yourself, below).
@@ -58,6 +58,16 @@ Tauri uses the system webview instead of bundling a runtime.
 xattr -cr "/Applications/Excalidraw Offline.app"
 ```
 
+### CLI by platform
+
+| OS | Example |
+|----|---------|
+| Linux | `/usr/bin/excalidraw-offline ~/drawings/demo.excalidraw` |
+| Windows (PowerShell) | `& 'C:\Program Files\Excalidraw Offline\Excalidraw-Offline.exe' $env:USERPROFILE\drawings\demo.excalidraw` |
+| macOS | `"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw` |
+
+Headless export (all platforms): `excalidraw-offline export --help`
+
 ### Where settings live
 
 | OS | Config (recent files) | Logs |
@@ -65,10 +75,6 @@ xattr -cr "/Applications/Excalidraw Offline.app"
 | Linux | `$XDG_CONFIG_HOME/excalidraw-offline/` (fallback `~/.config/excalidraw-offline/`) | `<config>/logs/` |
 | Windows | `%USERPROFILE%\.config\excalidraw-offline\` | `%LOCALAPPDATA%\ExcalidrawOffline\logs\` |
 | macOS | `~/Library/Application Support/excalidraw-offline/` | `<config>/logs/` |
-
-### Previous Deno Desktop releases
-
-Still on the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page: Linux [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (AppImage, tar.xz), Windows and Apple Silicon macOS [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0).
 
 ### Arch Linux (makepkg)
 
@@ -114,7 +120,7 @@ cargo install tauri-cli --locked --version "^2.0.0"
 cargo tauri build
 ```
 
-CI (`.github/workflows/tauri-windows-build.yml`, `.github/workflows/tauri-macos-build.yml`) runs `cargo clippy -- -D warnings` for Linux, Windows (cargo-xwin), and macOS arm64/x86_64, builds the bundles, and smoke-tests `/api/health`.
+CI (`.github/workflows/ci.yml`, `tauri-windows-build.yml`, `tauri-macos-build.yml`, `release-*.yml`) runs `cargo test` / `cargo clippy -- -D warnings`, builds the bundles, and smoke-tests `/api/health`.
 
 ## File layout on disk
 
@@ -132,11 +138,10 @@ The `.excalidraw` JSON stores relative `assets/...` references. On open, the wra
 |------|------|
 | `frontend/` | Vite + React UI embedding Excalidraw |
 | `src-tauri/` | Tauri 2 shell: local HTTP API, native dialogs (GTK / Win32 / AppKit), menus, Skills installer, CLI export |
-| `desktop/` | Previous Deno Desktop shell (used by the current release workflows) |
 | `skills/` | Bundled Agent Skills (e.g. `excalidraw-sketching`) |
 | `scripts/` | Release packaging, CI verify scripts |
 | `packaging/` | Local/AUR PKGBUILD + `.desktop` |
 | `docs/site/` | Public GitHub Pages docs (Jekyll + Just the Docs) |
-| `.github/workflows/` | CI: `tauri-windows-build.yml`, `tauri-macos-build.yml`, `release-*.yml` (Deno releases), `jekyll-gh-pages.yml` |
+| `.github/workflows/` | CI, release workflows, `jekyll-gh-pages.yml` |
 | `use-cases.md` | Product scope and clarifications |
 | `docs/research/2026-07-31-agent-skills-locations.md` | Where AI tools store user/project skills |

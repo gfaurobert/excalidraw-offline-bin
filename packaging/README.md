@@ -45,33 +45,32 @@ Local release-shaped AppImage (needs `cargo install tauri-cli`):
 # → dist/release/
 ```
 
-## Deno Desktop release workflows (Windows / macOS, not yet converted)
+## Windows 11
 
-### Windows 11
+GitHub Releases publish a portable zip and an NSIS installer (`excalidraw-offline-<ver>-windows-x86_64-*`) via `.github/workflows/release-windows.yml`.
 
-GitHub Releases also publish an MSI and a zip (`excalidraw-offline-<ver>-windows-x86_64.*`) via `.github/workflows/release-windows.yml`. Those artifacts are cross-compiled from Linux (`--target x86_64-pc-windows-msvc`).
-
-```bash
-deno task package:windows
-# → dist/windows/excalidraw-offline/
-
-deno task package:windows:release
-# → dist/release-windows/  (MSI + zip + SHA256SUMS-windows-x86_64)
-```
-
-Runtime on the target PC: WebView2 + PowerShell. File dialogs use WinForms because Deno Desktop does not yet expose a native file-picker API.
-
-### macOS (Apple Silicon)
-
-GitHub Releases also publish a DMG and a zip of the `.app` (`excalidraw-offline-<ver>-macos-arm64.*`) via `.github/workflows/release-macos.yml`. Those artifacts are built on `macos-latest` (`--target aarch64-apple-darwin`) because `.dmg` needs `hdiutil` and the Info.plist patch is re-signed with ad-hoc `codesign`.
+Local build (on Windows, MSVC + WebView2):
 
 ```bash
-deno task package:macos
-# → dist/macos/excalidraw-offline.app
-
-deno task package:macos:release
-# → dist/release-macos/  (DMG + zip + SHA256SUMS-macos-arm64; DMG only on Darwin)
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
+cd src-tauri && cargo tauri build --target x86_64-pc-windows-msvc --config tauri.windows.ci.json
+# → target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+# → target/x86_64-pc-windows-msvc/release/excalidraw-offline.exe (portable)
 ```
 
-Runtime on the Mac: WKWebView + `osascript`. File dialogs use AppleScript because Deno Desktop does not yet expose a native file-picker API. Unsigned/ad-hoc builds show a Gatekeeper warning.
+Runtime on the target PC: WebView2. Native file dialogs use Win32 via `rfd`.
 
+## macOS (Apple Silicon + universal)
+
+GitHub Releases publish universal and arm64 zips of the `.app` via `.github/workflows/release-macos.yml` (built on `macos-14`, ad-hoc signed).
+
+Local build:
+
+```bash
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
+cd src-tauri
+cargo tauri build --target aarch64-apple-darwin --config tauri.macos.ci.json
+cargo tauri build --target universal-apple-darwin --config tauri.macos.ci.json
+```
+
+Runtime: WKWebView (system). Unsigned/ad-hoc builds show a Gatekeeper warning on first launch.

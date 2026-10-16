@@ -125,11 +125,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Deno (release-notes helper)
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.9.4
-
       - uses: actions/download-artifact@v4
         with:
           path: dist/artifacts
@@ -147,7 +142,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PREV=$(deno run -A ./scripts/previous-release-tag-cli.ts "${{ github.ref_name }}" $(git tag -l 'v*'))
+          PREV=$(./scripts/previous-release-tag.sh "${{ github.ref_name }}" $(git tag -l 'v*'))
           if [[ -z "$PREV" ]]; then
             echo "No previous release tag for ${{ github.ref_name }}"
             exit 1

@@ -11,7 +11,7 @@ import { StartScreen } from "./StartScreen";
 import {
   planReload,
   reloadActionAfterUnsavedChoice,
-} from "../../desktop/reload-guard.ts";
+} from "./lib/reload-guard";
 import {
   installOfflineExportDownloadHook,
   saveExportBlobViaApi,
@@ -862,7 +862,7 @@ export default function App() {
     };
   }, []);
 
-  // Prove HTTP desktop API is reachable (not Deno bindings) — once per app load.
+  // Prove HTTP desktop API is reachable — once per app load.
   useEffect(() => {
     if (apiBootstrappedRef.current) return;
     let cancelled = false;

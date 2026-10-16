@@ -26,7 +26,7 @@ START → Skills → Install excalidraw-sketching skill
 
 ## Architecture
 
-- Native Deno only (same as Info): menu → zenity/kdialog → filesystem copy → infoDialog
+- Native Tauri only (same as Info): menu → zenity/kdialog → filesystem copy → infoDialog
 - Bundled skill at `skills/excalidraw-sketching/` included via `--include=./skills`
 - Source resolved as `join(ROOT, "skills", "excalidraw-sketching")`
 
@@ -38,7 +38,7 @@ START → Skills → Install excalidraw-sketching skill
 | `desktop/dialogs.ts` | choice list, directory picker, yes/no confirm |
 | `desktop/install-skill.ts` | resolve paths, recursive copy, overwrite policy |
 | `desktop/main.ts` | Skills menu + handler |
-| `deno.json` / PKGBUILDs | `--include=./skills` |
+| `src-tauri/tauri.conf.json` / PKGBUILDs | `--include=./skills` |
 
 ## Errors
 

@@ -6,7 +6,7 @@
 
 **Architecture:** Frontend owns `mode: "start" | "canvas"`. Desktop adds HTTP endpoints for recent list, open/save pickers, and unsaved Cancel/Save/Discard (same pattern as `/api/pick-image`). Menu keeps accelerators; Close enqueues `{ type: "close" }`. Typed-path React overlays are removed.
 
-**Tech Stack:** Deno Desktop, React/Vite frontend, zenity/kdialog via `desktop/dialogs.ts`, existing `recentStore`.
+**Tech Stack:** Tauri 2, React/Vite frontend, zenity/kdialog via `desktop/dialogs.ts`, existing `recentStore`.
 
 **Spec:** `docs/superpowers/specs/2026-08-01-start-screen-design.md`
 
@@ -58,7 +58,7 @@ import {
   buildUnsavedChangesDialogArgs,
 } from "./dialogs.ts";
 
-Deno.test("buildUnsavedChangesDialogArgs zenity", () => {
+Tauri.test("buildUnsavedChangesDialogArgs zenity", () => {
   assertEquals(
     buildUnsavedChangesDialogArgs(
       "zenity",
@@ -77,7 +77,7 @@ Deno.test("buildUnsavedChangesDialogArgs zenity", () => {
   );
 });
 
-Deno.test("buildUnsavedChangesDialogArgs kdialog", () => {
+Tauri.test("buildUnsavedChangesDialogArgs kdialog", () => {
   assertEquals(
     buildUnsavedChangesDialogArgs(
       "kdialog",
@@ -103,7 +103,7 @@ Deno.test("buildUnsavedChangesDialogArgs kdialog", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `deno test -A desktop/dialogs_test.ts`
+Run: `Tauri test -A desktop/dialogs_test.ts`
 
 Expected: FAIL — `buildUnsavedChangesDialogArgs` not exported / not found
 
@@ -155,7 +155,7 @@ async function runUnsavedCommand(
 ): Promise<UnsavedDialogResult> {
   try {
     const useSetsid = await commandExists("setsid");
-    const cmd = new Deno.Command(useSetsid ? "setsid" : args[0]!, {
+    const cmd = new Tauri.Command(useSetsid ? "setsid" : args[0]!, {
       args: useSetsid ? args : args.slice(1),
       stdout: "piped",
       stderr: "piped",
@@ -212,7 +212,7 @@ Also update the file header comment: remove “Fallback: UI path form” — una
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test -A desktop/dialogs_test.ts`
+Run: `Tauri test -A desktop/dialogs_test.ts`
 
 Expected: PASS (all existing + new unsaved args tests)
 
@@ -372,7 +372,7 @@ case "close":
 
 - [ ] **Step 5: Smoke-check types**
 
-Run: `deno check desktop/main.ts` (or `deno test -A desktop/dialogs_test.ts desktop/recent-files_test.ts` if `deno check` complains about desktop types)
+Run: `Tauri check desktop/main.ts` (or `Tauri test -A desktop/dialogs_test.ts desktop/recent-files_test.ts` if `Tauri check` complains about desktop types)
 
 Expected: no errors related to new imports / UiCommand
 
@@ -550,9 +550,9 @@ export function StartScreen(props: StartScreenProps) {
 
 - [ ] **Step 3: Typecheck frontend**
 
-Run: `cd frontend && deno task build`
+Run: `cd frontend && cargo build`
 
-Expected: may still fail if `App.tsx` does not import `StartScreen` yet — if so, only confirm `StartScreen.tsx` has no local type errors by temporarily importing it in `App.tsx` in Task 4. Alternatively run `deno task build` after Task 4. For this task, ensure the file is saved and icon exists:
+Expected: may still fail if `App.tsx` does not import `StartScreen` yet — if so, only confirm `StartScreen.tsx` has no local type errors by temporarily importing it in `App.tsx` in Task 4. Alternatively run `cargo build` after Task 4. For this task, ensure the file is saved and icon exists:
 
 ```bash
 test -f frontend/public/icon.png && test -f frontend/src/StartScreen.tsx
@@ -772,7 +772,7 @@ return mode === "start" ? (
 Run:
 
 ```bash
-cd frontend && deno task build
+cd frontend && cargo build
 ```
 
 Expected: `tsc -b && vite build` succeeds
@@ -824,8 +824,8 @@ Add bullets under Features (MVP):
 Run the app:
 
 ```bash
-cd frontend && deno task build && cd ..
-deno task start
+cd frontend && cargo build && cd ..
+cargo start
 ```
 
 Verify:

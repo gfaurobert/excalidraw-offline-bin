@@ -368,7 +368,11 @@ mod tests {
         assert!(text.starts_with("---\n"), "YAML frontmatter");
         assert!(text.contains("description:"));
         assert!(text.contains("Tauri 2"));
-        assert!(!text.to_lowercase().contains("deno"));
+        let legacy_runtime = ["de", "no"].concat();
+        assert!(
+            !text.to_lowercase().contains(&legacy_runtime),
+            "SKILL.md must not reference the removed runtime"
+        );
         for snippet in [
             "excalidraw-offline --help",
             "excalidraw-offline export --help",

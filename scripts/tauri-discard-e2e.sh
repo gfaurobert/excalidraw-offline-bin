@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # E2E: untitled dirty → Close/Quit → zenity Discard (xdotool Tab+Return on extra button).
-# Uses EXCALIDRAW_E2E=1 HTTP hooks to mark dirty (same bridge as Deno GUI tests).
+# Uses EXCALIDRAW_E2E=1 HTTP hooks to mark dirty (same bridge as legacy GUI tests).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ART="${ART:-/opt/cursor/artifacts/tauri-discard-fix}"

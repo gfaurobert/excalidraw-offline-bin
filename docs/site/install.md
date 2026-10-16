@@ -5,7 +5,7 @@ nav_order: 2
 
 # Install
 
-**Status:** the **Tauri 2** port is end-to-end tested on Linux, Windows 11, and macOS (universal). It is not in a GitHub release yet. The Linux release workflow now builds Tauri (AppImage + Arch package); published releases are still the previous Deno Desktop builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Get Tauri builds from CI artifacts or build from source.
+**Status:** the **Tauri 2** app is end-to-end tested on Linux, Windows 11, and macOS (universal). It is not in a GitHub release yet — use CI artifacts or build from source below. After the Tauri release is tagged, the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page will list AppImage + Arch package (Linux), portable zip + NSIS installer (Windows), and universal + arm64 zips (macOS).
 
 ## Requirements
 
@@ -28,35 +28,39 @@ sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0
 sudo dnf install webkit2gtk4.1 gtk3
 ```
 
-## Tauri builds (CI artifacts)
+## CI artifacts (until release)
 
 | Platform | Workflow | Artifact contents |
 |----------|----------|-------------------|
-| **Windows 11 x64** | [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | `excalidraw-offline-tauri-windows-x64`: NSIS installer (`*-setup.exe`) + `excalidraw-offline-windows-x64-portable.zip` |
-| **macOS** | [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | `excalidraw-offline-tauri-macos`: `excalidraw-offline-macos-universal.zip` + `excalidraw-offline-macos-arm64.zip` |
-| **Linux x86_64** | [Release Linux](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-linux.yml) (manual run) | `linux-appimage-<version>`: `excalidraw-offline-<version>-linux-x86_64.AppImage` + `PKGBUILD`; `linux-arch-package`: `excalidraw-offline-<version>-1-x86_64.pkg.tar.zst` |
+| **Windows 11 x64** | [Release Windows](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-windows.yml) | `excalidraw-offline-<ver>-windows-x86_64-portable.zip` + `*-setup.exe` |
+| **macOS** | [Release macOS](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-macos.yml) | `excalidraw-offline-<ver>-macos-universal.zip` + `excalidraw-offline-<ver>-macos-arm64.zip` |
+| **Linux x86_64** | [Release Linux](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-linux.yml) (manual run) | `linux-appimage-<version>`: AppImage + `PKGBUILD`; `linux-arch-package`: `.pkg.tar.zst` |
 
-**Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it, or on Arch install the package with `sudo pacman -U excalidraw-offline-*-x86_64.pkg.tar.zst` (or build it yourself, below).
+**Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it, or on Arch `sudo pacman -U excalidraw-offline-*-x86_64.pkg.tar.zst`.
 
 Download artifacts from a green run (GitHub login required), or with the GitHub CLI: `gh run download <run-id> -R gfaurobert/excalidraw-offline-bin -n <artifact>`.
 
 ### Windows
 
-Run the installer, or extract the portable zip and start `Excalidraw-Offline.exe` — the Agent Skill is embedded, so the portable build needs no extra files. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
+Run the NSIS installer, or extract the portable zip and start `Excalidraw-Offline.exe`. The Agent Skill is embedded — no extra files. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
 ### macOS
 
-The `.app` is **ad-hoc signed** (not notarized). Extract the zip (Finder, or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to Applications, then right-click → **Open** on first launch, or clear the quarantine flag:
+The `.app` is **ad-hoc signed** (not notarized). Extract the zip (Finder, or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to Applications, then right-click → **Open** on first launch, or:
 
 ```bash
 xattr -cr "/Applications/Excalidraw Offline.app"
 ```
 
-CLI:
+### CLI examples
 
-```bash
-"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw
-```
+| OS | Open a drawing |
+|----|----------------|
+| Linux | `excalidraw-offline ~/drawings/demo.excalidraw` or `/usr/bin/excalidraw-offline …` |
+| Windows | `& '.\Excalidraw-Offline.exe' $env:USERPROFILE\drawings\demo.excalidraw` |
+| macOS | `"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw` |
+
+Headless PNG export (all platforms): `excalidraw-offline export --help`
 
 ### Where settings live
 
@@ -68,7 +72,7 @@ CLI:
 
 ## Build from source
 
-Prereqs: Node.js + pnpm 10, Rust **≥ 1.90** (the repo pins 1.90.0 in `rust-toolchain.toml`; a system Rust ≥ 1.90 works), and platform deps — Linux: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev` (Debian/Ubuntu names); Windows: MSVC build tools; macOS: Xcode Command Line Tools.
+Prereqs: Node.js + pnpm 10, Rust **≥ 1.90** (the repo pins 1.90.0 in `rust-toolchain.toml`), and platform deps — Linux: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev`; Windows: MSVC; macOS: Xcode CLT.
 
 ```bash
 cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
@@ -77,34 +81,17 @@ cd src-tauri && cargo build --release
 # optional bundles: cargo install tauri-cli --locked --version "^2.0.0" && cargo tauri build
 ```
 
-The release binary is ~19 MB on Linux (stripped), versus ~155 MB for the previous Deno Desktop build.
-
-## Previous Deno Desktop releases
-
-Still on the [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) page:
-
-- **Linux** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) — `excalidraw-offline-<version>-linux-x86_64.AppImage` and `.tar.xz` (needs `zenity` or `kdialog` for dialogs)
-- **Windows 11** and **Apple Silicon macOS** [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) — MSI/zip and DMG/zip
+The release binary is ~19 MB on Linux (stripped).
 
 ## Arch Linux (makepkg)
 
-Build and install the Tauri app from a local git checkout with [`packaging/PKGBUILD.local`](https://github.com/gfaurobert/excalidraw-offline-bin/blob/main/packaging/PKGBUILD.local):
+Build and install from a local git checkout with [`packaging/PKGBUILD.local`](https://github.com/gfaurobert/excalidraw-offline-bin/blob/main/packaging/PKGBUILD.local):
 
 ```bash
-# Prereqs: base-devel (makepkg -s pulls rust >= 1.90, nodejs, pnpm, webkit2gtk-4.1, gtk3)
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
 
-`-s` pulls runtime/build deps, `-i` installs the package. No GitHub release or AUR account needed.
+Installs `/usr/bin/excalidraw-offline`, `.desktop`, MIME XML, and icon. Uninstall: `sudo pacman -Rns excalidraw-offline`.
 
-Installs:
-
-- `/usr/bin/excalidraw-offline` (single binary, frontend embedded)
-- `/usr/share/applications/excalidraw-offline.desktop`
-- `/usr/share/mime/packages/application-x-excalidraw.xml`
-- `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
-
-Uninstall: `sudo pacman -Rns excalidraw-offline`.
-
-[`packaging/PKGBUILD`](https://github.com/gfaurobert/excalidraw-offline-bin/blob/main/packaging/PKGBUILD) builds the same package from the GitHub source archive of tag `v$pkgver`; it ships as a release asset (AUR-ready).
+[`packaging/PKGBUILD`](https://github.com/gfaurobert/excalidraw-offline-bin/blob/main/packaging/PKGBUILD) builds the same package from the GitHub source archive of tag `v$pkgver` (AUR-ready release asset).

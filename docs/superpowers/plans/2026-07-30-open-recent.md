@@ -6,7 +6,7 @@
 
 **Architecture:** A desktop-owned `recent-files` store persists MRU paths under XDG config. Successful `/api/read` and `/api/write` call `touch` and rebuild the application menu. Open Recent entries enqueue `{ type: "open", path }`; missing paths are dropped with a status message.
 
-**Tech Stack:** Deno Desktop (`Deno.BrowserWindow.setApplicationMenu`), local HTTP command queue, existing React open flow in `frontend/src/App.tsx` (unchanged).
+**Tech Stack:** Tauri 2 (`Tauri.BrowserWindow.setApplicationMenu`), local HTTP command queue, existing React open flow in `frontend/src/App.tsx` (unchanged).
 
 **Spec:** `docs/superpowers/specs/2026-07-30-open-recent-design.md`
 
@@ -28,7 +28,7 @@
 | `desktop/recent-files.ts` | Persist MRU list; touch/remove/clear/list; menu id helpers; display labels |
 | `desktop/recent-files_test.ts` | Unit tests (temp file + pure helpers) |
 | `desktop/main.ts` | Drop Edit; Open Recent submenu; rebuild on change; touch after read/write; menu handlers |
-| `deno.json` | Include `recent-files_test.ts` in test task |
+| `src-tauri/tauri.conf.json` | Include `recent-files_test.ts` in test task |
 | `use-cases.md` | Add Open Recent; remove from non-goals |
 | `README.md` | Mention Open Recent in features |
 
@@ -39,7 +39,7 @@
 **Files:**
 - Create: `desktop/recent-files.ts`
 - Create: `desktop/recent-files_test.ts`
-- Modify: `deno.json` (test task include list)
+- Modify: `src-tauri/tauri.conf.json` (test task include list)
 
 **Interfaces:**
 - Produces:
@@ -68,7 +68,7 @@ import {
   recentMenuId,
 } from "./recent-files.ts";
 
-Deno.test("recentMenuId / pathFromRecentMenuId round-trip", () => {
+Tauri.test("recentMenuId / pathFromRecentMenuId round-trip", () => {
   const path = "/home/u/sketches/demo.excalidraw";
   assertEquals(recentMenuId(path), `recent:${path}`);
   assertEquals(pathFromRecentMenuId(recentMenuId(path)), path);
@@ -77,7 +77,7 @@ Deno.test("recentMenuId / pathFromRecentMenuId round-trip", () => {
   assertEquals(CLEAR_RECENT_ID, "clear-recent");
 });
 
-Deno.test("recentDisplayLabels uses basename; disambiguates collisions", () => {
+Tauri.test("recentDisplayLabels uses basename; disambiguates collisions", () => {
   assertEquals(
     recentDisplayLabels(["/a/one.excalidraw", "/b/two.excalidraw"]),
     ["one.excalidraw", "two.excalidraw"],
@@ -91,8 +91,8 @@ Deno.test("recentDisplayLabels uses basename; disambiguates collisions", () => {
   );
 });
 
-Deno.test("touch bumps, dedupes, and caps at RECENT_MAX", async () => {
-  const dir = await Deno.makeTempDir();
+Tauri.test("touch bumps, dedupes, and caps at RECENT_MAX", async () => {
+  const dir = await Tauri.makeTempDir();
   const filePath = join(dir, "recent.json");
   const store = createRecentFilesStore({ filePath, max: RECENT_MAX });
 
@@ -112,11 +112,11 @@ Deno.test("touch bumps, dedupes, and caps at RECENT_MAX", async () => {
   assertEquals(list.includes("/tmp/f0.excalidraw"), false);
   assertEquals(list.includes("/tmp/f1.excalidraw"), false);
 
-  await Deno.remove(dir, { recursive: true });
+  await Tauri.remove(dir, { recursive: true });
 });
 
-Deno.test("remove and clear persist", async () => {
-  const dir = await Deno.makeTempDir();
+Tauri.test("remove and clear persist", async () => {
+  const dir = await Tauri.makeTempDir();
   const filePath = join(dir, "recent.json");
   const store = createRecentFilesStore({ filePath });
 
@@ -131,23 +131,23 @@ Deno.test("remove and clear persist", async () => {
   const reloaded = createRecentFilesStore({ filePath });
   assertEquals(reloaded.list(), []);
 
-  await Deno.remove(dir, { recursive: true });
+  await Tauri.remove(dir, { recursive: true });
 });
 
-Deno.test("load missing or corrupt file yields empty list", async () => {
-  const dir = await Deno.makeTempDir();
+Tauri.test("load missing or corrupt file yields empty list", async () => {
+  const dir = await Tauri.makeTempDir();
   const missing = createRecentFilesStore({
     filePath: join(dir, "nope.json"),
   });
   assertEquals(missing.list(), []);
 
   const corruptPath = join(dir, "bad.json");
-  await Deno.writeTextFile(corruptPath, "{not-json");
+  await Tauri.writeTextFile(corruptPath, "{not-json");
   const corrupt = createRecentFilesStore({ filePath: corruptPath });
   assertEquals(corrupt.list(), []);
 
   await storeTouchAndReload(dir);
-  await Deno.remove(dir, { recursive: true });
+  await Tauri.remove(dir, { recursive: true });
 });
 
 async function storeTouchAndReload(dir: string): Promise<void> {
@@ -161,7 +161,7 @@ async function storeTouchAndReload(dir: string): Promise<void> {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `deno test -A desktop/recent-files_test.ts`
+Run: `Tauri test -A desktop/recent-files_test.ts`
 
 Expected: FAIL (module `./recent-files.ts` not found)
 
@@ -186,12 +186,12 @@ export function defaultRecentFilePath(): string {
   let xdg: string | undefined;
   let home: string | undefined;
   try {
-    xdg = Deno.env.get("XDG_CONFIG_HOME");
+    xdg = Tauri.env.get("XDG_CONFIG_HOME");
   } catch {
     xdg = undefined;
   }
   try {
-    home = Deno.env.get("HOME");
+    home = Tauri.env.get("HOME");
   } catch {
     home = undefined;
   }
@@ -224,7 +224,7 @@ export function recentDisplayLabels(paths: readonly string[]): string[] {
 
 function loadSync(filePath: string): string[] {
   try {
-    const raw = Deno.readTextFileSync(filePath);
+    const raw = Tauri.readTextFileSync(filePath);
     const parsed = JSON.parse(raw) as Partial<RecentFile>;
     if (!Array.isArray(parsed.paths)) return [];
     return parsed.paths.filter((p): p is string =>
@@ -237,9 +237,9 @@ function loadSync(filePath: string): string[] {
 
 async function save(filePath: string, paths: string[]): Promise<void> {
   const dir = dirname(filePath);
-  await Deno.mkdir(dir, { recursive: true });
+  await Tauri.mkdir(dir, { recursive: true });
   const doc: RecentFile = { version: 1, paths };
-  await Deno.writeTextFile(filePath, `${JSON.stringify(doc, null, 2)}\n`);
+  await Tauri.writeTextFile(filePath, `${JSON.stringify(doc, null, 2)}\n`);
 }
 
 function touchList(paths: string[], path: string, max: number): string[] {
@@ -281,26 +281,26 @@ export function createRecentFilesStore(options: {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test -A desktop/recent-files_test.ts`
+Run: `Tauri test -A desktop/recent-files_test.ts`
 
 Expected: PASS (all tests in the file)
 
-- [ ] **Step 5: Wire into deno test task**
+- [ ] **Step 5: Wire into Tauri test task**
 
-In `deno.json`, change `test:file-format` to:
+In `src-tauri/tauri.conf.json`, change `test:file-format` to:
 
 ```json
-"test:file-format": "deno test -A desktop/file-format_test.ts desktop/path_test.ts desktop/dialogs_test.ts desktop/close-guard_test.ts desktop/recent-files_test.ts"
+"test:file-format": "Tauri test -A desktop/file-format_test.ts desktop/path_test.ts desktop/dialogs_test.ts desktop/close-guard_test.ts desktop/recent-files_test.ts"
 ```
 
-Run: `deno task test:file-format`
+Run: `cargo test:file-format`
 
 Expected: all existing tests + recent-files PASS
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add desktop/recent-files.ts desktop/recent-files_test.ts deno.json
+git add desktop/recent-files.ts desktop/recent-files_test.ts src-tauri/tauri.conf.json
 git commit -m "$(cat <<'EOF'
 feat: add recent files store for Open Recent
 
@@ -349,7 +349,7 @@ Remove the Edit submenu block entirely. Replace the single `win.setApplicationMe
 ```ts
 function applyMenu(recentPaths: string[]): void {
   const labels = recentDisplayLabels(recentPaths);
-  const recentItems: Deno.MenuItem[] = recentPaths.length === 0
+  const recentItems: Tauri.MenuItem[] = recentPaths.length === 0
     ? [{
       item: {
         label: "(No recent files)",
@@ -458,7 +458,7 @@ Preferred: at the start of the async IIFE, before `switch (id)`:
     const recentPath = pathFromRecentMenuId(id);
     if (recentPath) {
       try {
-        await Deno.stat(recentPath);
+        await Tauri.stat(recentPath);
         enqueueUi({ type: "open", path: recentPath });
       } catch {
         enqueueUi({
@@ -476,7 +476,7 @@ Keep `case CLEAR_RECENT_ID` inside the switch as shown above.
 
 - [ ] **Step 4: Smoke-check TypeScript / run unit tests**
 
-Run: `deno check desktop/main.ts` (or `deno test -A desktop/recent-files_test.ts` if `deno check` is awkward under desktop types)
+Run: `Tauri check desktop/main.ts` (or `Tauri test -A desktop/recent-files_test.ts` if `Tauri check` is awkward under desktop types)
 
 Expected: no type errors related to the new menu / imports; recent-files tests still PASS
 
@@ -557,7 +557,7 @@ Do **not** call `touch` from `/api/set-path`.
 
 - [ ] **Step 3: Run unit tests**
 
-Run: `deno task test:file-format`
+Run: `cargo test:file-format`
 
 Expected: PASS
 
@@ -604,7 +604,7 @@ In `## Features (MVP)`, add a bullet:
 
 - [ ] **Step 3: Manual acceptance (run the app)**
 
-Run: `deno task start`
+Run: `cargo start`
 
 Checklist (from spec):
 

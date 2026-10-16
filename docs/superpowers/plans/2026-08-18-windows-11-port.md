@@ -4,17 +4,17 @@
 
 **Goal:** Port Excalidraw Offline to Windows 11 x86_64: WebView2, PowerShell dialogs, APPDATA/TEMP paths, CLI/HKCU association, MSI+zip GitHub Release assets.
 
-**Architecture:** Shared frontend and file format. New `desktop/platform.ts` and `desktop/dialogs-win.ts` isolate OS differences. `desktop/dialogs.ts` dispatches. Packaging is a Deno script so it runs on Linux CI (cross-compile) and on a Windows machine.
+**Architecture:** Shared frontend and file format. New `desktop/platform.ts` and `desktop/dialogs-win.ts` isolate OS differences. `desktop/dialogs.ts` dispatches. Packaging is a Tauri script so it runs on Linux CI (cross-compile) and on a Windows machine.
 
-**Tech Stack:** Deno ≥ 2.9 (`deno desktop --backend=webview`), PowerShell 5.1 WinForms, GitHub Actions `ubuntu-latest` + `--target x86_64-pc-windows-msvc`.
+**Tech Stack:** Tauri ≥ 2.9 (`Tauri 2 --backend=webview`), PowerShell 5.1 WinForms, GitHub Actions `ubuntu-latest` + `--target x86_64-pc-windows-msvc`.
 
 ## Global Constraints
 
 - Keep Linux zenity/kdialog and Linux release artifacts unchanged
 - Windows **x86_64** only
 - Artifact names: `excalidraw-offline-<version>-windows-x86_64.msi`, `.zip`, `SHA256SUMS-windows-x86_64`
-- Tag `vX.Y.Z` must match `deno.json` version
-- Reuse `deno desktop -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills`
+- Tag `vX.Y.Z` must match `src-tauri/tauri.conf.json` version
+- Reuse `Tauri 2 -A --backend=webview --compress=xz --include=./frontend/dist --include=./icons --include=./skills`
 - No Authenticode, Winget, ARM64, CEF, or macOS work
 - Build MSI/directory with a dot-free basename then rename (Laufey last-`.` pitfall)
 
@@ -34,7 +34,7 @@
 | `scripts/release-names.ts` | `windowsArtifactBasenames` |
 | `scripts/package-windows-release.ts` | Build MSI + zip + checksums |
 | `.github/workflows/release-windows.yml` | Tag/dispatch CI |
-| `deno.json` | Windows icon/output + tasks |
+| `src-tauri/tauri.conf.json` | Windows icon/output + tasks |
 | README / docs/site / use-cases / handoff | Windows install and smoke test |
 
 ---
@@ -59,7 +59,7 @@
 
 **Files:** `desktop/cli-args.ts`, `desktop/cli-args_test.ts`, `desktop/dialogs-win.ts`, `desktop/dialogs-win_test.ts`, `desktop/dialogs.ts`, `desktop/dialogs_test.ts`
 
-**Produces:** PowerShell builders; `parseWinUnsavedOutcome`; `runWindowsDialog` spawn; dialogs.ts calls Windows backend when `Deno.build.os === "windows"`.
+**Produces:** PowerShell builders; `parseWinUnsavedOutcome`; `runWindowsDialog` spawn; dialogs.ts calls Windows backend when `Tauri.build.os === "windows"`.
 
 ### Task 4: Wire recent/registry/main/association
 
@@ -67,7 +67,7 @@
 
 ### Task 5: Packaging + CI + docs
 
-**Files:** `scripts/release-names.ts`, `scripts/package-windows-release.ts`, `.github/workflows/release-windows.yml`, `deno.json`, README, docs, handoff.
+**Files:** `scripts/release-names.ts`, `scripts/package-windows-release.ts`, `.github/workflows/release-windows.yml`, `src-tauri/tauri.conf.json`, README, docs, handoff.
 
 ---
 
