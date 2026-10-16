@@ -2,7 +2,10 @@ mod cli_args;
 mod png_paths;
 mod selectors;
 
-pub use cli_args::{parse_export_cli, print_export_help, print_top_level_help, wants_export_help, wants_top_level_help, ParsedExportCli};
+pub use cli_args::{
+    export_flags_without_subcommand_message, parse_export_cli, print_export_help,
+    print_top_level_help, wants_export_help, wants_top_level_help, ParsedExportCli,
+};
 pub use png_paths::{
     decode_png_base64, pick_unique_export_filename, resolve_export_output_location,
 };

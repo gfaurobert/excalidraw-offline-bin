@@ -92,7 +92,6 @@ pub fn run_cli_export(command: ParsedExportCli) -> i32 {
 
     let port = rt.block_on(start_http_server(state.clone(), dist_dir));
     let app_url = format!("http://127.0.0.1:{port}/export-cli.html");
-    eprintln!("[cli-export] loading {app_url}");
 
     *state.cli_json_output.lock() = command.json;
     let state_setup = state.clone();

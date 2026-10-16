@@ -14,6 +14,30 @@ pub struct ParsedExportCli {
     pub json: bool,
 }
 
+const EXPORT_ONLY_FLAGS: &[&str] = &[
+    "--all-frames", "--json", "--frame", "--element", "--bbox", "--out", "--scale", "-d",
+];
+
+/// Export flags at the top level (without the `export` subcommand) previously fell
+/// through to the GUI. Reject them with a clear usage hint.
+pub fn export_flags_without_subcommand_message(args: &[String]) -> Option<String> {
+    if find_export_subcommand_index(args) >= 0 {
+        return None;
+    }
+    let has_export_flag = args
+        .iter()
+        .skip(1)
+        .any(|a| EXPORT_ONLY_FLAGS.contains(&a.as_str()));
+    if !has_export_flag {
+        return None;
+    }
+    Some(
+        "Export flags require the export subcommand. \
+         Example: excalidraw-offline export <file.excalidraw> --all-frames"
+            .into(),
+    )
+}
+
 pub fn wants_top_level_help(args: &[String]) -> bool {
     if find_export_subcommand_index(args) >= 0 {
         return false;
@@ -186,9 +210,7 @@ pub fn parse_export_cli(args: &[String], cwd: &Path) -> Result<Option<ParsedExpo
     }))
 }
 
-pub fn print_top_level_help() {
-    println!(
-        r#"Excalidraw Offline — local desktop app for .excalidraw files.
+pub const TOP_LEVEL_HELP: &str = r#"Excalidraw Offline -- local desktop app for .excalidraw files.
 
 Usage:
   excalidraw-offline [file.excalidraw]
@@ -203,20 +225,20 @@ Headless PNG export (hidden webview, same export path as the GUI):
 
 Export flags and examples:
   excalidraw-offline export --help
-"#
-    );
-}
+"#;
 
-pub fn print_export_help() {
-    println!(
-        r#"excalidraw-offline export — write PNG(s) from a .excalidraw file (headless).
+pub const EXPORT_HELP: &str = r#"excalidraw-offline export -- write PNG(s) from a .excalidraw file (headless).
 
 Usage:
   excalidraw-offline export <file.excalidraw> [options]
 
 Selectors (use one kind only):
   (default)                 Whole scene bounding box
-  --frame NAME              Repeatable; exact frame name; one PNG per match
+  --frame NAME              Repeatable; frame name; one PNG per match. Tries an
+                            exact match first, then matches with quote characters
+                            removed (helps PowerShell 5.1, which drops inner ").
+                            For nested quotes in PowerShell use escaped quotes,
+                            e.g. --frame 'UI `"mock`" / v2'
   --all-frames              One PNG per named frame in the file
   --element ID              Repeatable; export selection of listed element ids
   --bbox x,y,width,height   Scene coords; elements intersecting the rectangle
@@ -226,12 +248,12 @@ Output:
                             there is exactly one export job. Creates missing
                             directories recursively.
   --scale N                 Export scale (default 2, max 8)
-  --json                    Print {{"paths":["…"]}} on stdout instead of paths
+  --json                    Print {{"paths":["..."]}} on stdout instead of paths
 
 Default location: same folder as the .excalidraw file.
 Default filename:  {{drawingBase}}_{{YYYYMMDD-HHMMSS}}.png
 Frame exports:     {{drawingBase}}_{{frameName}}_{{YYYYMMDD-HHMMSS}}.png
-Collisions:        -2, -3, … suffix before .png
+Collisions:        -2, -3, ... suffix before .png
 
 Exit codes:
   0  Success; written path(s) on stdout (or JSON with --json)
@@ -241,6 +263,45 @@ Examples:
   excalidraw-offline export wireframes.excalidraw --all-frames -d ~/sketches/export
   excalidraw-offline export wireframes.excalidraw --frame "Login" --scale 3
   excalidraw-offline export wireframes.excalidraw --element rect-id --json
-"#
-    );
+"#;
+
+pub fn print_top_level_help() {
+    print!("{TOP_LEVEL_HELP}");
+}
+
+pub fn print_export_help() {
+    print!("{EXPORT_HELP}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_text_is_ascii_only() {
+        assert!(TOP_LEVEL_HELP.is_ascii(), "top-level help must be ASCII");
+        assert!(EXPORT_HELP.is_ascii(), "export help must be ASCII");
+        assert!(!TOP_LEVEL_HELP.contains('\u{2014}'));
+        assert!(!EXPORT_HELP.contains('\u{2014}'));
+        assert!(!EXPORT_HELP.contains('\u{2026}'));
+    }
+
+    #[test]
+    fn export_flags_without_subcommand_are_rejected() {
+        let msg = export_flags_without_subcommand_message(&[
+            "excalidraw-offline".into(),
+            "demo.excalidraw".into(),
+            "--all-frames".into(),
+        ]);
+        assert!(msg.is_some());
+        assert!(msg.unwrap().contains("export subcommand"));
+
+        let ok = export_flags_without_subcommand_message(&[
+            "excalidraw-offline".into(),
+            "export".into(),
+            "demo.excalidraw".into(),
+            "--all-frames".into(),
+        ]);
+        assert!(ok.is_none());
+    }
 }

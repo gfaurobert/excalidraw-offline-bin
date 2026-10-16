@@ -22,11 +22,33 @@ use axum::{
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tauri::Manager;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
+fn schedule_cli_export_process_exit(app: Option<tauri::AppHandle>, code: i32) {
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        if let Some(app) = app {
+            let app_for_main = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Some(win) = app_for_main.get_webview_window("cli-export") {
+                    let _ = win.close();
+                }
+            });
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        }
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+        let _ = std::io::stderr().flush();
+        std::process::exit(code);
+    });
+}
+
 pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
-    eprintln!("[desktop] serving static files from {}", dist.display());
+    if state.cli_export.lock().is_none() {
+        eprintln!("[desktop] serving static files from {}", dist.display());
+    }
     let static_service = ServeDir::new(dist).append_index_html_on_directories(true);
 
     let app = Router::new()
@@ -560,11 +582,7 @@ async fn cli_finish(State(state): State<Arc<AppState>>) -> Json<Value> {
         if let Err(e) = tokio::fs::write(&picked.1, bytes).await {
             return Json(json!({ "ok": false, "error": e.to_string() }));
         }
-        eprintln!(
-            "[cli-export] wrote {} ({} bytes)",
-            picked.1.display(),
-            byte_len
-        );
+        let _ = byte_len;
         paths.push(picked.1.to_string_lossy().into_owned());
     }
     *state.last_export_paths.lock() = Some(paths.clone());
@@ -576,9 +594,8 @@ async fn cli_finish(State(state): State<Arc<AppState>>) -> Json<Value> {
             println!("{p}");
         }
     }
-    if let Some(app) = state.app_handle.lock().clone() {
-        app.exit(0);
-    }
+    let app = state.app_handle.lock().clone();
+    schedule_cli_export_process_exit(app, 0);
     Json(json!({ "ok": true, "paths": paths }))
 }
 
@@ -593,8 +610,7 @@ async fn cli_fail(
     state.cli_export.lock().take();
     *state.export_exit_code.lock() = Some(1);
     eprintln!("Export failed: {err}");
-    if let Some(app) = state.app_handle.lock().clone() {
-        app.exit(1);
-    }
+    let app = state.app_handle.lock().clone();
+    schedule_cli_export_process_exit(app, 1);
     Json(json!({ "ok": true }))
 }

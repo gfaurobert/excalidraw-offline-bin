@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use excalidraw_offline_lib::{
-    parse_export_cli, print_export_help, print_top_level_help, run_cli_export, run_gui,
-    wants_export_help, wants_top_level_help,
+    export_flags_without_subcommand_message, parse_export_cli, print_export_help,
+    print_top_level_help, run_cli_export, run_gui, wants_export_help, wants_top_level_help,
 };
 use std::env;
 use excalidraw_offline_lib::paths::resolve_open_path;
@@ -40,6 +40,10 @@ fn main() {
     if wants_export_help(&args) {
         print_export_help();
         return;
+    }
+    if let Some(msg) = export_flags_without_subcommand_message(&args) {
+        eprintln!("{msg}");
+        std::process::exit(1);
     }
 
     let cwd = env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());

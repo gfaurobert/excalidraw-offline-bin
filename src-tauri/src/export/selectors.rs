@@ -61,6 +61,38 @@ fn frame_elements(elements: &[Value]) -> Vec<&Value> {
         .collect()
 }
 
+fn strip_quotes_for_match(name: &str) -> String {
+    name.trim().chars().filter(|c| *c != '"').collect()
+}
+
+fn resolve_frames_by_name<'a>(
+    elements: &'a [Value],
+    wanted: &str,
+) -> Result<Vec<&'a Value>, String> {
+    let wanted = wanted.trim();
+    let exact: Vec<&Value> = frame_elements(elements)
+        .into_iter()
+        .filter(|f| f.get("name").and_then(|v| v.as_str()).unwrap_or("").trim() == wanted)
+        .collect();
+    if !exact.is_empty() {
+        return Ok(exact);
+    }
+    let loose: Vec<&Value> = frame_elements(elements)
+        .into_iter()
+        .filter(|f| {
+            let n = f.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            strip_quotes_for_match(wanted) == strip_quotes_for_match(n)
+        })
+        .collect();
+    match loose.len() {
+        0 => Err(format!("Frame not found: {wanted}")),
+        1 => Ok(loose),
+        _ => Err(format!(
+            "Ambiguous frame name (matches multiple frames after ignoring quotes): {wanted}"
+        )),
+    }
+}
+
 fn job_for_frame(frame: &Value, index: usize) -> ResolvedExportJob {
     let id = frame.get("id").and_then(|v| v.as_str()).unwrap_or("frame");
     let name = frame.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -114,14 +146,7 @@ pub fn resolve_export_jobs(
             }
         } else {
             for name in input.frames {
-                let wanted = name.trim();
-                let matches: Vec<&Value> = frame_elements(elements)
-                    .into_iter()
-                    .filter(|f| f.get("name").and_then(|v| v.as_str()).unwrap_or("").trim() == wanted)
-                    .collect();
-                if matches.is_empty() {
-                    return Err(format!("Frame not found: {wanted}"));
-                }
+                let matches = resolve_frames_by_name(elements, name)?;
                 for (i, frame) in matches.into_iter().enumerate() {
                     jobs.push(job_for_frame(frame, i));
                 }
@@ -192,4 +217,52 @@ pub fn resolve_export_jobs(
         exporting_frame_id: None,
         frame_name_sanitized: None,
     }])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn frame_el(name: &str, id: &str) -> Value {
+        json!({
+            "type": "frame",
+            "id": id,
+            "name": name,
+            "isDeleted": false,
+        })
+    }
+
+    #[test]
+    fn frame_match_ignores_quotes_when_shell_strips_them() {
+        let elements = vec![frame_el(r#"UI "mock" / v2"#, "f1"), frame_el("Dashboard", "f2")];
+        let jobs = resolve_export_jobs(
+            &elements,
+            ExportSelectorInput {
+                frames: &["UI mock / v2".to_string()],
+                all_frames: false,
+                element_ids: &[],
+                bbox: None,
+            },
+        )
+        .expect("quote-insensitive match");
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].exporting_frame_id.as_deref(), Some("f1"));
+    }
+
+    #[test]
+    fn ambiguous_loose_frame_match_errors() {
+        let elements = vec![frame_el(r#"x"x"#, "f1"), frame_el(r#"x"x"#, "f2")];
+        let err = resolve_export_jobs(
+            &elements,
+            ExportSelectorInput {
+                frames: &["xx".to_string()],
+                all_frames: false,
+                element_ids: &[],
+                bbox: None,
+            },
+        )
+        .expect_err("ambiguous when multiple frames match without quotes");
+        assert!(err.contains("Ambiguous"));
+    }
 }

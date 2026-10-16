@@ -47,8 +47,8 @@ use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 pub use cli_export::run_cli_export;
 pub use export::{
-    parse_export_cli, print_export_help, print_top_level_help, wants_export_help,
-    wants_top_level_help,
+    export_flags_without_subcommand_message, parse_export_cli, print_export_help,
+    print_top_level_help, wants_export_help, wants_top_level_help,
 };
 
 pub fn run_gui(startup_open: Option<std::path::PathBuf>) {

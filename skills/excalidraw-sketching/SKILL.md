@@ -280,6 +280,11 @@ $p = Start-Process -FilePath $Bin -ArgumentList @(
 ) -Wait -NoNewWindow -PassThru
 if ($p.ExitCode -ne 0) { throw "export failed $($p.ExitCode)" }
 
+# Frame with embedded quotes: PS 5.1 strips inner " from --frame values; the CLI
+# also matches with quotes removed. Prefer escaped quotes when you need an exact name:
+#   --frame 'UI `"mock`" / v2'
+& $Bin export $Doc --frame 'UI mock / v2' -d $Out
+
 # All frames + JSON
 & $Bin export $Doc --all-frames -d $Out | Out-Host
 & $Bin export $Doc --element rect-outside-id --json | Out-Host
@@ -288,8 +293,12 @@ if ($p.ExitCode -ne 0) { throw "export failed $($p.ExitCode)" }
 & $Bin export $Doc --element rect-outside-id --out "$Out\one.png" | Out-Host
 ```
 
-A stderr line like **`Failed to unregister class`** from WebView2 during CLI
-export is **harmless** if exit code is 0 and PNG paths are printed.
+Successful CLI exports stay quiet on stderr (errors only). A leftover WebView2
+line like **`Failed to unregister class`** can still appear on some Windows builds;
+treat it as harmless when exit code is 0 and PNG path(s) are on stdout.
+
+Export flags require the **`export`** subcommand (`excalidraw-offline export ...`).
+Headless export over SSH should exit after writing PNGs (non-interactive sessions).
 
 #### macOS
 
