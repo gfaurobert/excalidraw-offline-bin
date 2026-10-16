@@ -1,0 +1,395 @@
+//! Native AppKit dialogs for the Info menu and skill installer (macOS).
+//!
+//! Message dialogs are NSAlerts via rfd; the harness multi-select is an NSAlert with an
+//! accessory view of NSButton checkboxes; the folder picker is NSOpenPanel (rfd).
+//! Everything runs on the AppKit main thread via `run_on_main`.
+
+use crate::app_state::AppState;
+use crate::dialogs_main::run_on_main;
+use std::sync::Arc;
+use crate::e2e::e2e_enabled;
+use crate::skill_dialog_common::{
+    e2e_pause_ms, e2e_skill_cancelled, e2e_sleep_pause, open_url_in_browser, ChoiceOption,
+    DialogError, DialogResult,
+};
+
+fn info_dialog_sync(title: &str, text: &str, link_url: Option<&str>) -> DialogResult<()> {
+    if e2e_skill_cancelled() {
+        return Err(DialogError::Cancelled);
+    }
+    if e2e_enabled()
+        && e2e_pause_ms() == 0
+        && std::env::var("EXCALIDRAW_E2E_INFO_AUTOOK")
+            .map(|v| v == "1")
+            .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    let pause = e2e_pause_ms();
+    if pause > 0 {
+        e2e_sleep_pause();
+        return Ok(());
+    }
+
+    let mut message = text.to_string();
+    if let Some(url) = link_url {
+        message.push_str("\n\n");
+        message.push_str(url);
+    }
+
+    let dialog = rfd::MessageDialog::new()
+        .set_title(title)
+        .set_description(&message)
+        .set_level(rfd::MessageLevel::Info);
+
+    let result = if link_url.is_some() {
+        dialog
+            .set_buttons(rfd::MessageButtons::OkCancelCustom(
+                "OK".into(),
+                "Open in browser".into(),
+            ))
+            .show()
+    } else {
+        dialog.set_buttons(rfd::MessageButtons::Ok).show()
+    };
+
+    // rfd returns Custom(<label>) for OkCancelCustom buttons (also for "OK");
+    // Esc / X yields Cancel. Only the explicit "Open in browser" button opens the link.
+    if let (rfd::MessageDialogResult::Custom(label), Some(url)) = (&result, link_url) {
+        if label == "Open in browser" {
+            open_url_in_browser(url);
+        }
+    }
+    Ok(())
+}
+
+pub async fn info_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+    link_url: Option<&str>,
+) -> DialogResult<()> {
+    let title = title.to_string();
+    let text = text.to_string();
+    let link = link_url.map(|s| s.to_string());
+    run_on_main(state, move || info_dialog_sync(&title, &text, link.as_deref()))
+        .await
+        .map_err(|detail| DialogError::Unavailable { detail })?
+}
+
+fn confirm_dialog_sync(title: &str, text: &str) -> DialogResult<bool> {
+    if e2e_skill_cancelled() {
+        return Err(DialogError::Cancelled);
+    }
+    if e2e_enabled() {
+        if let Ok(v) = std::env::var("EXCALIDRAW_E2E_SKILL_OVERWRITE") {
+            return Ok(v == "yes" || v == "1");
+        }
+    }
+    if e2e_pause_ms() > 0 {
+        e2e_sleep_pause();
+        if e2e_enabled() {
+            return Ok(std::env::var("EXCALIDRAW_E2E_SKILL_OVERWRITE")
+                .map(|v| v == "yes" || v == "1")
+                .unwrap_or(false));
+        }
+    }
+
+    let result = rfd::MessageDialog::new()
+        .set_title(title)
+        .set_description(text)
+        .set_level(rfd::MessageLevel::Warning)
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show();
+
+    match result {
+        rfd::MessageDialogResult::Yes => Ok(true),
+        rfd::MessageDialogResult::No => Ok(false),
+        _ => Err(DialogError::Cancelled),
+    }
+}
+
+pub async fn confirm_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+) -> DialogResult<bool> {
+    let title = title.to_string();
+    let text = text.to_string();
+    run_on_main(state, move || confirm_dialog_sync(&title, &text))
+        .await
+        .map_err(|detail| DialogError::Unavailable { detail })?
+}
+
+fn choice_dialog_sync(
+    title: &str,
+    text: &str,
+    options: &[ChoiceOption],
+    default_id: &str,
+) -> DialogResult<String> {
+    if options.is_empty() {
+        return Err(DialogError::Unavailable {
+            detail: "no options".into(),
+        });
+    }
+    if e2e_skill_cancelled() {
+        return Err(DialogError::Cancelled);
+    }
+    if e2e_enabled() && e2e_pause_ms() == 0 {
+        if let Ok(mode) = std::env::var("EXCALIDRAW_E2E_SKILL_MODE") {
+            if mode == "cancel" {
+                return Err(DialogError::Cancelled);
+            }
+            if options.iter().any(|o| o.id == mode) {
+                return Ok(mode);
+            }
+        }
+    }
+    if e2e_pause_ms() > 0 {
+        e2e_sleep_pause();
+        if let Ok(mode) = std::env::var("EXCALIDRAW_E2E_SKILL_MODE") {
+            if options.iter().any(|o| o.id == mode) {
+                return Ok(mode);
+            }
+        }
+        if let Some(o) = options.iter().find(|o| o.id == default_id) {
+            return Ok(o.id.clone());
+        }
+    }
+
+    if options.len() >= 3 {
+        let body = format!(
+            "{text}\n\n{}\n{}\n{}\n\nChoose Global, Project, or Custom.",
+            options[0].label, options[1].label, options[2].label
+        );
+        let result = rfd::MessageDialog::new()
+            .set_title(title)
+            .set_description(&body)
+            .set_level(rfd::MessageLevel::Info)
+            .set_buttons(rfd::MessageButtons::YesNoCancelCustom(
+                "Global".into(),
+                "Project".into(),
+                "Custom".into(),
+            ))
+            .show();
+        // rfd reports YesNoCancelCustom buttons as Custom(<label>), never Yes/No;
+        // closing the dialog (Esc / X) yields Cancel, which must cancel the install.
+        return match result {
+            rfd::MessageDialogResult::Yes => Ok(options[0].id.clone()),
+            rfd::MessageDialogResult::No => Ok(options[1].id.clone()),
+            rfd::MessageDialogResult::Custom(label) if label == "Global" => Ok(options[0].id.clone()),
+            rfd::MessageDialogResult::Custom(label) if label == "Project" => Ok(options[1].id.clone()),
+            rfd::MessageDialogResult::Custom(label) if label == "Custom" => Ok(options[2].id.clone()),
+            _ => Err(DialogError::Cancelled),
+        };
+    }
+
+    let mut body = format!("{text}\n\n");
+    for (i, opt) in options.iter().enumerate() {
+        body.push_str(&format!("{}. {}\n", i + 1, opt.label));
+    }
+    let result = rfd::MessageDialog::new()
+        .set_title(title)
+        .set_description(&body)
+        .set_buttons(rfd::MessageButtons::OkCancel)
+        .show();
+    if result == rfd::MessageDialogResult::Ok {
+        Ok(default_id.to_string())
+    } else {
+        Err(DialogError::Cancelled)
+    }
+}
+
+pub async fn choice_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+    options: &[ChoiceOption],
+    default_id: &str,
+) -> DialogResult<String> {
+    let title = title.to_string();
+    let text = text.to_string();
+    let options = options.to_vec();
+    let default_id = default_id.to_string();
+    run_on_main(state, move || choice_dialog_sync(&title, &text, &options, &default_id))
+        .await
+        .map_err(|detail| DialogError::Unavailable { detail })?
+}
+
+fn harness_selection_from_e2e(options: &[ChoiceOption]) -> Option<DialogResult<Vec<String>>> {
+    if e2e_skill_cancelled() {
+        return Some(Err(DialogError::Cancelled));
+    }
+    if e2e_enabled() && e2e_pause_ms() == 0 {
+        if let Ok(raw) = std::env::var("EXCALIDRAW_E2E_SKILL_HARNESS") {
+            if raw == "cancel" {
+                return Some(Err(DialogError::Cancelled));
+            }
+            let ids: Vec<String> = if raw == "all" {
+                options.iter().map(|o| o.id.clone()).collect()
+            } else {
+                raw.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
+            if !ids.is_empty() {
+                return Some(Ok(ids));
+            }
+        }
+    }
+    if e2e_pause_ms() > 0 {
+        e2e_sleep_pause();
+        if let Ok(raw) = std::env::var("EXCALIDRAW_E2E_SKILL_HARNESS") {
+            if raw == "cancel" {
+                return Some(Err(DialogError::Cancelled));
+            }
+            let ids: Vec<String> = if raw == "all" {
+                options.iter().map(|o| o.id.clone()).collect()
+            } else {
+                raw.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
+            if !ids.is_empty() {
+                return Some(Ok(ids));
+            }
+        }
+    }
+    None
+}
+
+pub async fn multi_select_checklist_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    text: &str,
+    options: &[ChoiceOption],
+    default_checked_ids: &[&str],
+) -> DialogResult<Vec<String>> {
+    if options.is_empty() {
+        return Err(DialogError::Unavailable {
+            detail: "no options".into(),
+        });
+    }
+    if let Some(result) = harness_selection_from_e2e(options) {
+        return result;
+    }
+
+    let title = title.to_string();
+    let text = text.to_string();
+    let options = options.to_vec();
+    let defaults: Vec<String> = default_checked_ids.iter().map(|s| s.to_string()).collect();
+    let default_refs: Vec<String> = defaults;
+
+    run_on_main(state, move || {
+        let default_id_refs: Vec<&str> = default_refs.iter().map(|s| s.as_str()).collect();
+        checklist_sync(&title, &text, &options, &default_id_refs)
+    })
+    .await
+    .map_err(|detail| DialogError::Unavailable { detail })?
+}
+
+fn checklist_sync(
+    title: &str,
+    text: &str,
+    options: &[ChoiceOption],
+    default_checked_ids: &[&str],
+) -> DialogResult<Vec<String>> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{
+        NSAlert, NSAlertFirstButtonReturn, NSAlertStyle, NSButton, NSControlStateValueOff,
+        NSControlStateValueOn, NSLayoutAttribute, NSStackView, NSUserInterfaceLayoutOrientation,
+    };
+    use objc2_foundation::{NSPoint, NSRect, NSString};
+
+    let mtm = MainThreadMarker::new().ok_or_else(|| DialogError::Unavailable {
+        detail: "checklist must run on the main thread".into(),
+    })?;
+
+    let alert = NSAlert::new(mtm);
+    alert.setAlertStyle(NSAlertStyle::Informational);
+    alert.setMessageText(&NSString::from_str(title));
+    alert.setInformativeText(&NSString::from_str(text));
+    alert.addButtonWithTitle(&NSString::from_str("Install"));
+    alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+
+    let stack = NSStackView::new(mtm);
+    stack.setOrientation(NSUserInterfaceLayoutOrientation::Vertical);
+    stack.setAlignment(NSLayoutAttribute::Leading);
+    stack.setSpacing(6.0);
+    let mut boxes = Vec::with_capacity(options.len());
+    for opt in options {
+        let checkbox = unsafe {
+            NSButton::checkboxWithTitle_target_action(
+                &NSString::from_str(&opt.label),
+                None,
+                None,
+                mtm,
+            )
+        };
+        let on = default_checked_ids.contains(&opt.id.as_str());
+        checkbox.setState(if on {
+            NSControlStateValueOn
+        } else {
+            NSControlStateValueOff
+        });
+        stack.addArrangedSubview(&checkbox);
+        boxes.push((opt.id.clone(), checkbox));
+    }
+    let size = stack.fittingSize();
+    stack.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), size));
+    alert.setAccessoryView(Some(&stack));
+    alert.layout();
+
+    if alert.runModal() != NSAlertFirstButtonReturn {
+        return Err(DialogError::Cancelled);
+    }
+    Ok(boxes
+        .iter()
+        .filter(|(_, b)| b.state() == NSControlStateValueOn)
+        .map(|(id, _)| id.clone())
+        .collect())
+}
+
+fn open_directory_dialog_sync(title: &str, start: &std::path::Path) -> DialogResult<String> {
+    if e2e_skill_cancelled() {
+        return Err(DialogError::Cancelled);
+    }
+    if e2e_enabled() {
+        if let Ok(p) = std::env::var("EXCALIDRAW_E2E_SKILL_PROJECT") {
+            if !p.trim().is_empty() {
+                return Ok(p);
+            }
+        }
+    }
+    if e2e_pause_ms() > 0 {
+        e2e_sleep_pause();
+        if let Ok(p) = std::env::var("EXCALIDRAW_E2E_SKILL_PROJECT") {
+            if !p.trim().is_empty() {
+                return Ok(p);
+            }
+        }
+    }
+
+    let mut dialog = rfd::FileDialog::new().set_title(title);
+    if start.is_dir() {
+        dialog = dialog.set_directory(start);
+    }
+    match dialog.pick_folder() {
+        Some(p) => Ok(p.to_string_lossy().into_owned()),
+        None => Err(DialogError::Cancelled),
+    }
+}
+
+pub async fn open_directory_dialog(
+    state: &Arc<AppState>,
+    title: &str,
+    start: &std::path::Path,
+) -> DialogResult<String> {
+    let title = title.to_string();
+    let start = start.to_path_buf();
+    run_on_main(state, move || open_directory_dialog_sync(&title, &start))
+        .await
+        .map_err(|detail| DialogError::Unavailable { detail })?
+}

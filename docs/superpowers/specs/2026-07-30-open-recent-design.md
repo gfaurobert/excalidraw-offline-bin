@@ -79,7 +79,7 @@ On app start: load recent.json (or empty), then build the application menu once 
 ### Open Recent click
 
 1. Parse absolute path from menu id (`recent:<path>`)
-2. `Deno.stat(path)` — if missing/unreadable: enqueue status message, `remove(path)`, rebuild menu; stop
+2. `Tauri.stat(path)` — if missing/unreadable: enqueue status message, `remove(path)`, rebuild menu; stop
 3. If ok: `enqueueUi({ type: "open", path })` — UI handles dirty document the same as File → Open
 
 ### Clear Recent

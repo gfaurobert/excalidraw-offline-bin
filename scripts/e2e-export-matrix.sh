@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full CLI export E2E matrix (requires xvfb-run, webkit2gtk, imagemagick).
+# Full CLI export E2E matrix (requires xvfb-run, webkit2gtk, imagemagick, jq).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -18,19 +18,15 @@ exec > >(tee -a "$LOG") 2>&1
 
 echo "=== E2E export matrix $(date -Iseconds) ==="
 
-rm -rf dist "$ARTIFACTS/custom-out"
-deno run -A ./scripts/create-e2e-fixture.ts
 DOC="$ROOT/test-fixtures/e2e-export/matrix-demo.excalidraw"
-LAUNCHER="$ROOT/dist/linux/excalidraw-offline/excalidraw-offline"
+LAUNCHER="$ROOT/src-tauri/target/release/excalidraw-offline"
 OUT_DIR="$ARTIFACTS/custom-out"
 mkdir -p "$OUT_DIR"
 rm -f "$PNG_DIR"/*
 
-echo "==> Pre-build (clean dist)"
-deno task build:frontend
-deno desktop -A --backend=webview \
-  --include=./frontend/dist --include=./icons --include=./skills \
-  --output=./dist/linux/excalidraw-offline ./desktop/main.ts
+echo "==> Build release binary"
+(cd frontend && CI=true pnpm install --frozen-lockfile && pnpm run build)
+RUSTFLAGS=-D warnings cargo build --release --manifest-path src-tauri/Cargo.toml
 
 xvfb-run -a "$LAUNCHER" export "$DOC" >/dev/null
 
@@ -52,7 +48,6 @@ copy_artifact() {
   echo "artifact: $PNG_DIR/$dest ($(png_dims "$src"), $(stat -c%s "$src") bytes)"
 }
 
-# Outside-only red (#ffc9c9) must not appear in a frame clip export.
 verify_frame_clip_no_outside_red() {
   local png="$1"
   local label="$2"
@@ -104,33 +99,6 @@ run_bin() {
   printf '%s\n' "${paths[@]}"
 }
 
-run_deno_export() {
-  local name="$1"
-  shift
-  local logbase="$ARTIFACTS/logs/$name"
-  echo "" >&2
-  echo "--- $name ---" >&2
-  echo "deno task export -- … $*" >&2
-  set +e
-  xvfb-run -a bash -lc "cd \"$ROOT\" && deno task export -- \"$DOC\" $(printf '%q ' "$@")" \
-    >"${logbase}.stdout" 2>"${logbase}.stderr"
-  local ec=$?
-  set -e
-  cat "${logbase}.stdout" "${logbase}.stderr" >&2 || true
-  mapfile -t paths < <(grep -E '^/' "${logbase}.stdout" 2>/dev/null | tr -d '\r' || true)
-  local outpath=""
-  if ((${#paths[@]} > 0)); then
-    outpath="${paths[${#paths[@]}-1]}"
-  fi
-  local dims="n/a"
-  if [[ -n "$outpath" && -f "$outpath" ]]; then
-    dims=$(png_dims "$outpath")
-  fi
-  record "$name" "$ec" "deno task export -- … $*" "$outpath" "$dims"
-  [[ "$ec" -eq 0 ]] || return "$ec"
-  printf '%s\n' "${paths[@]}"
-}
-
 extract_error_message() {
   local logbase="$1"
   {
@@ -146,8 +114,7 @@ expect_fail() {
   shift
   local logbase="$ARTIFACTS/logs/$name"
   set +e
-  xvfb-run -a bash -lc "cd \"$ROOT\" && deno task export -- $(printf '%q ' "$@")" \
-    >"${logbase}.stdout" 2>"${logbase}.stderr"
+  xvfb-run -a "$LAUNCHER" export "$@" >"${logbase}.stdout" 2>"${logbase}.stderr"
   local ec=$?
   set -e
   local err_msg
@@ -164,14 +131,14 @@ expect_fail() {
     cat "${logbase}.stdout" 2>/dev/null || true
     echo ""
   } >> "$ERROR_LOG"
-  record "$name" "$ec" "deno task export (expect fail) $*" "$err_msg" "n/a"
+  record "$name" "$ec" "excalidraw-offline export (expect fail) $*" "$err_msg" "n/a"
   [[ "$ec" -ne 0 ]] || { echo "expected failure"; return 1; }
 }
 
 # --- Success cases ---
 
-p=$(run_deno_export "deno-task-whole-scene" | tail -1)
-copy_artifact "deno-task-whole-scene.png" "$p"
+p=$(run_bin "binary-whole-scene" | tail -1)
+copy_artifact "binary-whole-scene.png" "$p"
 
 p=$(run_bin "binary-whole-scene-abs" | tail -1)
 copy_artifact "binary-whole-scene-abs.png" "$p"
@@ -229,8 +196,7 @@ run_bin "json" --element rect-outside-id --json >/dev/null
 json_line=$(grep -E '^\{' "$ARTIFACTS/logs/json.stdout" | tail -1 || true)
 p=""
 if [[ -n "$json_line" ]]; then
-  p=$(printf '%s' "$json_line" | deno eval -A \
-    "const j=JSON.parse(await new Response(Deno.stdin.readable).text()); console.log(j.paths[0]);" 2>/dev/null || true)
+  p=$(printf '%s' "$json_line" | jq -r '.paths[0]' 2>/dev/null || true)
 fi
 [[ -n "$p" && -f "$p" ]] && copy_artifact "json-element-export.png" "$p"
 
@@ -239,14 +205,13 @@ expect_fail "err-unknown-frame" "$DOC" --frame "NoSuchFrame"
 expect_fail "err-unknown-element" "$DOC" --element "no-such-element-id"
 expect_fail "err-empty-bbox" "$DOC" --bbox 9000,9000,10,10
 
-echo "--- deno-task-start-smoke ---"
+echo "--- gui-start-smoke ---"
 set +e
-timeout 8 xvfb-run -a bash -lc "cd \"$ROOT\" && deno task start" \
-  >"$ARTIFACTS/logs/start.stdout" 2>"$ARTIFACTS/logs/start.stderr"
+timeout 8 xvfb-run -a "$LAUNCHER" >"$ARTIFACTS/logs/start.stdout" 2>"$ARTIFACTS/logs/start.stderr"
 START_EC=$?
 set -e
-record "deno-task-start" "$START_EC" "deno task start (8s timeout)" "" "n/a"
-grep -E 'Running|HMR|error|LAUFEY|Listening' "$ARTIFACTS/logs/start.stdout" || true
+record "gui-start" "$START_EC" "excalidraw-offline (8s timeout)" "" "n/a"
+grep -E 'app url|Listening|error|panic' "$ARTIFACTS/logs/start.stdout" "$ARTIFACTS/logs/start.stderr" || true
 
 {
   echo "# Export E2E summary"

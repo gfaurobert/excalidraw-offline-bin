@@ -126,7 +126,7 @@ permalink: /
 
 # Excalidraw Offline
 
-Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
+Thin Tauri 2 wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
 
 ## Features (MVP)
 
@@ -157,7 +157,7 @@ nav_order: 2
 
 ## Requirements
 
-- Deno **≥ 2.9** (`deno desktop`) for development and packaging
+- Tauri **≥ 2.9** (`Tauri 2`) for development and packaging
 - Runtime: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`)
 
 ## Linux (GitHub Releases)
@@ -165,18 +165,18 @@ nav_order: 2
 Download from [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases):
 
 - **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (`chmod +x`, then run)
-- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree)
+- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Tauri 2 self-extracting layout — not an expanded `.so`/icons tree)
 
 Runtime deps: `webkit2gtk-4.1`, `gtk3`, and `zenity` (or `kdialog`).
 
-Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs `.github/workflows/release-linux.yml`. Local dry-run: `deno task package:release`.
+Maintainers: tagging `vX.Y.Z` (matching `src-tauri/tauri.conf.json` version) runs `.github/workflows/release-linux.yml`. Local dry-run: `cargo package:release`.
 
 ## Arch Linux (makepkg)
 
 Install from a local git checkout with `packaging/PKGBUILD.local`:
 
 ```bash
-# Prereqs: base-devel, deno ≥ 2.9
+# Prereqs: base-devel, Tauri ≥ 2.9
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
@@ -345,7 +345,7 @@ nav_order: 5
 
 ## Is this a fork of Excalidraw?
 
-No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Deno Desktop wrapper. Drawing UX stays upstream Excalidraw.
+No. It embeds the upstream `@excalidraw/excalidraw` React package in a thin Tauri 2 wrapper. Drawing UX stays upstream Excalidraw.
 
 ## Does it need a network connection?
 

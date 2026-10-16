@@ -7,7 +7,7 @@ import {
   formatExportTimestamp,
   resolveExportPngTarget,
   type ExportPngTarget,
-} from "../../desktop/export-png.ts";
+} from "./lib/export-png";
 
 export interface SceneExportPayload {
   elements: readonly ExcalidrawElement[];

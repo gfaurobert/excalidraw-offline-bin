@@ -1,85 +1,76 @@
 # Packaging
 
-## Local checkout (`PKGBUILD.local`) — recommended
+## Linux (Tauri 2)
+
+### Local checkout (`PKGBUILD.local`) — recommended on Arch
 
 No AUR account required. From the `packaging/` directory:
 
 ```bash
-# Prereqs: base-devel, deno ≥ 2.9
+# Prereqs: base-devel (makepkg -s pulls rust >= 1.90, nodejs, pnpm, webkit2gtk-4.1, gtk3)
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
 
-`-s` installs deps, `-i` installs the built package. `PKGBUILD.local` builds the parent checkout (`$startdir/..`).
+`-s` installs deps, `-i` installs the built package. `PKGBUILD.local` builds the parent checkout (frontend with pnpm, then `cargo build --release --features tauri/custom-protocol`).
 
 Install layout:
 
-- `/usr/bin/excalidraw-offline`
-- `/usr/lib/excalidraw-offline/`
+- `/usr/bin/excalidraw-offline` (single binary, frontend embedded)
 - `/usr/share/applications/excalidraw-offline.desktop`
 - `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
 Uninstall: `sudo pacman -Rns excalidraw-offline`.
 
-## AUR (`PKGBUILD`) — optional later
+### Release `PKGBUILD` (AUR-ready)
 
-Template for publishing from a tagged GitHub release tarball (`v$pkgver`).
+Same build from the GitHub source archive of tag `v$pkgver`. Published as a release asset next to the AppImage and the prebuilt `.pkg.tar.zst`.
+Keep `pkgver` in `PKGBUILD` / `PKGBUILD.local` equal to the version in `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`; the release script refuses a mismatch.
 
-Update `url`, `source`, and `sha256sums` before submitting to the AUR.
+### GitHub Release assets
 
-## Manual Deno Desktop bundle
+`.github/workflows/release-linux.yml` (tag `v*`, or manual run = dry run without publishing):
 
-```bash
-deno task package:linux
-# → dist/linux/excalidraw-offline/  (~24MB with --compress=xz on x86_64)
-```
+| Asset | Built by |
+|-------|----------|
+| `excalidraw-offline-<ver>-linux-x86_64.AppImage` | Tauri bundler on Ubuntu 22.04 (`scripts/package-tauri-linux-release.sh`), smoke-tested on `/api/health` |
+| `excalidraw-offline-<ver>-1-x86_64.pkg.tar.zst` | `makepkg` in an `archlinux` container, checked with `namcap` |
+| `PKGBUILD`, `SHA256SUMS` | |
 
-Runtime depends: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`).
-
-File dialogs use zenity/kdialog because Deno Desktop does not yet expose a native file-picker API.
-
-## GitHub Release binaries
-
-Tagged releases publish an AppImage and a binary `.tar.xz` (plus `SHA256SUMS`) via CI.
-Those are for direct download / portable use.
-
-The `.tar.xz` is built with `--compress=xz`: after extract you get the launcher script plus `payload.tar.xz` (Deno Desktop self-extracting layout), not an expanded `.so`/icons tree. Run `./excalidraw-offline`.
-
-makepkg and the AUR `PKGBUILD` still **build from source** (git checkout or GitHub source archive for `v$pkgver`). They do not install the Release AppImage.
-
-Local release-shaped artifacts (same names as CI):
+Local release-shaped AppImage (needs `cargo install tauri-cli`):
 
 ```bash
-deno task package:release
+./scripts/package-tauri-linux-release.sh
 # → dist/release/
 ```
 
 ## Windows 11
 
-GitHub Releases also publish an MSI and a zip (`excalidraw-offline-<ver>-windows-x86_64.*`) via `.github/workflows/release-windows.yml`. Those artifacts are cross-compiled from Linux (`--target x86_64-pc-windows-msvc`).
+GitHub Releases publish a portable zip and an NSIS installer (`excalidraw-offline-<ver>-windows-x86_64-*`) via `.github/workflows/release-windows.yml`.
+
+Local build (on Windows, MSVC + WebView2):
 
 ```bash
-deno task package:windows
-# → dist/windows/excalidraw-offline/
-
-deno task package:windows:release
-# → dist/release-windows/  (MSI + zip + SHA256SUMS-windows-x86_64)
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
+cd src-tauri && cargo tauri build --target x86_64-pc-windows-msvc --config tauri.windows.ci.json
+# → target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+# → target/x86_64-pc-windows-msvc/release/excalidraw-offline.exe (portable)
 ```
 
-Runtime on the target PC: WebView2 + PowerShell. File dialogs use WinForms because Deno Desktop does not yet expose a native file-picker API.
+Runtime on the target PC: WebView2. Native file dialogs use Win32 via `rfd`.
 
-## macOS (Apple Silicon)
+## macOS (Apple Silicon + universal)
 
-GitHub Releases also publish a DMG and a zip of the `.app` (`excalidraw-offline-<ver>-macos-arm64.*`) via `.github/workflows/release-macos.yml`. Those artifacts are built on `macos-latest` (`--target aarch64-apple-darwin`) because `.dmg` needs `hdiutil` and the Info.plist patch is re-signed with ad-hoc `codesign`.
+GitHub Releases publish universal and arm64 zips of the `.app` via `.github/workflows/release-macos.yml` (built on `macos-14`, ad-hoc signed).
+
+Local build:
 
 ```bash
-deno task package:macos
-# → dist/macos/excalidraw-offline.app
-
-deno task package:macos:release
-# → dist/release-macos/  (DMG + zip + SHA256SUMS-macos-arm64; DMG only on Darwin)
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
+cd src-tauri
+cargo tauri build --target aarch64-apple-darwin --config tauri.macos.ci.json
+cargo tauri build --target universal-apple-darwin --config tauri.macos.ci.json
 ```
 
-Runtime on the Mac: WKWebView + `osascript`. File dialogs use AppleScript because Deno Desktop does not yet expose a native file-picker API. Unsigned/ad-hoc builds show a Gatekeeper warning.
-
+Runtime: WKWebView (system). Unsigned/ad-hoc builds show a Gatekeeper warning on first launch.

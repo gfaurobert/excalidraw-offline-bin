@@ -17,7 +17,7 @@ GitHub Releases remain the download hub. AUR/makepkg continue to build from the 
 | Source tarball | GitHub automatic tag archive — used by AUR `PKGBUILD` |
 | makepkg | Keep `PKGBUILD.local` and source-building `PKGBUILD` |
 | Build entrypoint | Shared `scripts/package-linux-release.sh` (CI + local dry-run) |
-| Version sync | Tag `vX.Y.Z` must match `deno.json` `"version"` or the job fails |
+| Version sync | Tag `vX.Y.Z` must match `src-tauri/tauri.conf.json` `"version"` or the job fails |
 
 ## Artifacts
 
@@ -25,7 +25,7 @@ For version `0.1.0` (tag `v0.1.0`):
 
 | File | Contents |
 |------|----------|
-| `excalidraw-offline-0.1.0-linux-x86_64.AppImage` | Portable AppImage from `deno desktop … --output=….AppImage` |
+| `excalidraw-offline-0.1.0-linux-x86_64.AppImage` | Portable AppImage from `Tauri 2 … --output=….AppImage` |
 | `excalidraw-offline-0.1.0-linux-x86_64.tar.xz` | Directory tree equivalent to `dist/linux/excalidraw-offline/` |
 | `SHA256SUMS` | Checksums for the two binaries above |
 
@@ -36,7 +36,7 @@ Not uploaded by our workflow: `Source code (tar.gz|zip)` — GitHub attaches tho
 ```
 git tag vX.Y.Z && push
   → release-linux.yml
-      → install Deno ≥ 2.9
+      → install Tauri ≥ 2.9
       → scripts/package-linux-release.sh
           → build frontend
           → AppImage + directory bundle → tar.xz
@@ -50,7 +50,7 @@ makepkg / AUR (unchanged path):
 ```
 tag vX.Y.Z
   → GitHub source archive
-  → PKGBUILD downloads archive, builds with deno desktop
+  → PKGBUILD downloads archive, builds with Tauri 2
   → pacman package
 ```
 
@@ -60,10 +60,10 @@ tag vX.Y.Z
 
 `scripts/package-linux-release.sh`:
 
-1. Resolve version from env (`RELEASE_VERSION`) or `deno.json`.
+1. Resolve version from env (`RELEASE_VERSION`) or `src-tauri/tauri.conf.json`.
 2. In CI, assert `refs/tags/v$VERSION` matches that version.
-3. Build frontend (`deno task build:frontend`).
-4. Produce AppImage and directory output under `dist/release/` with the canonical names above (reuse the same `--backend=webview --compress=xz --include=…` flags as existing `deno.json` tasks).
+3. Build frontend (`cargo build:frontend`).
+4. Produce AppImage and directory output under `dist/release/` with the canonical names above (reuse the same `--backend=webview --compress=xz --include=…` flags as existing `src-tauri/tauri.conf.json` tasks).
 5. Pack the directory into the `.tar.xz`.
 6. Write `SHA256SUMS`.
 
@@ -73,8 +73,8 @@ tag vX.Y.Z
 
 1. Trigger on `push` tags `v*` and `workflow_dispatch`.
 2. Checkout repository.
-3. Install Deno ≥ 2.9.
-4. Install OS packages only if the first CI run proves they are required for `deno desktop` packaging (prefer minimal deps; Deno Desktop downloads prebuilt backends).
+3. Install Tauri ≥ 2.9.
+4. Install OS packages only if the first CI run proves they are required for `Tauri 2` packaging (prefer minimal deps; Tauri 2 downloads prebuilt backends).
 5. Run the packaging script with `RELEASE_VERSION` derived from the tag (strip leading `v`).
 6. Publish assets to the GitHub Release for that tag (`softprops/action-gh-release` or `gh release upload`), using `GITHUB_TOKEN`.
 
@@ -100,7 +100,7 @@ README updates:
 
 ## Success criteria
 
-1. Pushing `vX.Y.Z` (with matching `deno.json` version) produces a Release with AppImage, `.tar.xz`, and `SHA256SUMS`.
+1. Pushing `vX.Y.Z` (with matching `src-tauri/tauri.conf.json` version) produces a Release with AppImage, `.tar.xz`, and `SHA256SUMS`.
 2. Local `./scripts/package-linux-release.sh` produces the same artifact names under `dist/release/`.
 3. `makepkg -p PKGBUILD.local` still works from a checkout.
 4. AUR-oriented `PKGBUILD` still targets the GitHub source archive for `v$pkgver`.

@@ -111,7 +111,7 @@ api_post() {
 complete_pick() {
   local path="$1"
   local body
-  body=$(deno eval 'console.log(JSON.stringify({ path: Deno.args[0] }))' "$path")
+  body=$(jq -n --arg path "$path" '{path: $path}')
   api_post "/api/e2e/complete-pick" "$body" >/dev/null
 }
 

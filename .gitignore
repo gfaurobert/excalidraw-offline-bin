@@ -1,6 +1,4 @@
 .tools/
-.deno-cache/
-.deno/
 .xdg-cache/
 .xdg-data/
 node_modules/
@@ -21,6 +19,9 @@ test-fixtures/e2e-export/gui-v2-*.excalidraw
 test-fixtures/e2e-export/gui-edited.excalidraw
 test-fixtures/e2e-export/sticky-check.excalidraw
 .worktrees/
+src-tauri/target/
+src-tauri/target-xwin/
+src-tauri/gen/
 
 # Jekyll local build
 docs/site/_site/

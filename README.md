@@ -1,93 +1,87 @@
 # Excalidraw Offline
 
-Thin Deno Desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux, Windows 11, and Apple Silicon macOS. It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
+Thin [Tauri 2](https://tauri.app/) desktop wrapper around [`@excalidraw/excalidraw`](https://www.npmjs.com/package/@excalidraw/excalidraw) for offline desktop use on Linux, Windows 11, and macOS (universal: Apple Silicon + Intel). It does **not** rebuild Excalidraw — it packages the upstream React component and adds local file open/save/autosave plus durable `assets/` attachments.
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
-**Current version:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux). **Install:** Linux → [latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest); Windows and macOS → [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) until newer Win/mac builds ship. Releases v0.6.0–v0.7.2 are Linux-only (AppImage, tar.xz).
+**Status:** the Tauri 2 app (branch `cursor/tauri2-poc-fd6a`, PR #18) is end-to-end tested on **Linux, Windows 11, and macOS**. It is not in a GitHub release yet. Published [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) still ship older builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux-only refresh; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Until the Tauri release is tagged, get builds from CI artifacts or [build from source](#build-from-source).
 
 https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 
-## Features (MVP)
+## Features
 
-- Launch an offline Excalidraw desktop app
 - Start screen on launch (New / Open / Recent); canvas opens after a choice
-- File → Close returns to the start screen; Quit exits
-- Native zenity/kdialog (Linux), PowerShell WinForms (Windows 11), or osascript (macOS) for open/save and unsaved Cancel/Save/Discard
-- Open / Save / Save As `.excalidraw` files anywhere on disk
-- File → Reload (Ctrl+R / ⌘R) re-reads the open file from disk (e.g. after an agent edits it) — **all platforms** in published builds (v0.5.0+)
-- Excalidraw **Export image** dialog (Ctrl+Shift+E / ⌘⇧E or hamburger menu) with native save for PNG/SVG — **v0.6.0+** (Linux releases today; not in Windows/macOS v0.5.0 yet)
-- CLI **export** (headless hidden webview, same renderer as the GUI) — **v0.6.0+** (Linux today): `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png | -d dir] [--scale N] [--json]` — writes PNGs next to the drawing by default (`${name}_${datetime}.png`, or with a frame segment when applicable); `--out` / `-d` override (creates missing directories); `excalidraw-offline --help` and `excalidraw-offline export --help` print usage to stdout (exit 0, no GUI); prints written path(s) to stdout; does not participate in single-instance file-open handoff
-- CLI: `excalidraw-offline /path/to/file.excalidraw` (creates blank file if missing; single-instance handoff when another window can accept it)
-- OS file association: Linux system package + AppImage; Windows 11 per-user HKCU when running the packaged exe; macOS `Info.plist` UTI on the packaged `.app` (Finder double-click still needs Deno Desktop to deliver Apple Events — use CLI argv until then)
-- File → Open Recent (up to 10 paths, persisted locally)
-- Autosave once a file path exists
+- **File** menu: New (Ctrl+N), Open… (Ctrl+O), Open Recent (up to 10 paths), Close (Ctrl+W, back to the start screen), Reload (Ctrl+R — re-read the file after an agent edits it), Save (Ctrl+S), Save As… (Ctrl+Shift+S), Quit (Ctrl+Q). ⌘ instead of Ctrl on macOS
+- Native OS dialogs for open/save and the unsaved **Save / Don't save / Cancel** prompt on close and quit (GTK on Linux, Win32 on Windows, AppKit on macOS)
+- Autosave once a file path exists; untitled drawings prompt before close/quit
 - Image attachments copied into a sibling `assets/` folder with relative paths so reopen never loses them
-- Info menu: Runtime, Assets tip, About Excalidraw Offline, About Excalidraw (native dialogs)
-- Skills menu: install the bundled `excalidraw-sketching` Agent Skill (Global / Project with multi-select targets — `.agents/skills`, Claude Code, Kiro, Cline, or All; Custom folder unchanged) — **reinstall after upgrading** (v0.7.1+) so agents get the updated app + CLI guide
-- Transient open/save status appears in the header (not a footer)
-- Upstream editor from `@excalidraw/excalidraw` **0.18.0-4ce38fb** on Linux v0.7+ (sticky notes `N`, right-click drag pan, lasso, bucket fill, draw-to-shape / autoshape)
+- Excalidraw **Export image** dialog (Ctrl+Shift+E) with native save for PNG/SVG
+- **Skills** menu: install the bundled `excalidraw-sketching` Agent Skill — choose **Global** (home directory), **Project** (pick a project root), or **Custom** (any folder), then tick agent targets in a checklist: `.agents/skills` (Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Amp, Goose, Roo Code, Windsurf), Claude Code, Kiro, Cline, or All. The skill is embedded in the binary, so portable builds need no extra files. Reinstall after upgrading
+- **Info** menu: Runtime, Assets, About Excalidraw Offline, About Excalidraw (OK closes; **Open in browser** opens the link)
+- CLI: `excalidraw-offline /path/to/file.excalidraw` opens a drawing; `excalidraw-offline export path/to/drawing.excalidraw [--frame NAME …] [--all-frames] [--element ID …] [--bbox x,y,w,h] [--out dir-or-file.png | -d dir] [--scale N] [--json]` renders PNGs headlessly (same renderer as the GUI); `--help` and `export --help` print usage
+- Upstream editor from `@excalidraw/excalidraw` **0.18.0-4ce38fb** (sticky notes `N`, right-click drag pan, lasso, bucket fill, draw-to-shape)
+
+**Not ported yet:** single-instance handoff (a second launch opens a second window) and OS file associations (double-click `.excalidraw`). Pass the path as an argument instead.
+
+### Size
+
+| Build | Size |
+|-------|------|
+| Tauri 2 Linux binary (stripped, release) | ~19 MB |
+| Legacy v0.7.2 Linux bundle | ~155 MB |
+
+Tauri uses the system webview instead of bundling a runtime.
 
 ## Requirements
 
-- Deno **≥ 2.9** (`deno desktop`)
-- Linux runtime: `webkit2gtk-4.1`, `gtk3`, `zenity` (or `kdialog`)
-- Windows 11 runtime: WebView2 (preinstalled), PowerShell 5.1 (WinForms dialogs)
-- macOS runtime: Apple Silicon (arm64), WKWebView, `osascript` (system)
+- **Linux:** WebKitGTK 4.1 and GTK 3 (`webkit2gtk-4.1`, `gtk3`). No zenity/kdialog needed
+- **Windows 11:** WebView2 (preinstalled on Windows 11)
+- **macOS:** 11 or newer; WKWebView (system). Universal binary runs on Apple Silicon and Intel
 
 ## Install
 
-### Linux (GitHub Releases)
+### From CI artifacts (until the Tauri release)
 
-Download from [Latest release](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest) (currently **v0.7.2**):
+| Platform | Workflow | Artifact |
+|----------|----------|----------|
+| Windows 11 x64 | [Release Windows](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-windows.yml) or [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | Portable zip + NSIS `*-setup.exe` |
+| macOS | [Release macOS](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-macos.yml) or [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | Universal + arm64 `.zip` (`.app` inside) |
+| Linux x86_64 | [Release Linux](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-linux.yml) (manual run) | `linux-appimage-<version>`: `excalidraw-offline-<version>-linux-x86_64.AppImage` + `PKGBUILD`; `linux-arch-package`: `excalidraw-offline-<version>-1-x86_64.pkg.tar.zst` |
 
-- **AppImage** — `excalidraw-offline-<version>-linux-x86_64.AppImage` (chmod +x, then run)
-- **Binary tarball** — `excalidraw-offline-<version>-linux-x86_64.tar.xz` (extract and run `./excalidraw-offline`; built with `--compress=xz`, so the archive contains the launcher plus `payload.tar.xz` — a Deno Desktop self-extracting layout — not an expanded `.so`/icons tree)
+**Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it, or on Arch install the package with `sudo pacman -U excalidraw-offline-*-x86_64.pkg.tar.zst` (or build it yourself, below).
 
-Runtime deps: `webkit2gtk-4.1`, `gtk3`, and `zenity` (or `kdialog`).
+**Windows:** run the installer, or extract the portable zip and run `Excalidraw-Offline.exe`. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
-Maintainers: tagging `vX.Y.Z` (matching `deno.json` version) runs [`.github/workflows/release-linux.yml`](.github/workflows/release-linux.yml). Local dry-run: `deno task package:release`.
-
-### Windows 11 (GitHub Releases)
-
-Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (v0.6+ Windows assets were not published):
-
-- **MSI** — `excalidraw-offline-0.5.0-windows-x86_64.msi` (per-machine install under Program Files)
-- **Zip** — `excalidraw-offline-0.5.0-windows-x86_64.zip` (portable; extract to a path **without spaces** if the MSI layout misbehaves)
-
-Runtime: WebView2 (included on Windows 11) and PowerShell for native dialogs. Unsigned builds may show SmartScreen; choose **More info → Run anyway**.
-
-The packaged exe registers a per-user `.excalidraw` association on first launch (HKCU). CLI: `excalidraw-offline C:\path\to\file.excalidraw`. Reload (Ctrl+R) is included; export CLI and Export image dialog ship in a future Windows release (already on Linux v0.6+).
-
-Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml) (cross-compiled from Linux). Local dry-run: `deno task package:windows:release`.
-
-### macOS Apple Silicon (GitHub Releases)
-
-Download **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** (v0.6+ macOS assets were not published):
-
-- **DMG** — `excalidraw-offline-0.5.0-macos-arm64.dmg` (drag **Excalidraw Offline** to Applications)
-- **Zip** — `excalidraw-offline-0.5.0-macos-arm64.zip` (extract the `.app`)
-
-Runtime: WKWebView (system) and `osascript` for native dialogs. Ad-hoc signed builds hit Gatekeeper; right-click the app → **Open**, or remove quarantine with `xattr -d com.apple.quarantine "/Applications/Excalidraw Offline.app"`.
-
-CLI (argv is the reliable file-open path):
+**macOS:** the `.app` is **ad-hoc signed** (not notarized), so Gatekeeper blocks the first launch. Extract the zip (Finder or `ditto -x -k <zip> <dir>`), then right-click the app → **Open**, or clear the quarantine flag:
 
 ```bash
-open -a "Excalidraw Offline" --args ~/drawings/demo.excalidraw
-# or
-"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw
+xattr -cr "/Applications/Excalidraw Offline.app"
 ```
 
-Reload (⌘R) is included; export CLI and Export image dialog ship in a future macOS release (already on Linux v0.6+).
+### CLI by platform
 
-Maintainers: tagging `vX.Y.Z` also runs [`.github/workflows/release-macos.yml`](.github/workflows/release-macos.yml) on `macos-latest`. Local dry-run on a Mac: `deno task package:macos:release`.
+| OS | Example |
+|----|---------|
+| Linux | `/usr/bin/excalidraw-offline ~/drawings/demo.excalidraw` |
+| Windows (PowerShell) | `& 'C:\Program Files\Excalidraw Offline\Excalidraw-Offline.exe' $env:USERPROFILE\drawings\demo.excalidraw` |
+| macOS | `"/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline" ~/drawings/demo.excalidraw` |
+
+Headless export (all platforms): `excalidraw-offline export --help`
+
+### Where settings live
+
+| OS | Config (recent files) | Logs |
+|----|-----------------------|------|
+| Linux | `$XDG_CONFIG_HOME/excalidraw-offline/` (fallback `~/.config/excalidraw-offline/`) | `<config>/logs/` |
+| Windows | `%USERPROFILE%\.config\excalidraw-offline\` | `%LOCALAPPDATA%\ExcalidrawOffline\logs\` |
+| macOS | `~/Library/Application Support/excalidraw-offline/` | `<config>/logs/` |
 
 ### Arch Linux (makepkg)
 
-Install from a local git checkout with [`packaging/PKGBUILD.local`](packaging/PKGBUILD.local):
+Build and install the Tauri app from a local git checkout with [`packaging/PKGBUILD.local`](packaging/PKGBUILD.local):
 
 ```bash
-# Prereqs: base-devel, deno ≥ 2.9
+# Prereqs: base-devel (makepkg -s pulls rust >= 1.90, nodejs, pnpm, webkit2gtk-4.1, gtk3)
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
@@ -96,40 +90,37 @@ makepkg -si -f -p PKGBUILD.local
 
 Installs:
 
-- `/usr/bin/excalidraw-offline`
-- `/usr/lib/excalidraw-offline/` (bundled binary + payload)
+- `/usr/bin/excalidraw-offline` (single binary, frontend embedded)
 - `/usr/share/applications/excalidraw-offline.desktop`
 - `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
 Uninstall: `sudo pacman -Rns excalidraw-offline`.
 
-[`packaging/PKGBUILD`](packaging/PKGBUILD) is an optional AUR/release-tarball template for later; skip it until you publish.
+[`packaging/PKGBUILD`](packaging/PKGBUILD) builds the same package from the GitHub source archive of tag `v$pkgver`; it ships as a release asset (AUR-ready).
 
-## Develop
+## Build from source
+
+Prereqs: Node.js + pnpm 10 (frontend), Rust **≥ 1.90** (`rust-toolchain.toml` pins 1.90.0; a system Rust ≥ 1.90 works too), plus:
+
+- **Linux:** `webkit2gtk-4.1` and `gtk3` dev packages (Debian/Ubuntu: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev`)
+- **Windows:** MSVC build tools + WebView2
+- **macOS:** Xcode Command Line Tools
 
 ```bash
 # Frontend
-cd frontend && deno install && deno task build && cd ..
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
 
-# Desktop (serves frontend/dist)
-deno desktop -A --hmr --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts
+# Desktop binary
+cd src-tauri && cargo build --release
+./target/release/excalidraw-offline            # Windows: target\release\excalidraw-offline.exe
+
+# Optional: bundles (AppImage + deb on Linux; release AppImage: scripts/package-tauri-linux-release.sh; NSIS on Windows, .app on macOS)
+cargo install tauri-cli --locked --version "^2.0.0"
+cargo tauri build
 ```
 
-Or use tasks from the repo root:
-
-```bash
-deno task start
-deno task export -- path/to/drawing.excalidraw [--frame "Name"] [--all-frames] [-d dir] [--json]  # `deno task export -- --help` for flags; compiles dist/linux/excalidraw-offline when needed, then runs export
-deno task test:file-format
-deno task test:release
-deno task package:linux
-deno task package:windows
-deno task package:windows:release
-deno task package:macos
-deno task package:macos:release
-deno task package:release
-```
+CI (`.github/workflows/ci.yml`, `tauri-windows-build.yml`, `tauri-macos-build.yml`, `release-*.yml`) runs `cargo test` / `cargo clippy -- -D warnings`, builds the bundles, and smoke-tests `/api/health`.
 
 ## File layout on disk
 
@@ -146,11 +137,11 @@ The `.excalidraw` JSON stores relative `assets/...` references. On open, the wra
 | Path | Role |
 |------|------|
 | `frontend/` | Vite + React UI embedding Excalidraw |
-| `desktop/` | Deno Desktop entry, dialogs, file format |
+| `src-tauri/` | Tauri 2 shell: local HTTP API, native dialogs (GTK / Win32 / AppKit), menus, Skills installer, CLI export |
 | `skills/` | Bundled Agent Skills (e.g. `excalidraw-sketching`) |
-| `scripts/` | Release packaging and naming helpers |
+| `scripts/` | Release packaging, CI verify scripts |
 | `packaging/` | Local/AUR PKGBUILD + `.desktop` |
 | `docs/site/` | Public GitHub Pages docs (Jekyll + Just the Docs) |
-| `.github/workflows/` | CI: `release-linux.yml`, `release-windows.yml`, `release-macos.yml`, `jekyll-gh-pages.yml` |
+| `.github/workflows/` | CI, release workflows, `jekyll-gh-pages.yml` |
 | `use-cases.md` | Product scope and clarifications |
 | `docs/research/2026-07-31-agent-skills-locations.md` | Where AI tools store user/project skills |
