@@ -194,7 +194,7 @@ Usage:
   excalidraw-offline [file.excalidraw]
   excalidraw-offline export <file.excalidraw> [options]
 
-Open or create a drawing (GUI):
+Open a drawing (GUI; file must exist):
   excalidraw-offline sketches/wireframes.excalidraw
 
 Headless PNG export (hidden webview, same export path as the GUI):

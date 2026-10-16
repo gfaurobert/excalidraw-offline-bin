@@ -5,8 +5,8 @@
   "identifier": "dev.excalidraw.offline",
   "build": {
     "frontendDist": "tauri-stub",
-    "beforeBuildCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build && cp -f ../icons/icon.png public/icon.png 2>/dev/null || true'",
-    "beforeDevCommand": "bash -lc 'export PATH=\"$HOME/.deno/bin:$PATH\" && cd ../frontend && deno install && deno task build'",
+    "beforeBuildCommand": "bash -lc 'cd ../frontend && pnpm install --frozen-lockfile && pnpm run build && cp -f ../icons/icon.png public/icon.png 2>/dev/null || true'",
+    "beforeDevCommand": "bash -lc 'cd ../frontend && pnpm install --frozen-lockfile && pnpm run build'",
     "devUrl": "http://127.0.0.1:17342"
   },
   "app": {

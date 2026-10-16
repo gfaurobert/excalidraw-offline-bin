@@ -358,4 +358,43 @@ mod tests {
             PathBuf::from("/home/alice/.claude/skills/excalidraw-sketching")
         );
     }
+
+    #[test]
+    fn bundled_skill_md_documents_cli_and_app() {
+        let skill_md = EMBEDDED_SKILL
+            .get_file("SKILL.md")
+            .expect("SKILL.md in bundle");
+        let text = std::str::from_utf8(skill_md.contents()).expect("utf-8");
+        assert!(text.starts_with("---\n"), "YAML frontmatter");
+        assert!(text.contains("description:"));
+        assert!(text.contains("Tauri 2"));
+        assert!(!text.to_lowercase().contains("deno"));
+        for snippet in [
+            "excalidraw-offline --help",
+            "excalidraw-offline export --help",
+            "#### Linux",
+            "#### Windows (PowerShell)",
+            "#### macOS",
+            "--all-frames",
+            "--frame",
+            "--element",
+            "--bbox",
+            "--out",
+            "-d",
+            "--scale",
+            "--json",
+            "File → Reload",
+            "Ctrl+R",
+            "Ctrl+Shift+E",
+            "Cancel / Save / Discard",
+            "Skills → Install excalidraw-sketching skill",
+            "test-fixtures/e2e-export/matrix-demo.excalidraw",
+            "stickynote",
+            "right-click drag",
+            "does **not** create a blank file",
+            "no single-instance handoff",
+        ] {
+            assert!(text.contains(snippet), "SKILL.md must mention: {snippet}");
+        }
+    }
 }
