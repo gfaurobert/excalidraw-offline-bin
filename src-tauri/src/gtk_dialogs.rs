@@ -46,6 +46,41 @@ fn active_radio_label(dialog: &Dialog) -> Option<String> {
     None
 }
 
+/// GtkScrolledWindow::add puts the list inside a GtkViewport, not directly as the child.
+fn checklist_list_box(scroll: &ScrolledWindow) -> Option<GtkBox> {
+    let child = scroll.child()?;
+    if child.is::<GtkBox>() {
+        return child.downcast::<GtkBox>().ok();
+    }
+    if child.is::<gtk::Viewport>() {
+        let viewport = child.downcast::<gtk::Viewport>().ok()?;
+        if let Some(inner) = viewport.child() {
+            if let Ok(list_box) = inner.downcast::<GtkBox>() {
+                return Some(list_box);
+            }
+        }
+    }
+    None
+}
+
+fn push_active_checklist_id(ids: &mut Vec<String>, cb: &CheckButton, options: &[ChoiceOption]) {
+    if !cb.is_active() {
+        return;
+    }
+    let name = cb.widget_name();
+    if !name.is_empty() {
+        if options.iter().any(|o| o.id == name) {
+            ids.push(name.to_string());
+            return;
+        }
+    }
+    if let Some(label) = cb.label() {
+        if let Some(opt) = options.iter().find(|o| o.label == label.as_str()) {
+            ids.push(opt.id.clone());
+        }
+    }
+}
+
 fn active_checklist_ids(dialog: &Dialog, options: &[ChoiceOption]) -> Vec<String> {
     let mut ids = Vec::new();
     let area = dialog.content_area();
@@ -53,20 +88,10 @@ fn active_checklist_ids(dialog: &Dialog, options: &[ChoiceOption]) -> Vec<String
         if let Ok(outer) = child.downcast::<GtkBox>() {
             for outer_child in outer.children() {
                 if let Ok(scroll) = outer_child.downcast::<ScrolledWindow>() {
-                    if let Some(list) = scroll.child() {
-                        if let Ok(list_box) = list.downcast::<GtkBox>() {
-                            for row in list_box.children() {
-                                if let Ok(cb) = row.downcast::<CheckButton>() {
-                                    if cb.is_active() {
-                                        if let Some(label) = cb.label() {
-                                            if let Some(opt) =
-                                                options.iter().find(|o| o.label == label.as_str())
-                                            {
-                                                ids.push(opt.id.clone());
-                                            }
-                                        }
-                                    }
-                                }
+                    if let Some(list_box) = checklist_list_box(&scroll) {
+                        for row in list_box.children() {
+                            if let Ok(cb) = row.downcast::<CheckButton>() {
+                                push_active_checklist_id(&mut ids, &cb, options);
                             }
                         }
                     }
@@ -400,6 +425,7 @@ pub async fn multi_select_checklist_dialog(
         let list = GtkBox::new(Orientation::Vertical, 4);
         for opt in &options {
             let cb = CheckButton::with_label(&opt.label);
+            cb.set_widget_name(&opt.id);
             cb.set_active(checked.contains(&opt.id));
             cb.set_halign(Align::Start);
             list.pack_start(&cb, false, false, 0);
@@ -412,18 +438,20 @@ pub async fn multi_select_checklist_dialog(
             if r != ResponseType::Accept {
                 return None;
             }
-            let ids = active_checklist_ids(d, &options_for_map);
-            if ids.is_empty() { None } else { Some(ids) }
+            crate::skill_dialog_common::harness_checklist_selection_ok(active_checklist_ids(
+                d,
+                &options_for_map,
+            ))
+            .ok()
         });
         dialog.show_all();
     })
     .await;
 
-    let ids = picked.ok().flatten().ok_or(DialogError::Cancelled)?;
-    if ids.is_empty() {
-        return Err(DialogError::Cancelled);
+    match picked.ok().flatten() {
+        Some(ids) => Ok(ids),
+        _ => Err(DialogError::Cancelled),
     }
-    Ok(ids)
 }
 
 pub async fn open_directory_dialog(
@@ -461,5 +489,49 @@ pub async fn open_directory_dialog(
     match dialog.pick_folder().await {
         Some(h) => Ok(h.path().to_string_lossy().into_owned()),
         None => Err(DialogError::Cancelled),
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod checklist_tests {
+    use super::*;
+
+    fn init_gtk() {
+        if !gtk::is_initialized() {
+            gtk::init().expect("gtk init");
+        }
+    }
+
+    #[test]
+    fn active_checklist_ids_reads_through_scrolled_window_viewport() {
+        init_gtk();
+        let options = vec![
+            ChoiceOption {
+                id: "agents".into(),
+                label: "Agents".into(),
+            },
+            ChoiceOption {
+                id: "claude".into(),
+                label: "Claude Code".into(),
+            },
+        ];
+        let dialog = Dialog::new();
+        let outer = GtkBox::new(Orientation::Vertical, 4);
+        let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+        let list = GtkBox::new(Orientation::Vertical, 4);
+        for opt in &options {
+            let cb = CheckButton::with_label(&opt.label);
+            cb.set_widget_name(&opt.id);
+            cb.set_active(opt.id == "agents");
+            list.pack_start(&cb, false, false, 0);
+        }
+        scroll.add(&list);
+        outer.pack_start(&scroll, true, true, 0);
+        dialog.content_area().pack_start(&outer, true, true, 0);
+        dialog.show_all();
+
+        let ids = active_checklist_ids(&dialog, &options);
+        assert_eq!(ids, vec!["agents"]);
+        dialog.close();
     }
 }
