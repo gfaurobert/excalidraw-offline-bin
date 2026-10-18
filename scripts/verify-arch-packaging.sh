@@ -10,7 +10,7 @@ docker run --rm -i \
   -e SOURCE_ROOT=/src \
   "$IMAGE" bash -s <<'EOF'
 set -euo pipefail
-pacman -Syu --noconfirm --needed base-devel git nodejs curl \
+pacman -Syu --noconfirm --needed base-devel git nodejs curl noto-fonts \
   webkit2gtk-4.1 gtk3 libsoup3 hicolor-icon-theme shared-mime-info desktop-file-utils
 
 useradd -m builder
