@@ -92,7 +92,7 @@ jobs:
     steps:
       - name: Install build deps (no pacman rust/pnpm — rustup + corepack pnpm)
         run: |
-          pacman -Syu --noconfirm --needed base-devel git namcap nodejs npm curl noto-fonts \
+          pacman -Syu --noconfirm --needed base-devel git namcap nodejs curl noto-fonts pnpm \
             webkit2gtk-4.1 gtk3 libsoup3 hicolor-icon-theme shared-mime-info desktop-file-utils
 
       - name: Checkout
@@ -108,7 +108,6 @@ jobs:
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
           su builder -c 'curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.90.0'
-          su builder -c 'npm install -g pnpm@10'
           cd packaging
           su builder -c 'source ~/.cargo/env && makepkg -f -p PKGBUILD.local --noconfirm' 2>&1 | tee makepkg.log
           if grep -qE '(^|\s)WARNING' makepkg.log; then echo "makepkg reported warnings"; exit 1; fi
