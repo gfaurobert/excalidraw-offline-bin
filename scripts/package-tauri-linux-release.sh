@@ -51,7 +51,7 @@ install -Dm644 packaging/application-x-excalidraw.xml "$STAGE/usr/share/mime/pac
 install -Dm644 icons/icon.png "$STAGE/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
 install -Dm644 LICENSE "$STAGE/usr/share/licenses/excalidraw-offline/LICENSE"
 TARBALL_NAME="excalidraw-offline-${VERSION}-linux-x86_64.tar.gz"
-tar -C "$STAGE" -czf "$OUT/$TARBALL_NAME" usr
+tar -C "$STAGE" --owner=0 --group=0 --numeric-owner -czf "$OUT/$TARBALL_NAME" usr
 rm -rf "$STAGE"
 
 echo "==> PKGBUILD assets"

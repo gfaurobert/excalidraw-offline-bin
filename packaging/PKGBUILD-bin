@@ -19,5 +19,18 @@ source=("excalidraw-offline-${pkgver}-linux-x86_64.tar.gz::${url}/releases/downl
 sha256sums=('f2f736e36c093c452c510fa8feb43661893007c02856465181b96ee436c42b5e')
 
 package() {
-  tar -xzf "$srcdir/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz" -C "$pkgdir"
+  local tmp="${srcdir}/.unpack"
+  rm -rf "$tmp"
+  mkdir -p "$tmp"
+  tar -xzf "$srcdir/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz" -C "$tmp"
+  local root="$tmp/usr"
+  install -Dm755 "$root/bin/excalidraw-offline" "$pkgdir/usr/bin/excalidraw-offline"
+  install -Dm644 "$root/share/applications/excalidraw-offline.desktop" \
+    "$pkgdir/usr/share/applications/excalidraw-offline.desktop"
+  install -Dm644 "$root/share/mime/packages/application-x-excalidraw.xml" \
+    "$pkgdir/usr/share/mime/packages/application-x-excalidraw.xml"
+  install -Dm644 "$root/share/icons/hicolor/128x128/apps/excalidraw-offline.png" \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
+  install -Dm644 "$root/share/licenses/excalidraw-offline/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
