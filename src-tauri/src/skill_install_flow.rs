@@ -359,3 +359,61 @@ pub fn run_info_about_excalidraw(state: &Arc<AppState>) {
         }
     });
 }
+
+#[cfg(test)]
+mod flow_tests {
+    use super::parse_mode;
+    use crate::install_skill::{
+        parse_harness_id, resolve_harness_install_dests, HarnessId, InstallMode,
+    };
+    use crate::skill_dialog_common::{harness_checklist_selection_ok, DialogError};
+    use std::path::PathBuf;
+
+    #[test]
+    fn install_mode_parsing() {
+        assert_eq!(parse_mode("global"), Some(InstallMode::Global));
+        assert_eq!(parse_mode("project"), Some(InstallMode::Project));
+        assert_eq!(parse_mode("custom"), Some(InstallMode::Custom));
+        assert!(parse_mode("nope").is_none());
+    }
+
+    #[test]
+    fn global_flow_resolves_agents_and_claude_paths() {
+        let home = PathBuf::from("/home/alice");
+        let selected = harness_checklist_selection_ok(vec!["agents".into(), "claude".into()])
+            .expect("default harness selection");
+        let harness_ids: Vec<HarnessId> = selected
+            .iter()
+            .filter_map(|s| parse_harness_id(s))
+            .collect();
+        let dests =
+            resolve_harness_install_dests(InstallMode::Global, &home, &harness_ids, None)
+                .unwrap();
+        assert_eq!(dests.len(), 2);
+        assert!(dests[0].ends_with(".agents/skills/excalidraw-sketching"));
+        assert!(dests[1].ends_with(".claude/skills/excalidraw-sketching"));
+    }
+
+    #[test]
+    fn global_flow_claude_only_after_uncheck_agents() {
+        let home = PathBuf::from("/home/alice");
+        let selected = harness_checklist_selection_ok(vec!["claude".into()]).unwrap();
+        let harness_ids: Vec<HarnessId> = selected
+            .iter()
+            .filter_map(|s| parse_harness_id(s))
+            .collect();
+        let dests =
+            resolve_harness_install_dests(InstallMode::Global, &home, &harness_ids, None)
+                .unwrap();
+        assert_eq!(dests.len(), 1);
+        assert!(dests[0].ends_with(".claude/skills/excalidraw-sketching"));
+    }
+
+    #[test]
+    fn checklist_cancel_when_nothing_selected() {
+        assert!(matches!(
+            harness_checklist_selection_ok(vec![]),
+            Err(DialogError::Cancelled)
+        ));
+    }
+}
