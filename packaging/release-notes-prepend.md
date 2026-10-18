@@ -9,4 +9,6 @@
 |----------|--------|
 | **Linux x86_64** | AppImage, `excalidraw-offline-<ver>-linux-x86_64.tar.gz`, Arch `PKGBUILD` / `PKGBUILD-bin`, prebuilt `.pkg.tar.zst`, `SHA256SUMS` |
 | **Windows 11 x64** | Portable zip, NSIS installer, `SHA256SUMS-windows-x86_64` |
-| **macOS 11+** | Universal and Apple Silicon arm64 `.zip` (`.app` inside), `SHA256SUMS-macos` |
+| **macOS 11+** | Universal and Apple Silicon arm64 `.zip` (**Excalidraw Offline.app** inside), `SHA256SUMS-macos` |
+
+**macOS first launch:** ad-hoc signed builds are often quarantined — macOS may say the app is **damaged or incomplete** (*endommagée ou incomplète*) with a prohibitory icon badge. After moving the app to `/Applications`, run `xattr -cr "/Applications/Excalidraw Offline.app"`, or right-click → **Open**, or **System Settings → Privacy & Security → Open Anyway**.

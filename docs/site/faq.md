@@ -41,11 +41,15 @@ Use **Skills → Install excalidraw-sketching skill**. Choose **Global** or **Pr
 
 ## macOS says the app is damaged or cannot be opened
 
-macOS builds are ad-hoc signed, not notarized. Gatekeeper may block the first launch. Right-click the app → **Open**, or:
+Release zips are **ad-hoc signed**, not Developer ID–signed or notarized. After download, macOS attaches a quarantine flag. Double-clicking **Excalidraw Offline.app** often shows *“Excalidraw Offline is damaged and can’t be opened”* / *« Impossible d’ouvrir l’application Excalidraw Offline car elle est peut-être endommagée ou incomplète »*, and Finder or the Dock may show a prohibitory (circle-with-slash) badge. The zip is usually fine — Gatekeeper is blocking an unsigned app from the internet.
+
+Clear quarantine once (works better than only right-click → **Open** when you see “damaged”):
 
 ```bash
 xattr -cr "/Applications/Excalidraw Offline.app"
 ```
+
+Then open from Applications. If **System Settings → Privacy & Security** shows **Open Anyway** after a blocked launch, that works too.
 
 ## Does double-clicking a `.excalidraw` file open it?
 

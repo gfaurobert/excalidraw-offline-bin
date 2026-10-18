@@ -52,11 +52,13 @@ Tauri uses the system webview instead of bundling a runtime.
 
 **Windows:** run the installer, or extract the portable zip and run `Excalidraw-Offline.exe`. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
-**macOS:** the `.app` is **ad-hoc signed** (not notarized), so Gatekeeper blocks the first launch. Extract the zip (Finder or `ditto -x -k <zip> <dir>`), then right-click the app → **Open**, or clear the quarantine flag:
+**macOS:** extract `excalidraw-offline-<ver>-macos-universal.zip` or `-macos-arm64.zip` (Finder or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to `/Applications`. The build is **ad-hoc signed** (not notarized), so Gatekeeper quarantine often blocks the first launch: double-click may say the app is **damaged or incomplete** (French: *« Impossible d’ouvrir l’application… car elle est peut-être endommagée ou incomplète »*), and Finder may show a prohibitory (circle-with-slash) badge on the icon. That is quarantine, not a bad zip. Clear it once:
 
 ```bash
 xattr -cr "/Applications/Excalidraw Offline.app"
 ```
+
+Then open normally, or right-click the app → **Open**, or **System Settings → Privacy & Security → Open Anyway** after a blocked launch.
 
 ### CLI by platform
 
