@@ -438,11 +438,14 @@ pub async fn multi_select_checklist_dialog(
             if r != ResponseType::Accept {
                 return None;
             }
-            crate::skill_dialog_common::harness_checklist_selection_ok(active_checklist_ids(
-                d,
-                &options_for_map,
-            ))
-            .ok()
+            {
+                let ids = active_checklist_ids(d, &options_for_map);
+                if ids.is_empty() {
+                    None
+                } else {
+                    Some(ids)
+                }
+            }
         });
         dialog.show_all();
     })

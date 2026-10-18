@@ -108,7 +108,7 @@ jobs:
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
           su builder -c 'curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.90.0'
-          su builder -c 'source ~/.cargo/env && corepack enable && corepack prepare pnpm@10 --activate'
+          su builder -c 'npm install -g pnpm@10'
           cd packaging
           su builder -c 'source ~/.cargo/env && makepkg -f -p PKGBUILD.local --noconfirm' 2>&1 | tee makepkg.log
           if grep -qE '(^|\s)WARNING' makepkg.log; then echo "makepkg reported warnings"; exit 1; fi
