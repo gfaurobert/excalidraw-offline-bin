@@ -16,8 +16,7 @@ provides=('excalidraw-offline')
 conflicts=('excalidraw-offline')
 options=('!strip' '!debug')
 source=("excalidraw-offline-${pkgver}-linux-x86_64.tar.gz::${url}/releases/download/v${pkgver}/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz")
-# Updated on main after v0.8.1 release assets are published (see release workflow sed on dist copy).
-sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
+sha256sums=('f2f736e36c093c452c510fa8feb43661893007c02856465181b96ee436c42b5e')
 
 package() {
   tar -xzf "$srcdir/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz" -C "$pkgdir"
