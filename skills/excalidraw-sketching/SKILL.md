@@ -10,10 +10,10 @@ description: >-
 
 # Excalidraw Offline — agent guide
 
-**Excalidraw Offline** is a local Deno Desktop app for `.excalidraw` files (not
-Electron). It embeds upstream Excalidraw in a webview with **native OS dialogs**
-(Linux: zenity/kdialog; Windows: PowerShell WinForms; macOS: osascript). No
-MCP, no canvas server, no share links.
+**Excalidraw Offline** is a local **Tauri 2** desktop app for `.excalidraw` files.
+It embeds upstream Excalidraw in the system webview with **native OS dialogs**
+(Linux: zenity/kdialog or rfd; Windows: rfd; macOS: AppKit). No MCP, no canvas
+server, no share links.
 
 Agents typically either **(A)** help a human use the GUI/CLI, or **(B)** read/write
 sketch JSON under `sketches/` and tell the human how to open or export.
@@ -48,16 +48,19 @@ not auto-open the last file.
 
 ### Native **File** menu (also wired in the canvas webview)
 
-| Action | Menu / shortcut |
-|--------|-----------------|
-| New | File → New · **Ctrl+N** (⌘N macOS) |
-| Open | File → Open… · **Ctrl+O** |
-| Open Recent | File → Open Recent · up to 10 MRU paths (missing paths dropped on use) |
-| Close | File → Close · **Ctrl+W** · returns to start screen |
-| Reload | File → Reload · **Ctrl+R** · re-reads saved file from disk (see below) |
-| Save | File → Save · **Ctrl+S** |
-| Save As | File → Save As… · **Ctrl+Shift+S** |
-| Quit | File → Quit · **Ctrl+Q** |
+| Action | Menu / shortcut (Linux & Windows) | macOS (canvas webview) |
+|--------|-----------------------------------|-------------------------|
+| New | File → New · **Ctrl+N** | **⌘N** |
+| Open | File → Open… · **Ctrl+O** | **⌘O** |
+| Open Recent | File → Open Recent · up to 10 MRU paths (missing paths dropped on use) | same |
+| Close | File → Close · **Ctrl+W** · returns to start screen | **⌘W** |
+| Reload | File → Reload · **Ctrl+R** · re-reads saved file from disk (see below) | **⌘R** |
+| Save | File → Save · **Ctrl+S** | **⌘S** |
+| Save As | File → Save As… · **Ctrl+Shift+S** | **⌘⇧S** |
+| Quit | File → Quit · **Ctrl+Q** | **⌘Q** |
+
+Native menu labels may show `Ctrl+…` on all platforms; the canvas handler
+accepts **Ctrl** (Linux/Windows) or **⌘ (Meta)** on macOS.
 
 **Reload** is enabled only on the **canvas** with a **saved path** (not Untitled,
 not start screen). Use when a coding agent or other tool changed the `.excalidraw`
@@ -75,18 +78,28 @@ Untitled sketches need Save / Save As before autosave works.
 excalidraw-offline /path/to/drawing.excalidraw
 ```
 
-Missing path → creates blank `.excalidraw` (parents included) and opens it.
-Existing file → opens in GUI (may hand off to an already-running instance per app
-rules). Prefer this over Cursor chat file links (those open in the editor, not
-Excalidraw Offline). Linux after MIME install: `xdg-open path.excalidraw`.
+**Existing file** → opens in the GUI. **Missing file** → open **fails** (status
+error); the app does **not** create a blank file. Create the JSON first (see
+[Agent sketching](#agent-sketching-file-crud)), then pass the path.
+
+Each launch is a **separate process/window** (no single-instance handoff). Prefer
+CLI paths over Cursor chat file links (those open in the editor, not Excalidraw
+Offline).
+
+**File associations (Tauri build):** the Arch **`excalidraw-offline` package**
+installs `application/x-excalidraw` + `.desktop` so `xdg-open file.excalidraw`
+works after package install. Release **AppImage** may need MIME/`%F` patching
+(see repo `scripts/patch-appimage-mime.sh`). **Windows and macOS Tauri builds**
+do not register `.excalidraw` handlers yet — pass the path as a CLI argument
+(macOS: `open -a "Excalidraw Offline" --args /path/to/file.excalidraw`).
 
 ### Export image (GUI)
 
-**Ctrl+Shift+E** (⌘⇧E macOS) or upstream **Excalidraw → Export image…** opens
-the upstream export dialog (preview, selection/background/**dark mode**/embed
-scene, scale 1×–3×, PNG / SVG / clipboard). **PNG and SVG** use the **native save
-picker** (default folder: directory of the saved `.excalidraw`, or home when
-Untitled). App header shows status and saved path.
+**Ctrl+Shift+E** (Linux/Windows) or **⌘⇧E** (macOS), or upstream **Excalidraw →
+Export image…**, opens the upstream export dialog (preview, selection/background/**
+dark mode**/embed scene, scale 1×–3×, PNG / SVG / clipboard). **PNG and SVG** use
+the **native save picker** (default folder: directory of the saved `.excalidraw`,
+or home when Untitled). App header shows status and saved path.
 
 ### Upstream Excalidraw on the canvas
 
@@ -97,8 +110,8 @@ Bundled Excalidraw includes standard tools plus recent upstream additions:
 - **Sticky notes** — shortcut **`N`**; element type `stickynote`.
 - **Pan** — **right-click drag** to pan (upstream behavior; threshold ~5px).
 - **Dark mode** — canvas theme in `appState.theme` (`"light"` / `"dark"`); toggle
-  via upstream Excalidraw’s in-app menu. **Export image…** (Ctrl+Shift+E) also
-  offers a **Dark mode** export option in the dialog.
+  via upstream Excalidraw’s in-app menu. **Export image…** also offers a **Dark
+  mode** export option in the dialog.
 
 Space+drag and other upstream shortcuts behave as in stock Excalidraw.
 
@@ -163,9 +176,9 @@ Pretty-print 2 spaces + trailing newline. Element/label rules: `references/cheat
 
 ## Headless PNG export (CLI)
 
-Same renderer as GUI (`exportToBlob`), via a short-lived hidden webview. **Does
-not** join single-instance handoff. Requires packaged app / `deno desktop` webview
-(not headless-only WSL without a host GUI).
+Same renderer as GUI (`exportToBlob`), via a short-lived hidden webview. **Does not**
+open the main GUI window. Needs a display stack (Linux: X11/Wayland or **Xvfb** for
+headless CI; Windows/macOS: WebView2 / WKWebView).
 
 ### Help (stdout, exit 0, no GUI)
 
@@ -174,7 +187,6 @@ excalidraw-offline --help
 excalidraw-offline -h
 excalidraw-offline export --help
 excalidraw-offline export -h
-deno task export -- --help
 ```
 
 Run these for authoritative flag text; summary below matches the shipped help.
@@ -202,28 +214,29 @@ Run these for authoritative flag text; summary below matches the shipped help.
 **Collisions:** `-2`, `-3`, … before `.png`. Exit `1` on usage error, missing
 file, unknown frame/element, empty bbox, or export failure.
 
-### Repo checkout (dev)
+### Invoking the binary (per OS)
 
-Builds frontend, compiles `dist/linux/excalidraw-offline` if needed, then same argv:
+Use the same `export` subcommand and flags after the binary path on every platform.
 
-```bash
-deno task export -- <file.excalidraw> [options]
-```
+#### Linux
 
-### Examples (fixture: `test-fixtures/e2e-export/matrix-demo.excalidraw`)
-
-Frames in that file: `Dashboard`, `UI "mock" / v2`. Sample element id:
-`rect-outside-id`.
+| Install | Binary |
+|---------|--------|
+| **Arch package** (PKGBUILD → `/usr/bin`) | `excalidraw-offline` |
+| **AppImage** (release name) | `./excalidraw-offline-<version>-linux-x86_64.AppImage` |
+| **Dev build** (repo) | `src-tauri/target/release/excalidraw-offline` |
 
 ```bash
 DOC=test-fixtures/e2e-export/matrix-demo.excalidraw
 OUT=/tmp/excalidraw-skill-export
 mkdir -p "$OUT"
 
-# Whole scene
-excalidraw-offline export "$DOC"
+# Whole scene (default bbox)
+/usr/bin/excalidraw-offline export "$DOC"
+# or dev binary:
+# xvfb-run -a ./src-tauri/target/release/excalidraw-offline export "$DOC"
 
-# One frame (repeat --frame for multiple)
+# Single frame
 excalidraw-offline export "$DOC" --frame 'UI "mock" / v2' -d "$OUT"
 
 # All named frames
@@ -237,16 +250,97 @@ excalidraw-offline export "$DOC" --bbox 0,0,900,500 --scale 3 -d "$OUT"
 
 # Single explicit output file (only when one job)
 excalidraw-offline export "$DOC" --element rect-outside-id --out "$OUT/one.png"
-
-# Dev checkout equivalent
-deno task export -- "$DOC" --frame Dashboard --json
-deno task export -- "$DOC" --all-frames -d "$OUT"
 ```
 
-Replace `excalidraw-offline` with `deno task export --` in a git checkout; keep
-flags after `--`.
+On headless Linux (CI, SSH): prefix with `xvfb-run -a` so WebKitGTK has a display.
 
-Humans can also use **Ctrl+Shift+E** (GUI export dialog) instead of CLI.
+#### Windows (PowerShell)
+
+| Install | Binary |
+|---------|--------|
+| **NSIS** (per-user default) | `"$env:LOCALAPPDATA\Excalidraw Offline\excalidraw-offline.exe"` |
+| **Portable zip** | `Excalidraw-Offline.exe` next to the extracted folder |
+
+PowerShell may return to the prompt before the process prints paths. Use
+**`-Wait`** (and often **`-NoNewWindow`**) or capture output explicitly:
+
+```powershell
+$Doc = "C:\path\to\matrix-demo.excalidraw"
+$Out = "C:\temp\excalidraw-skill-export"
+New-Item -ItemType Directory -Force -Path $Out | Out-Null
+$Bin = "$env:LOCALAPPDATA\Excalidraw Offline\excalidraw-offline.exe"
+# Portable: $Bin = "C:\path\to\Excalidraw-Offline.exe"
+
+# Whole scene
+& $Bin export $Doc | Out-Host
+
+# Single frame (wait for completion)
+$p = Start-Process -FilePath $Bin -ArgumentList @(
+  "export", $Doc, "--frame", "Dashboard", "-d", $Out
+) -Wait -NoNewWindow -PassThru
+if ($p.ExitCode -ne 0) { throw "export failed $($p.ExitCode)" }
+
+# Frame with embedded quotes: PS 5.1 strips inner " from --frame values; the CLI
+# also matches with quotes removed. Prefer escaped quotes when you need an exact name:
+#   --frame 'UI `"mock`" / v2'
+& $Bin export $Doc --frame 'UI mock / v2' -d $Out
+
+# All frames + JSON
+& $Bin export $Doc --all-frames -d $Out | Out-Host
+& $Bin export $Doc --element rect-outside-id --json | Out-Host
+
+# Explicit single PNG
+& $Bin export $Doc --element rect-outside-id --out "$Out\one.png" | Out-Host
+```
+
+Successful CLI exports stay quiet on stderr (errors only). A leftover WebView2
+line like **`Failed to unregister class`** can still appear on some Windows builds;
+treat it as harmless when exit code is 0 and PNG path(s) are on stdout.
+
+Export flags require the **`export`** subcommand (`excalidraw-offline export ...`).
+Headless export over SSH should exit after writing PNGs (non-interactive sessions).
+
+#### macOS
+
+| Install | Binary |
+|---------|--------|
+| **`.app` bundle** | `"Excalidraw Offline.app/Contents/MacOS/excalidraw-offline"` |
+
+(`productName` / bundle folder: **Excalidraw Offline**; executable name:
+**excalidraw-offline** — see `src-tauri/tauri.conf.json` and
+`scripts/verify-tauri-macos.sh`.)
+
+```bash
+BIN="/Applications/Excalidraw Offline.app/Contents/MacOS/excalidraw-offline"
+DOC="/path/to/matrix-demo.excalidraw"
+OUT="/tmp/excalidraw-skill-export"
+mkdir -p "$OUT"
+
+"$BIN" export "$DOC"
+"$BIN" export "$DOC" --frame 'Dashboard' -d "$OUT"
+"$BIN" export "$DOC" --all-frames -d "$OUT"
+"$BIN" export "$DOC" --element rect-outside-id --json
+"$BIN" export "$DOC" --bbox 0,0,900,500 --scale 3 -d "$OUT"
+"$BIN" export "$DOC" --element rect-outside-id --out "$OUT/one.png"
+```
+
+GUI open with path: `open -a "Excalidraw Offline" --args "$DOC"`
+
+### Repo checkout (dev build)
+
+```bash
+cd frontend && pnpm install --frozen-lockfile && pnpm run build
+cd ../src-tauri && cargo build --release --locked --features tauri/custom-protocol
+export BIN="$PWD/target/release/excalidraw-offline"
+"$BIN" export --help
+```
+
+### Examples (fixture: `test-fixtures/e2e-export/matrix-demo.excalidraw`)
+
+Frames in that file: `Dashboard`, `UI "mock" / v2`. Sample element id:
+`rect-outside-id`.
+
+Humans can also use **Ctrl+Shift+E** / **⌘⇧E** (GUI export dialog) instead of CLI.
 
 ---
 

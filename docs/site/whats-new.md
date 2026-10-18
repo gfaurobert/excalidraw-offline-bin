@@ -5,9 +5,21 @@ nav_order: 5
 
 # What's new
 
-**Current release:** [v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) (Linux x86_64 — AppImage and tar.xz).
+**Current GitHub release:** [v0.8.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.0) — **Tauri 2** on Linux, Windows 11, and macOS (universal). See [Install]({{ '/install.html' | relative_url }}).
 
-Windows and macOS builds for v0.6.0, v0.7.0, v0.7.1, and v0.7.2 were not published; the latest **Windows** (MSI/zip) and **Apple Silicon macOS** (DMG/zip) builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release. See [Install]({{ '/install.html' | relative_url }}).
+---
+
+## v0.8.0 (2026-10-18) — Tauri 2 (Linux, Windows 11, macOS)
+
+- **Tauri 2 shell** — ~19 MB Linux binary (stripped) vs ~155 MB legacy bundle, system webview (WebKitGTK / WebView2 / WKWebView)
+- **All three platforms** in one release: File menu (incl. unsaved **Save / Don't save / Cancel** on close and quit), Skills, Info, headless **export** CLI
+- **macOS universal** `.app` (Apple Silicon + Intel), ad-hoc signed; **Windows** NSIS installer + portable zip; **Linux** AppImage + Arch package / `PKGBUILD`
+- **Native dialogs** — GTK, Win32, AppKit
+- **Skills** installer: Global / Project / Custom + agent checklist; skill embedded in the binary
+- Legacy Deno Desktop shell removed from the repository
+- Not ported yet: single-instance handoff and OS file associations
+
+[Release notes](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.0) · [Full changelog](https://github.com/gfaurobert/excalidraw-offline-bin/compare/v0.7.2...v0.8.0)
 
 ---
 
@@ -42,7 +54,7 @@ Windows and macOS builds for v0.6.0, v0.7.0, v0.7.1, and v0.7.2 were not publish
 
 - **Export image…** (Ctrl+Shift+E / ⌘⇧E) — upstream Excalidraw export dialog with **native save** for PNG/SVG (default folder: directory of the open `.excalidraw` file).
 - **Headless PNG export CLI** — `excalidraw-offline export <file.excalidraw>` with `--frame`, `--all-frames`, `--element`, `--bbox`, `--scale`, `--json`, `--out` / `-d`.
-- **`--help` / `-h`** — top-level and `export` subcommand help on stdout (exit 0, no GUI); `deno task export -- --help` in repo checkouts.
+- **`--help` / `-h`** — top-level and `export` subcommand help on stdout (exit 0, no GUI); `./src-tauri/target/release/excalidraw-offline export --help` in repo checkouts.
 - Removed legacy quick “Export Selection as PNG” / fixed `export/` folder convention; use the dialog or CLI instead.
 
 [Release notes](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.6.0) · [Full changelog](https://github.com/gfaurobert/excalidraw-offline-bin/compare/v0.5.0...v0.6.0)

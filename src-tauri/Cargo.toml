@@ -1,0 +1,56 @@
+[package]
+name = "excalidraw-offline"
+version = "0.8.0"
+description = "Excalidraw Offline (Tauri 2 POC)"
+authors = ["Excalidraw Offline"]
+edition = "2021"
+
+[lib]
+name = "excalidraw_offline_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "excalidraw-offline"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+axum = { version = "0.7", features = ["json"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+base64 = "0.22"
+dirs = "5"
+chrono = "0.4"
+mime_guess = "2"
+parking_lot = "0.12"
+thiserror = "2"
+include_dir = "0.7"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rfd = { version = "0.15", default-features = false, features = ["gtk3", "async-std"] }
+gtk = { version = "0.18", features = ["v3_24"] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+rfd = { version = "0.15", default-features = true, features = ["common-controls-v6"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Console",
+  "Win32_System_LibraryLoader",
+  "Win32_UI_Controls",
+  "Win32_UI_HiDpi",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"

@@ -1,7 +1,21 @@
-## Linux-only release
+## Tauri 2 — Linux, Windows 11, and macOS
 
-**This GitHub Release contains Linux x86_64 assets only.** Windows and macOS builds for **v0.7.2** were not end-to-end tested; the latest published **Windows/macOS** builds remain **[v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0)** until a follow-up release.
+This release ships the **Tauri 2** desktop app on **all supported platforms** (system webview; no bundled Deno runtime).
 
-## Highlights (since v0.7.1)
+### Downloads
 
-- **Skills → Install excalidraw-sketching skill** — multi-select checklist of agent install targets: `.agents/skills` (Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Amp, Goose, Roo Code, Windsurf), Claude Code (`.claude/skills`), Kiro (`.kiro/skills`), Cline (`.cline/skills`), or **All**; creates missing folders. The installed skill contains only `SKILL.md` and `references/` (no evals or test files).
+| Platform | Assets |
+|----------|--------|
+| **Linux x86_64** | AppImage, Arch `PKGBUILD` (+ prebuilt `.pkg.tar.zst` when present), `SHA256SUMS` |
+| **Windows 11 x64** | Portable zip, NSIS installer, `SHA256SUMS-windows-x86_64` |
+| **macOS 11+** | Universal and Apple Silicon arm64 `.zip` (`.app` inside), `SHA256SUMS-macos` |
+
+### Highlights (since v0.7.2)
+
+- **Tauri 2 shell** on Linux, Windows, and macOS — smaller Linux binary (~19 MB stripped) using WebKitGTK / WebView2 / WKWebView
+- **Native OS dialogs** (GTK / Win32 / AppKit) for open, save, and unsaved prompts
+- **Skills → Install excalidraw-sketching skill** with Global / Project / Custom targets; skill embedded in the binary
+- **Headless export CLI** (`excalidraw-offline export`) and GUI **Export image…** on all platforms
+- **macOS universal** `.app` (Apple Silicon + Intel), ad-hoc signed — right-click → **Open** on first launch if Gatekeeper blocks
+
+**Not in this release:** single-instance handoff and OS file associations (double-click `.excalidraw`); pass the path as a CLI argument.

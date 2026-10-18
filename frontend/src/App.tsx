@@ -11,7 +11,7 @@ import { StartScreen } from "./StartScreen";
 import {
   planReload,
   reloadActionAfterUnsavedChoice,
-} from "../../desktop/reload-guard.ts";
+} from "./lib/reload-guard";
 import {
   installOfflineExportDownloadHook,
   saveExportBlobViaApi,
@@ -176,13 +176,14 @@ export default function App() {
   const pathLabelRef = useRef(pathLabel);
   const excalidrawVersionRef = useRef("unknown");
 
-  pathLabelRef.current = pathLabel;
-  modeRef.current = mode;
+  useEffect(() => {
+    pathLabelRef.current = pathLabel;
+  }, [pathLabel]);
 
-  const enterCanvas = useCallback(() => {
+  const enterCanvas = useCallback(async () => {
     modeRef.current = "canvas";
     setMode("canvas");
-    void notifyMode("canvas");
+    await notifyMode("canvas");
   }, []);
 
   const returnToStart = useCallback(async () => {
@@ -244,7 +245,10 @@ export default function App() {
       // non-fatal
     }
   }, []);
-  updateTitleRef.current = updateTitle;
+
+  useEffect(() => {
+    updateTitleRef.current = updateTitle;
+  }, [updateTitle]);
 
   const cancelPendingAutosave = useCallback(() => {
     if (autosaveTimer.current !== null) {
@@ -339,6 +343,7 @@ export default function App() {
       dirtyRef.current = false;
       savedSceneKeyRef.current = sceneJson;
       await updateTitleRef.current(path, false);
+      await refreshRecent();
       setStatus(`Saved ${path}`);
       await apiLog("info", `save: done ${path}`);
       return true;
@@ -349,7 +354,7 @@ export default function App() {
     } finally {
       busyRef.current = false;
     }
-  }, []);
+  }, [refreshRecent]);
 
   const flushIfPathed = useCallback(async (): Promise<boolean> => {
     if (!pathRef.current || !dirtyRef.current) return true;
@@ -484,7 +489,7 @@ export default function App() {
     } catch {
       // ignore
     }
-    enterCanvas();
+    await enterCanvas();
     await updateTitleRef.current(null, false);
     setStatus("New drawing");
     await apiLog("info", "runNew done");
@@ -494,12 +499,16 @@ export default function App() {
     forcePicker: boolean,
     presetPath?: string,
   ): Promise<boolean> => {
+    const preset = presetPath?.trim();
     await apiLog(
       "info",
-      `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${presetPath ?? ""}`,
+      `runSave start forcePicker=${forcePicker} busy=${busyRef.current} path=${pathRef.current} preset=${preset ?? ""} modeRef=${modeRef.current}`,
     );
-    if (modeRef.current !== "canvas") {
-      await apiLog("info", "runSave skipped: not on canvas");
+    if (modeRef.current !== "canvas" && !preset) {
+      await apiLog(
+        "info",
+        `runSave skipped: not on canvas (modeRef=${modeRef.current})`,
+      );
       return false;
     }
     if (busyRef.current) {
@@ -507,8 +516,9 @@ export default function App() {
       return false;
     }
 
-    let path = presetPath?.trim() || pathRef.current;
-    if (forcePicker || !path) {
+    let path = preset || pathRef.current;
+    const needsPicker = !path || (forcePicker && !preset);
+    if (needsPicker) {
       const chosen = await pickSavePath(
         path ?? `${homeRef.current}/drawing.excalidraw`,
       );
@@ -523,6 +533,9 @@ export default function App() {
       await apiLog("info", `runSave path chosen: ${path}`);
     }
 
+    if (!path) {
+      return false;
+    }
     return await writeSceneToPath(path);
   }, [pickSavePath, writeSceneToPath]);
 
@@ -550,7 +563,7 @@ export default function App() {
         files: doc.files,
       });
       setDocKey((k) => k + 1);
-      enterCanvas();
+      await enterCanvas();
       await refreshRecent();
       await updateTitleRef.current(doc.path, false);
       setStatus(statusMessage);
@@ -806,6 +819,7 @@ export default function App() {
       saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
       onSaved: (path) => setStatus(`Exported ${path}`),
       onError: (message) => setStatus(`Export failed: ${message}`),
+      log: (message) => void apiLog("info", message),
     });
   }, []);
 
@@ -824,11 +838,37 @@ export default function App() {
     });
   }, [mode, docKey]);
 
-  // Prove HTTP desktop API is reachable (not Deno bindings).
+  const apiBootstrappedRef = useRef(false);
+
+  // Load recent list from the same /api/recent endpoint as the native menu.
+  // State is set from the fetch callback (not synchronously in the effect body).
   useEffect(() => {
+    let cancelled = false;
+    apiJson<{ paths: string[]; labels: string[] }>("/api/recent")
+      .then((data) => {
+        if (cancelled) return;
+        setRecent(
+          data.paths.map((path, i) => ({
+            path,
+            label: data.labels[i] ?? path.split("/").pop() ?? path,
+          })),
+        );
+      })
+      .catch((err) => {
+        void apiLog("error", `recent refresh failed: ${String(err)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Prove HTTP desktop API is reachable — once per app load.
+  useEffect(() => {
+    if (apiBootstrappedRef.current) return;
     let cancelled = false;
     (async () => {
       for (let i = 0; i < 50; i++) {
+        if (cancelled || apiBootstrappedRef.current) return;
         try {
           const info = await apiJson<{
             home: string;
@@ -836,7 +876,8 @@ export default function App() {
             excalidrawVersion?: string;
             e2e?: boolean;
           }>("/api/info");
-          if (cancelled) return;
+          if (cancelled || apiBootstrappedRef.current) return;
+          apiBootstrappedRef.current = true;
           homeRef.current = info.home || ".";
           if (info.excalidrawVersion) {
             excalidrawVersionRef.current = info.excalidrawVersion;
@@ -846,14 +887,20 @@ export default function App() {
               getApi: () => apiRef.current,
               getPathLabel: () => pathLabelRef.current,
               getDirty: () => dirtyRef.current,
-              syncSceneFromApi,
+              syncSceneFromApi: () => syncSceneFromApi(),
               saveExportBlob: (input) => saveExportBlobViaApi(input, apiJson),
               excalidrawPackageVersion: excalidrawVersionRef.current,
             });
           }
-          await apiLog("info", `api/info ok home=${homeRef.current}`);
+          await apiJson("/api/ready", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({}),
+          });
           await refreshRecent();
-          await notifyMode("start");
+          if (modeRef.current === "start") {
+            await notifyMode("start");
+          }
           await updateTitleRef.current(null, false);
           setStatus("");
           return;
@@ -864,15 +911,14 @@ export default function App() {
           await new Promise((r) => setTimeout(r, 100));
         }
       }
-      if (!cancelled) {
+      if (!cancelled && !apiBootstrappedRef.current) {
         setStatus("HTTP API unavailable");
-        await apiLog("error", "api/info failed after retries");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [refreshRecent]);
+  }, [refreshRecent, syncSceneFromApi]);
 
   // Tell desktop which window was focused last (single-instance handoff).
   useEffect(() => {
@@ -913,24 +959,24 @@ export default function App() {
               if (cmd.message) setStatus(cmd.message);
               break;
             case "new":
-              setTimeout(() => void runNew(), 0);
+              await runNew();
               break;
             case "open":
-              setTimeout(() => void runOpen(cmd.path), 0);
+              await runOpen(cmd.path);
               break;
             case "save": {
               const forcePicker = Boolean(cmd.forcePicker);
-              setTimeout(() => void runSave(forcePicker, cmd.path), 0);
+              await runSave(forcePicker, cmd.path);
               break;
             }
             case "close":
-              setTimeout(() => void runClose(), 0);
+              await runClose();
               break;
             case "quit":
-              setTimeout(() => void runQuit(), 0);
+              await runQuit();
               break;
             case "reload":
-              setTimeout(() => void runReload(), 0);
+              await runReload();
               break;
           }
         }
@@ -974,6 +1020,12 @@ export default function App() {
         void runOpen();
         return;
       }
+      if (key === "q" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void runQuit();
+        return;
+      }
       if (modeRef.current !== "canvas") return;
       if (key === "w" && !e.shiftKey) {
         e.preventDefault();
@@ -1012,6 +1064,7 @@ export default function App() {
     runOpen,
     runSave,
     runClose,
+    runQuit,
     runReload,
     openExportImageDialog,
   ]);

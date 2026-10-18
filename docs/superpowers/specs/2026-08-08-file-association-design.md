@@ -72,7 +72,7 @@ If this process is primary and argv has a path: after HTTP server + window are u
 | Piece | Role |
 |-------|------|
 | `desktop/open-path.ts` | Ensure path exists (create blank `.excalidraw` if missing) before open |
-| `desktop/cli-args.ts` | Pure parse of open path from `Deno.args` |
+| `desktop/cli-args.ts` | Pure parse of open path from `Tauri.args` |
 | `desktop/instance-registry.ts` | Register / unregister / list / pick handoff target |
 | `desktop/main.ts` | Startup handoff; `/api/instance-state`, `/api/open-external`, `/api/focus` |
 | `frontend/src/App.tsx` | Focus heartbeat |

@@ -1,0 +1,7 @@
+[cli-export] loading http://127.0.0.1:45589/export-cli.html
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+[cli-export] wrote /workspace/artifacts/tauri-poc/export-all-frames/matrix-demo_UI _mock_ _ v2_20261010-204510.png (20529 bytes)
+[cli-export] wrote /workspace/artifacts/tauri-poc/export-all-frames/matrix-demo_Dashboard_20261010-204510.png (12102 bytes)
+/workspace/artifacts/tauri-poc/export-all-frames/matrix-demo_UI _mock_ _ v2_20261010-204510.png
+/workspace/artifacts/tauri-poc/export-all-frames/matrix-demo_Dashboard_20261010-204510.png

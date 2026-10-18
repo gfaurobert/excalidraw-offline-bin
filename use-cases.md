@@ -12,13 +12,13 @@
 - We do **not** rebuild Excalidraw.
 - We use the open-source Excalidraw project and build a thin desktop wrapper around it.
 - Integration choice: embed the `@excalidraw/excalidraw` React package in a small Vite/React UI.
-- The Deno Desktop shell owns offline packaging, local file open/save/autosave, and image asset handling.
+- The **Tauri 2** shell owns offline packaging, local file open/save/autosave, and image asset handling.
 - Drawing UX stays upstream Excalidraw.
 
 ### Runtime and packaging
-- First version targets Arch Linux users; Windows 11 x86_64 and Apple Silicon macOS are follow-on ports of the same Deno Desktop wrapper.
-- App runtime: Deno Desktop (not Electron). Linux uses WebKitGTK + zenity/kdialog; Windows 11 uses WebView2 + PowerShell WinForms; macOS uses WKWebView + osascript.
-- Primary distribution path: AUR package on Arch; GitHub Releases AppImage/tarball on other Linux; MSI/zip on Windows 11; DMG/zip of the `.app` on Apple Silicon macOS.
+- Linux x86_64, Windows 11 x86_64, and macOS (universal) share the same Tauri wrapper.
+- App runtime: Tauri 2 + system webview (WebKitGTK / WebView2 / WKWebView). Native dialogs via GTK / Win32 / AppKit (and zenity on Linux when available).
+- Primary distribution: GitHub Releases (AppImage + Arch package on Linux; portable zip + NSIS on Windows; universal + arm64 zips on macOS); AUR-ready `PKGBUILD` for Arch.
 - Priority: keep the install/binary as small as possible.
 
 ### 1) Launch Excalidraw App
@@ -26,16 +26,15 @@
 - No account, sync, collaboration, or network requirement for core drawing.
 - Cold start shows a start screen (New file / Open file / Recent files). Excalidraw canvas mounts only after the user chooses an action.
 - File → Close (Ctrl+W) returns to the start screen. Quit exits the app.
-- Unsaved Untitled drawings use a native Cancel / Save / Discard dialog (zenity/kdialog on Linux, WinForms on Windows, osascript on macOS). Open/Save path prompts are native file pickers only.
+- Unsaved Untitled drawings use a native Cancel / Save / Discard dialog. Open/Save path prompts are native file pickers only.
 - Info menu (native): Runtime dialog backend, assets storage tip, About Excalidraw Offline (wrapper version), About Excalidraw (upstream package version). Transient open/save status shows in the app header; there is no footer status bar.
 - Skills menu (native): Install bundled `excalidraw-sketching` Agent Skill to Global (`~/.agents/skills`), Project (`<root>/.agents/skills`), or Custom (folder as-is).
 
 ### 2) Open a `.excalidraw` file
 - User can open an existing local `.excalidraw` file from the app (menu/open dialog or start-screen Open).
 - CLI: `excalidraw-offline /path/to/file.excalidraw` (creates a blank file if the path is missing).
-- File-manager double-click / Open with / `xdg-open` via OS MIME association (system package + AppImage). On Windows 11, the packaged exe registers a per-user `.excalidraw` association (HKCU). On macOS, the packaged `.app` declares a `.excalidraw` UTI; Finder double-click currently launches the app (Deno Desktop does not yet deliver Apple Events) — pass the path as CLI argv (`open -a "Excalidraw Offline" --args <path>`).
-- Single-instance handoff: reuse the most recently focused window when it is on the start screen or a saved drawing; if that window is Untitled, open a new window.
-- File → Open Recent and the start-screen Recent list show up to 10 recently opened/saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline`; macOS: `~/Library/Application Support/excalidraw-offline`). Missing or unreadable paths are removed from the list when selected (menu or start-screen).
+- OS file associations and Finder double-click are **not ported yet** — pass the path as CLI argv (`open -a "Excalidraw Offline" --args <path>` on macOS).
+- File → Open Recent and the start-screen Recent list show up to 10 recently opened/saved paths (Linux: XDG config; Windows: `%APPDATA%\excalidraw-offline`; macOS: `~/Library/Application Support/excalidraw-offline`). Missing or unreadable paths are removed from the list when selected.
 - Cursor chat path clicks typically open inside the editor — agents should launch the CLI (or `xdg-open` on Linux, `open -a "Excalidraw Offline" --args` on macOS) instead.
 
 ### 3) Save under a repo
@@ -48,15 +47,3 @@
 - If the drawing already has a file path, autosave writes directly back to that `.excalidraw` file.
 - Brand-new unsaved drawings still need a manual Save / Save As before autosave can write.
 - Crash recovery from a separate temp location is not part of the first version.
-
-### 5) Import image into canvas
-- Goal: attachments must still be present after closing the file/app and reopening the same `.excalidraw` file.
-- On import, copy the attachment into a sibling `assets/` folder next to the `.excalidraw` file.
-- Store/reference assets with relative paths under that `assets/` folder so the drawing stays portable and reopen does not lose assets.
-- Applies to whatever attachment types upstream Excalidraw supports (images first; PDF or others only if Excalidraw supports them).
-- Do not depend on the original absolute path of the imported file after copy.
-
-## Explicit non-goals for first version
-- Export to PNG/SVG
-- Cloud sync / collaboration / login
-- Git integration beyond saving into a folder that happens to be a repo

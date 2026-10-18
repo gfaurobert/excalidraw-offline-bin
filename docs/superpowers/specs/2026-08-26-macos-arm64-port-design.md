@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run Excalidraw Offline as a Deno Desktop app on **Apple Silicon macOS** (M-series, including M5), with native file dialogs, idiomatic config/runtime paths, CLI open, and GitHub Release artifacts (DMG + zip of the `.app`), without changing Linux or Windows behavior.
+Run Excalidraw Offline as a Tauri 2 app on **Apple Silicon macOS** (M-series, including M5), with native file dialogs, idiomatic config/runtime paths, CLI open, and GitHub Release artifacts (DMG + zip of the `.app`), without changing Linux or Windows behavior.
 
 ## Decisions
 
@@ -18,7 +18,7 @@ Run Excalidraw Offline as a Deno Desktop app on **Apple Silicon macOS** (M-serie
 | Artifact names | `excalidraw-offline-<ver>-macos-arm64.dmg`, `.zip`, `SHA256SUMS-macos-arm64` |
 | CI | New `release-macos.yml` on `macos-latest` (arm64 host; DMG needs `hdiutil`) |
 | File association | Post-build `Info.plist` `CFBundleDocumentTypes` + exported UTI; `lsregister -f` on packaged-app launch |
-| Finder double-click | Register the type so Get Info / Open With work; Deno Desktop does not yet deliver macOS `odoc` Apple Events into JS — CLI argv is the reliable open path until that lands |
+| Finder double-click | Register the type so Get Info / Open With work; Tauri 2 does not yet deliver macOS `odoc` Apple Events into JS — CLI argv is the reliable open path until that lands |
 | Signing | Ad-hoc (`codesign -s -`) after the plist patch; Developer ID + notarization out of scope |
 | Homebrew | Out of scope |
 | Intel macOS | Out of scope |
@@ -57,7 +57,7 @@ Frontend, file format (`assets/` next to the `.excalidraw` file), menus, skills,
 
 ## Dialogs
 
-Deno Desktop still has **no native file-picker API**. Do not call pickers from webview bindings (same freeze risk as Linux/Windows).
+Tauri 2 still has **no native file-picker API**. Do not call pickers from webview bindings (same freeze risk as Linux/Windows).
 
 `/usr/bin/osascript` reads AppleScript on stdin. Cancel is empty stdout + exit `1` (including error `-128`), same `DialogResult` reasons as other backends.
 
@@ -81,31 +81,31 @@ POSIX paths already work. Darwin-specific dirs:
 - Instances: `$TMPDIR/excalidraw-offline/instances`
 - Skills global dir remains `~/.agents/skills`
 
-`isProcessAlive` keeps `Deno.kill(pid, 0)` on Darwin (same as Linux). Do **not** honor `XDG_*` on Darwin; Application Support is the idiomatic location.
+`isProcessAlive` keeps `Tauri.kill(pid, 0)` on Darwin (same as Linux). Do **not** honor `XDG_*` on Darwin; Application Support is the idiomatic location.
 
 ## File association (v1)
 
-Deno Desktop does not expose `CFBundleDocumentTypes` in `deno.json`. After `deno desktop --output=….app`:
+Tauri 2 does not expose `CFBundleDocumentTypes` in `src-tauri/tauri.conf.json`. After `Tauri 2 --output=….app`:
 
 1. Patch `Contents/Info.plist` with exported UTI `dev.excalidraw.offline.drawing` (`.excalidraw`, `application/vnd.excalidraw+json`) and a document type (Editor / Owner).
-2. Stamp `CFBundleShortVersionString` / `CFBundleVersion` from `deno.json` `"version"`.
-3. Ad-hoc re-sign (`codesign --force --deep -s -`) because the plist edit invalidates Deno's signature.
-4. On packaged-app startup, if `execPath` is inside `*.app/Contents/MacOS/` and is not `deno`, run `lsregister -f` on the bundle so Launch Services notices the type.
+2. Stamp `CFBundleShortVersionString` / `CFBundleVersion` from `src-tauri/tauri.conf.json` `"version"`.
+3. Ad-hoc re-sign (`codesign --force --deep -s -`) because the plist edit invalidates Tauri's signature.
+4. On packaged-app startup, if `execPath` is inside `*.app/Contents/MacOS/` and is not `Tauri`, run `lsregister -f` on the bundle so Launch Services notices the type.
 
-Skip registration during `deno task start` (execPath is `deno`).
+Skip registration during `cargo start` (execPath is `Tauri`).
 
-**Open delivery:** Finder / `open -a` send Apple Events. Deno Desktop does not yet surface those to the app (same gap as deep-link delivery). Reliable opens:
+**Open delivery:** Finder / `open -a` send Apple Events. Tauri 2 does not yet surface those to the app (same gap as deep-link delivery). Reliable opens:
 
 - In-app File → Open / start-screen Open (`osascript` picker)
 - CLI argv: `"…/Excalidraw Offline.app/Contents/MacOS/Excalidraw Offline" /path/to/file.excalidraw`
 - `open -a "Excalidraw Offline" --args /path/to/file.excalidraw`
 
-Document this honestly; do not claim Finder double-click opens the drawing until Deno delivers `odoc`.
+Document this honestly; do not claim Finder double-click opens the drawing until Tauri delivers `odoc`.
 
 ## Packaging and CI
 
 ```
-deno desktop -A --backend=webview --compress=xz --target aarch64-apple-darwin
+Tauri 2 -A --backend=webview --compress=xz --target aarch64-apple-darwin
   --include=./frontend/dist --include=./icons --include=./skills
   --output=./dist/macos/Excalidraw Offline.app
 ```
@@ -115,13 +115,13 @@ Build the `.app` with a **dot-free** basename (`Excalidraw Offline.app`), patch 
 - Zip the `.app` as `excalidraw-offline-<ver>-macos-arm64.zip`
 - On Darwin, `hdiutil` UDZO DMG named `excalidraw-offline-<ver>-macos-arm64.dmg` (volume contains the `.app` + `/Applications` symlink)
 
-`deno.json`:
+`src-tauri/tauri.conf.json`:
 
-- `desktop.app.icons.macos` = `./icons/icon.png` (Deno assembles `.icns`)
+- `desktop.app.icons.macos` = `./icons/icon.png` (Tauri assembles `.icns`)
 - `desktop.output.macos` = `./dist/macos/Excalidraw Offline.app`
 - tasks: `package:macos`, `package:macos:release`
 
-Workflow mirrors Linux/Windows: Deno 2.9.4, version must match `v*` tags, `workflow_dispatch` uploads artifacts only. Job runs on **`macos-latest`** because DMG and `codesign` need a macOS host. `.app` *can* be cross-compiled from Linux, but release artifacts are produced on macOS CI.
+Workflow mirrors Linux/Windows: Tauri 2.9.4, version must match `v*` tags, `workflow_dispatch` uploads artifacts only. Job runs on **`macos-latest`** because DMG and `codesign` need a macOS host. `.app` *can* be cross-compiled from Linux, but release artifacts are produced on macOS CI.
 
 Runtime note: WKWebView (system). Unsigned / ad-hoc builds hit Gatekeeper; users can right-click → Open, or `xattr -d com.apple.quarantine`.
 
@@ -137,11 +137,11 @@ README + GitHub Pages install/usage/faq: macOS arm64 DMG/zip, osascript dialogs,
 - CEF backend
 - Changing Linux or Windows packaging or dialog backends
 - Custom URI scheme (`excalidraw-offline://`)
-- Finder double-click actually loading the drawing (blocked on Deno Desktop Apple Event delivery)
+- Finder double-click actually loading the drawing (blocked on Tauri 2 Apple Event delivery)
 
 ## Success criteria
 
-1. `deno task start` on Apple Silicon opens the start screen; New / Open / Save / unsaved Save-Discard-Cancel / Skills install use osascript dialogs.
+1. `cargo start` on Apple Silicon opens the start screen; New / Open / Save / unsaved Save-Discard-Cancel / Skills install use osascript dialogs.
 2. Passing a `.excalidraw` path as argv opens or creates the file; single-instance handoff matches Linux/Windows rules.
 3. Recent files persist under `~/Library/Application Support/excalidraw-offline/recent.json`.
 4. Packaged `.app` Info.plist declares the `.excalidraw` UTI; first launch runs `lsregister`.

@@ -10,7 +10,7 @@
 - osascript AppleScript dialogs (open/save/image/folder/info/confirm/unsaved Save-Discard-Cancel/skill choice)
 - Darwin paths (`~/Library/Application Support/excalidraw-offline/recent.json`, `$TMPDIR/.../instances`)
 - CLI open + single-instance handoff (same HTTP registry as Linux/Windows)
-- Packaged `.app` Info.plist UTI `dev.excalidraw.offline.drawing`; `lsregister -f` on launch (skipped for `deno` during `deno task start`)
+- Packaged `.app` Info.plist UTI `dev.excalidraw.offline.drawing`; `lsregister -f` on launch (skipped for `Tauri` during `cargo start`)
 - Release artifacts: DMG + zip of `.app` + `SHA256SUMS-macos-arm64` (CI on `macos-latest` with `--target aarch64-apple-darwin`)
 
 Design: `docs/superpowers/specs/2026-08-26-macos-arm64-port-design.md`  
@@ -20,14 +20,14 @@ Earlier assessment (now implemented): `docs/handoffs/2026-07-31-macos-port.md`.
 
 ## Dev loop on the Mac
 
-Prereqs: Deno **≥ 2.9**, Git. WKWebView and `osascript` are system.
+Prereqs: Tauri **≥ 2.9**, Git. WKWebView and `osascript` are system.
 
 ```bash
 git clone https://github.com/gfaurobert/excalidraw-offline-bin.git
 cd excalidraw-offline-bin
 git checkout cursor/macos-arm64-port-fff0
-cd frontend; deno install; deno task build; cd ..
-deno task start
+cd frontend; Tauri install; cargo build; cd ..
+cargo start
 ```
 
 ## Smoke checklist
@@ -38,20 +38,20 @@ deno task start
 4. Import image → sibling `assets/`
 5. Skills → install Global (`~/.agents/skills`)
 6. Info → Runtime shows `osascript+http`
-7. CLI: `deno desktop -A --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts ~/Desktop/demo.excalidraw`
+7. CLI: `Tauri 2 -A --backend=webview --include=./frontend/dist --include=./icons --include=./skills ./desktop/main.ts ~/Desktop/demo.excalidraw`
 8. Recents file: `~/Library/Application Support/excalidraw-offline/recent.json`
-9. Optional: `deno task package:macos` then open the `.app`; Gatekeeper: right-click → Open
-10. Optional: `open -a "Excalidraw Offline" --args ~/Desktop/demo.excalidraw` (argv). Finder double-click is expected to **launch only** until Deno Desktop delivers Apple Events.
-11. Info.plist on the packaged app contains `CFBundleDocumentTypes` / `dev.excalidraw.offline.drawing`. Inner binary is `Contents/MacOS/excalidraw-offline` (space-free; `deno desktop` cannot ad-hoc-sign a `.app` whose name contains spaces).
+9. Optional: `cargo package:macos` then open the `.app`; Gatekeeper: right-click → Open
+10. Optional: `open -a "Excalidraw Offline" --args ~/Desktop/demo.excalidraw` (argv). Finder double-click is expected to **launch only** until Tauri 2 delivers Apple Events.
+11. Info.plist on the packaged app contains `CFBundleDocumentTypes` / `dev.excalidraw.offline.drawing`. Inner binary is `Contents/MacOS/excalidraw-offline` (space-free; `Tauri 2` cannot ad-hoc-sign a `.app` whose name contains spaces).
 
 ## CI / release
 
-Tag `vX.Y.Z` matching `deno.json` version. Linux, Windows, and macOS workflows all upload to the same GitHub Release. macOS checksum file is **`SHA256SUMS-macos-arm64`** so it does not overwrite Linux `SHA256SUMS`.
+Tag `vX.Y.Z` matching `src-tauri/tauri.conf.json` version. Linux, Windows, and macOS workflows all upload to the same GitHub Release. macOS checksum file is **`SHA256SUMS-macos-arm64`** so it does not overwrite Linux `SHA256SUMS`.
 
 Local dry-run on a Mac:
 
 ```
-deno task package:macos:release
+cargo package:macos:release
 ```
 
 From Linux this builds the `.app` and zip but skips DMG/`codesign`.

@@ -11,7 +11,7 @@ Native **Skills** menu to install the bundled `excalidraw-sketching` Agent Skill
 | Menu | File · **Skills** · Info |
 | Item | Install excalidraw-sketching skill |
 | Destinations | Global `~/.agents/skills/…`, Project `<root>/.agents/skills/…`, Custom `<picked>/…` (no `.agents/skills` appended) |
-| Implementation | Native Deno + zenity/kdialog (Approach A) |
+| Implementation | Native Tauri + zenity/kdialog (Approach A) |
 | Bundled payload | `skills/excalidraw-sketching/` via `--include=./skills` |
 | Overwrite | Confirm dialog; decline aborts |
 

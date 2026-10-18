@@ -13,12 +13,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.9.4
-
-      - name: Unit tests
+      - name: Install Linux system deps (GTK3 / WebKitGTK 4.1)
         run: |
-          deno task test:file-format
-          deno task test:release
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Version consistency
+        run: scripts/release-version.sh >/dev/null
+
+      - name: Release helper tests
+        run: bash scripts/previous-release-tag_test.sh
+
+      - name: Unit tests (Rust)
+        working-directory: src-tauri
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo test

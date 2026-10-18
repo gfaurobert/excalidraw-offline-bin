@@ -1,0 +1,158 @@
+# Branch / manual Tauri Windows build (not used by release workflows).
+name: Tauri Windows x64 build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/tauri2-poc-fd6a
+
+permissions:
+  contents: read
+
+jobs:
+  linux-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system deps (GTK3 / WebKitGTK 4.1)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev llvm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Clippy Linux (deny warnings)
+        working-directory: src-tauri
+        run: |
+          rustup component add clippy
+          cargo clippy -- -D warnings
+
+      - name: Install cargo-xwin
+        run: cargo install cargo-xwin --locked
+
+      - name: Clippy Windows via xwin (deny warnings)
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          llvm-rc --version || ls /usr/bin/llvm-rc* /usr/lib/llvm-*/bin/llvm-rc
+          cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings
+
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Clippy Windows (deny warnings)
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"icon":["../icons/icon.ico","../icons/icon.png"]}}'
+        run: |
+          rustup component add clippy --target x86_64-pc-windows-msvc
+          cargo clippy --target x86_64-pc-windows-msvc -- -D warnings
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked --version "^2.0.0" --force
+
+      - name: Build Tauri (NSIS + portable exe)
+        working-directory: src-tauri
+        run: cargo tauri build --target x86_64-pc-windows-msvc --config tauri.windows.ci.json --verbose
+
+      - name: Stage portable bundle
+        shell: pwsh
+        run: |
+          $release = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          $out = "dist/tauri-windows-portable"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item "$release/excalidraw-offline.exe" "$out/Excalidraw-Offline.exe"
+          Copy-Item "$release/*.dll" $out -ErrorAction SilentlyContinue
+          if (Test-Path "$release/resources") {
+            Copy-Item -Recurse "$release/resources" "$out/resources"
+          }
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/excalidraw-offline-windows-x64-portable.zip" -Force
+
+      - name: Verify portable and NSIS app serve frontend
+        shell: pwsh
+        run: ./scripts/verify-tauri-windows.ps1
+
+      - name: Verify export CLI (portable exe)
+        shell: pwsh
+        run: ./scripts/verify-windows-export.ps1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: excalidraw-offline-tauri-windows-x64
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            dist/excalidraw-offline-windows-x64-portable.zip
+          if-no-files-found: error
+
+      - name: Upload export test outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-export-test
+          path: dist/windows-export/*
+
+      - name: Upload verification screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: excalidraw-offline-tauri-windows-verify
+          path: dist/windows-verify/*.png
+          if-no-files-found: error

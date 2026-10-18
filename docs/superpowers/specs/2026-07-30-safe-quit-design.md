@@ -17,7 +17,7 @@ Make **File → Quit** and **window close** (title-bar X / Alt+F4) safely exit t
 
 ## Architecture
 
-Quit is a handshake between Deno Desktop and the React UI, using the existing menu → HTTP poll queue → UI handler pattern.
+Quit is a handshake between Tauri 2 and the React UI, using the existing menu → HTTP poll queue → UI handler pattern.
 
 ```text
 File → Quit  ─┐
@@ -51,7 +51,7 @@ Window close ─┘                                      │
 4. Add `POST /api/quit`:
    - Set `allowClose = true`.
    - Call `win.close()`.
-   - Then `Deno.exit(0)`. The HTTP `Deno.serve` listener would otherwise keep the process alive after the window closes; the former menu `{ role: "quit" }` exited the process, and we must preserve that.
+   - Then `Tauri.exit(0)`. The HTTP `Tauri.serve` listener would otherwise keep the process alive after the window closes; the former menu `{ role: "quit" }` exited the process, and we must preserve that.
 5. Extend `UiCommand` with `{ type: "quit" }`.
 
 ### Frontend (`frontend/src/App.tsx`)
