@@ -46,11 +46,13 @@ Run the NSIS installer, or extract the portable zip and start `Excalidraw-Offlin
 
 ### macOS
 
-The `.app` is **ad-hoc signed** (not notarized). Extract the zip (Finder, or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to Applications, then right-click → **Open** on first launch, or:
+Download `excalidraw-offline-<ver>-macos-universal.zip` or `-macos-arm64.zip`. Extract (Finder, or `ditto -x -k <zip> <dir>`), move **Excalidraw Offline.app** to `/Applications`. The build is **ad-hoc signed** (not notarized). Gatekeeper quarantine from the download often makes the first double-click show **damaged or incomplete** (*« … endommagée ou incomplète »* in French) and a prohibitory badge on the icon — that is not a corrupt zip. Clear quarantine once:
 
 ```bash
 xattr -cr "/Applications/Excalidraw Offline.app"
 ```
+
+Then launch from Applications, or right-click → **Open**, or use **System Settings → Privacy & Security → Open Anyway** after macOS blocks a launch.
 
 ### CLI examples
 
