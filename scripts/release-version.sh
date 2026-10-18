@@ -7,9 +7,10 @@ conf=$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' src-tauri
 for other in \
   "$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' src-tauri/Cargo.toml | head -1)" \
   "$(sed -nE 's/^pkgver=(.+)$/\1/p' packaging/PKGBUILD)" \
-  "$(sed -nE 's/^pkgver=(.+)$/\1/p' packaging/PKGBUILD.local)"; do
+  "$(sed -nE 's/^pkgver=(.+)$/\1/p' packaging/PKGBUILD.local)" \
+  "$(sed -nE 's/^pkgver=(.+)$/\1/p' packaging/PKGBUILD-bin)"; do
   if [[ "$other" != "$conf" ]]; then
-    echo "error: version mismatch: tauri.conf.json=$conf vs $other (Cargo.toml / PKGBUILD / PKGBUILD.local)" >&2
+    echo "error: version mismatch: tauri.conf.json=$conf vs $other (Cargo.toml / PKGBUILD*)" >&2
     exit 1
   fi
 done

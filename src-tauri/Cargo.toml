@@ -1,6 +1,6 @@
 [package]
 name = "excalidraw-offline"
-version = "0.8.0"
+version = "0.8.1"
 description = "Excalidraw Offline (Tauri 2 POC)"
 authors = ["Excalidraw Offline"]
 edition = "2021"

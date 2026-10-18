@@ -3,7 +3,7 @@
 #   makepkg -si -f -p PKGBUILD-bin
 # Maintainer: Gregoire <gregoire@faurobert.fr>
 pkgname=excalidraw-offline-bin
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Tauri 2, prebuilt)"
 arch=('x86_64')
@@ -16,7 +16,8 @@ provides=('excalidraw-offline')
 conflicts=('excalidraw-offline')
 options=('!strip' '!debug')
 source=("excalidraw-offline-${pkgver}-linux-x86_64.tar.gz::${url}/releases/download/v${pkgver}/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz")
-sha256sums=('a668c28450986ef45b9b4b8400238ddfcec5479ac7381b277ab53fa3b0109d2b')
+# Updated on main after v0.8.1 release assets are published (see release workflow sed on dist copy).
+sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
 
 package() {
   tar -xzf "$srcdir/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz" -C "$pkgdir"

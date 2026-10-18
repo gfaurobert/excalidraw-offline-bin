@@ -10,12 +10,12 @@ _pkgbuild_error() {
 ensure_rust_toolchain() {
   if ! command -v cargo >/dev/null 2>&1 || ! command -v rustc >/dev/null 2>&1; then
     _pkgbuild_error \
-      "Rust/cargo not found on PATH (install pacman rust, or rustup: https://rustup.rs)"
+      "Rust/cargo not found on PATH (install pacman rust, or rustup: https://rustup.rs)" || return 1
   fi
   local ver
   ver="$(rustc --version | awk '{print $2}')"
   if [[ "$(printf '%s\n' "$_min_rust_version" "$ver" | sort -V | head -1)" != "$_min_rust_version" ]]; then
-    _pkgbuild_error "rustc $ver is too old; need >= $_min_rust_version"
+    _pkgbuild_error "rustc $ver is too old; need >= $_min_rust_version" || return 1
   fi
 }
 
@@ -26,7 +26,7 @@ run_pnpm() {
     corepack pnpm "$@"
   else
     _pkgbuild_error \
-      "pnpm not found on PATH (install via mise, npm, pacman, or: corepack enable && corepack prepare pnpm@10 --activate)"
+      "pnpm not found on PATH (install via mise, npm, pacman, or: corepack enable && corepack prepare pnpm@10 --activate)" || return 1
   fi
 }
 
@@ -36,7 +36,7 @@ prepare_local_build_tree() {
   local destdir="$2"
   if [[ -e "$srcroot/frontend/node_modules" ]] && [[ ! -w "$srcroot/frontend/node_modules" ]]; then
     _pkgbuild_error \
-      "$srcroot/frontend/node_modules is not writable (often root-owned from Docker). Remove it or: sudo chown -R \"\$USER\" \"$srcroot/frontend/node_modules\""
+      "$srcroot/frontend/node_modules is not writable (often root-owned from Docker). Remove it or: sudo chown -R \"\$USER\" \"$srcroot/frontend/node_modules\"" || return 1
   fi
   rm -rf "$destdir"
   mkdir -p "$destdir"

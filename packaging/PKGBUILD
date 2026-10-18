@@ -1,7 +1,7 @@
 # Maintainer: Gregoire <gregoire@faurobert.fr>
 # Builds the Tauri 2 app from the GitHub source archive for tag v$pkgver.
 pkgname=excalidraw-offline
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Tauri 2)"
 arch=('x86_64')
