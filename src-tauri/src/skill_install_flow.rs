@@ -366,7 +366,15 @@ mod flow_tests {
     use crate::install_skill::{
         parse_harness_id, resolve_harness_install_dests, HarnessId, InstallMode,
     };
-    use crate::skill_dialog_common::{harness_checklist_selection_ok, DialogError};
+    use crate::skill_dialog_common::DialogError;
+
+    fn harness_checklist_selection_ok(ids: Vec<String>) -> Result<Vec<String>, DialogError> {
+        if ids.is_empty() {
+            Err(DialogError::Cancelled)
+        } else {
+            Ok(ids)
+        }
+    }
     use std::path::PathBuf;
 
     #[test]

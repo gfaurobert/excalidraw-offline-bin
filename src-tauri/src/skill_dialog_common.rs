@@ -87,31 +87,3 @@ pub fn open_url_in_browser(url: &str) {
         let _ = url;
     }
 }
-
-/// After OK on the harness checklist, an empty selection is treated like cancel.
-pub fn harness_checklist_selection_ok(ids: Vec<String>) -> DialogResult<Vec<String>> {
-    if ids.is_empty() {
-        Err(DialogError::Cancelled)
-    } else {
-        Ok(ids)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn harness_checklist_empty_is_cancelled() {
-        assert!(matches!(
-            harness_checklist_selection_ok(vec![]),
-            Err(DialogError::Cancelled)
-        ));
-    }
-
-    #[test]
-    fn harness_checklist_non_empty_proceeds() {
-        let ids = harness_checklist_selection_ok(vec!["agents".into(), "claude".into()]).unwrap();
-        assert_eq!(ids, vec!["agents", "claude"]);
-    }
-}
