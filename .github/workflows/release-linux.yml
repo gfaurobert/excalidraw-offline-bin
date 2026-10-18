@@ -92,7 +92,7 @@ jobs:
     steps:
       - name: Install build deps (no pacman rust/pnpm — rustup + corepack pnpm)
         run: |
-          pacman -Syu --noconfirm --needed base-devel git namcap nodejs curl noto-fonts \
+          pacman -Syu --noconfirm --needed base-devel git namcap nodejs npm curl noto-fonts \
             webkit2gtk-4.1 gtk3 libsoup3 hicolor-icon-theme shared-mime-info desktop-file-utils
 
       - name: Checkout
