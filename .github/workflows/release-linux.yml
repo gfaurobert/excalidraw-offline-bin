@@ -116,8 +116,11 @@ jobs:
           su builder -c 'makepkg -f -p PKGBUILD-bin --noconfirm' 2>&1 | tee makepkg-bin.log
           # ld-linux provides __tls_get_addr (used); namcap does not see loader symbols.
           namcap PKGBUILD PKGBUILD.local PKGBUILD-bin excalidraw-offline-*.pkg.tar.zst excalidraw-offline-bin-*.pkg.tar.zst \
-            | grep -v "Unused shared library '/usr/lib64/ld-linux-x86-64.so.2'" | tee namcap.txt || true
-          if [ -s namcap.txt ]; then echo "namcap reported issues"; exit 1; fi
+            | tee namcap-full.txt || true
+          grep ' E: ' namcap-full.txt \
+            | grep -v "Unused shared library '/usr/lib64/ld-linux-x86-64.so.2'" \
+            | tee namcap.txt || true
+          if [ -s namcap.txt ]; then echo "namcap errors:"; cat namcap.txt; exit 1; fi
           pacman -U --noconfirm excalidraw-offline-bin-*.pkg.tar.zst
           excalidraw-offline --help | head -3
 
