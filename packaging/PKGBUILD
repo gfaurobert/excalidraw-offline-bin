@@ -9,37 +9,29 @@ url="https://github.com/gfaurobert/excalidraw-offline-bin"
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus'
          'libgcc' 'glibc' 'hicolor-icon-theme')
-makedepends=('rust>=1.90' 'cargo' 'nodejs' 'pnpm')
+# Rust/cargo and pnpm come from PATH (rustup, mise, corepack); only nodejs from pacman for -s.
+makedepends=('nodejs')
 options=('!lto' '!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
-_build() {
-  # Keep build paths out of the binary; drop unused DT_NEEDED entries.
-  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$srcdir=/build -C link-arg=-Wl,--as-needed"
-  (cd frontend && CI=true pnpm install --frozen-lockfile && pnpm run build)
-  # tauri/custom-protocol = production build (what `cargo tauri build` enables).
-  (cd src-tauri && cargo build --release --locked --features tauri/custom-protocol)
-}
-
-_package() {
-  install -Dm755 src-tauri/target/release/excalidraw-offline \
-    "$pkgdir/usr/bin/excalidraw-offline"
-  install -Dm644 packaging/excalidraw-offline.desktop \
-    "$pkgdir/usr/share/applications/excalidraw-offline.desktop"
-  install -Dm644 packaging/application-x-excalidraw.xml \
-    "$pkgdir/usr/share/mime/packages/application-x-excalidraw.xml"
-  install -Dm644 icons/icon.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+prepare() {
+  cd "$srcdir/excalidraw-offline-bin-$pkgver"
+  # shellcheck source=/dev/null
+  source packaging/pkgbuild-common.sh
+  ensure_rust_toolchain
 }
 
 build() {
   cd "$srcdir/excalidraw-offline-bin-$pkgver"
-  _build
+  # shellcheck source=/dev/null
+  source packaging/pkgbuild-common.sh
+  excalidraw_offline_build
 }
 
 package() {
   cd "$srcdir/excalidraw-offline-bin-$pkgver"
-  _package
+  # shellcheck source=/dev/null
+  source packaging/pkgbuild-common.sh
+  excalidraw_offline_package
 }

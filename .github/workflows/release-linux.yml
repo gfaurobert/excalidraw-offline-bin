@@ -77,42 +77,57 @@ jobs:
           name: linux-appimage-${{ steps.ver.outputs.version }}
           path: |
             dist/release/*.AppImage
+            dist/release/*.tar.gz
             dist/release/PKGBUILD
+            dist/release/PKGBUILD-bin
           if-no-files-found: error
 
   arch-package:
+    needs: [appimage]
     runs-on: ubuntu-latest
     container: archlinux:latest
     defaults:
       run:
         shell: bash
     steps:
-      - name: Install build deps
+      - name: Install build deps (no pacman rust/pnpm — rustup + corepack pnpm)
         run: |
-          pacman -Syu --noconfirm --needed base-devel git namcap rust nodejs pnpm \
+          pacman -Syu --noconfirm --needed base-devel git namcap nodejs curl \
             webkit2gtk-4.1 gtk3 libsoup3 hicolor-icon-theme shared-mime-info desktop-file-utils
 
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: makepkg (PKGBUILD.local) + namcap
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage-${{ needs.appimage.outputs.version }}
+          path: dist/release
+
+      - name: makepkg (PKGBUILD.local, rustup) + PKGBUILD-bin + namcap
         run: |
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
+          su builder -c 'curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.90.0'
+          su builder -c 'source ~/.cargo/env && corepack enable && corepack prepare pnpm@10 --activate'
           cd packaging
-          su builder -c 'makepkg -f -p PKGBUILD.local --noconfirm' 2>&1 | tee makepkg.log
+          su builder -c 'source ~/.cargo/env && makepkg -f -p PKGBUILD.local --noconfirm' 2>&1 | tee makepkg.log
           if grep -qE '(^|\s)WARNING' makepkg.log; then echo "makepkg reported warnings"; exit 1; fi
+          cp ../dist/release/excalidraw-offline-*-linux-x86_64.tar.gz .
+          cp ../dist/release/PKGBUILD-bin PKGBUILD-bin
+          su builder -c 'makepkg -f -p PKGBUILD-bin --noconfirm' 2>&1 | tee makepkg-bin.log
           # ld-linux provides __tls_get_addr (used); namcap does not see loader symbols.
-          namcap PKGBUILD PKGBUILD.local *.pkg.tar.zst \
+          namcap PKGBUILD PKGBUILD.local PKGBUILD-bin excalidraw-offline-*.pkg.tar.zst excalidraw-offline-bin-*.pkg.tar.zst \
             | grep -v "Unused shared library '/usr/lib64/ld-linux-x86-64.so.2'" | tee namcap.txt || true
           if [ -s namcap.txt ]; then echo "namcap reported issues"; exit 1; fi
-          pacman -U --noconfirm *.pkg.tar.zst
+          pacman -U --noconfirm excalidraw-offline-bin-*.pkg.tar.zst
           excalidraw-offline --help | head -3
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arch-package
-          path: packaging/*.pkg.tar.zst
+          path: |
+            packaging/excalidraw-offline-*.pkg.tar.zst
+            packaging/excalidraw-offline-bin-*.pkg.tar.zst
           if-no-files-found: error
 
   publish:
@@ -132,7 +147,7 @@ jobs:
       - name: Collect assets + checksums
         run: |
           mkdir -p dist/release
-          find dist/artifacts -type f \( -name '*.AppImage' -o -name 'PKGBUILD' -o -name '*.pkg.tar.zst' \) -exec cp {} dist/release/ \;
+          find dist/artifacts -type f \( -name '*.AppImage' -o -name '*.tar.gz' -o -name 'PKGBUILD' -o -name 'PKGBUILD-bin' -o -name '*.pkg.tar.zst' \) -exec cp {} dist/release/ \;
           chmod +x dist/release/*.AppImage
           (cd dist/release && sha256sum * > SHA256SUMS)
           ls -la dist/release
@@ -166,8 +181,10 @@ jobs:
         with:
           files: |
             dist/release/*.AppImage
+            dist/release/*.tar.gz
             dist/release/*.pkg.tar.zst
             dist/release/PKGBUILD
+            dist/release/PKGBUILD-bin
             dist/release/SHA256SUMS
           body_path: dist/RELEASE_BODY.md
           generate_release_notes: false

@@ -2,75 +2,64 @@
 
 ## Linux (Tauri 2)
 
-### Local checkout (`PKGBUILD.local`) — recommended on Arch
+### Prebuilt binary (`PKGBUILD-bin`) — recommended on Arch
 
-No AUR account required. From the `packaging/` directory:
+No compiler or Node toolchain required. From `packaging/`:
 
 ```bash
-# Prereqs: base-devel (makepkg -s pulls rust >= 1.90, nodejs, pnpm, webkit2gtk-4.1, gtk3)
+makepkg -si -f -p PKGBUILD-bin
+```
+
+Installs package `excalidraw-offline-bin`, which **provides** / **conflicts with** `excalidraw-offline`. Payload: GitHub Release `excalidraw-offline-<ver>-linux-x86_64.tar.gz`.
+
+### Local source checkout (`PKGBUILD.local`)
+
+For developers with **rustup** (or pacman `rust`) and **pnpm via mise/corepack/npm** — no pacman `pnpm` or `rust>=1.90` makedepends:
+
+```bash
+# makepkg -s installs nodejs + runtime GTK/WebKit deps only
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
 
-`-s` installs deps, `-i` installs the built package. `PKGBUILD.local` builds the parent checkout (frontend with pnpm, then `cargo build --release --features tauri/custom-protocol`).
-
-Install layout:
-
-- `/usr/bin/excalidraw-offline` (single binary, frontend embedded)
-- `/usr/share/applications/excalidraw-offline.desktop`
-- `/usr/share/mime/packages/application-x-excalidraw.xml`
-- `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
-
-Uninstall: `sudo pacman -Rns excalidraw-offline`.
+Builds in a copy under `$srcdir` (excludes `frontend/node_modules` and `src-tauri/target`) so a root-owned `node_modules` from Docker does not cause EACCES.
 
 ### Release `PKGBUILD` (AUR-ready)
 
-Same build from the GitHub source archive of tag `v$pkgver`. Published as a release asset next to the AppImage and the prebuilt `.pkg.tar.zst`.
-Keep `pkgver` in `PKGBUILD` / `PKGBUILD.local` equal to the version in `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`; the release script refuses a mismatch.
+Same source build from the GitHub archive of tag `v$pkgver`. Published as a release asset.
+
+Keep `pkgver` in `PKGBUILD` / `PKGBUILD.local` / `PKGBUILD-bin` equal to `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`; `scripts/package-tauri-linux-release.sh` refuses a mismatch.
+
+Shared build helpers: [`pkgbuild-common.sh`](pkgbuild-common.sh) (`ensure_rust_toolchain`, `run_pnpm`, etc.).
 
 ### GitHub Release assets
 
-`.github/workflows/release-linux.yml` (tag `v*`, or manual run = dry run without publishing):
+`.github/workflows/release-linux.yml` (tag `v*`):
 
 | Asset | Built by |
 |-------|----------|
-| `excalidraw-offline-<ver>-linux-x86_64.AppImage` | Tauri bundler on Ubuntu 22.04 (`scripts/package-tauri-linux-release.sh`), smoke-tested on `/api/health` |
-| `excalidraw-offline-<ver>-1-x86_64.pkg.tar.zst` | `makepkg` in an `archlinux` container, checked with `namcap` |
-| `PKGBUILD`, `SHA256SUMS` | |
+| `excalidraw-offline-<ver>-linux-x86_64.AppImage` | Tauri bundler on Ubuntu 22.04 |
+| `excalidraw-offline-<ver>-linux-x86_64.tar.gz` | `scripts/package-tauri-linux-release.sh` (usr tree for PKGBUILD-bin) |
+| `excalidraw-offline-<ver>-1-x86_64.pkg.tar.zst` | `makepkg` source package in Arch container (rustup) |
+| `PKGBUILD`, `PKGBUILD-bin`, `SHA256SUMS` | |
 
-Local release-shaped AppImage (needs `cargo install tauri-cli`):
+Local release-shaped build:
 
 ```bash
 ./scripts/package-tauri-linux-release.sh
 # → dist/release/
 ```
 
-## Windows 11
-
-GitHub Releases publish a portable zip and an NSIS installer (`excalidraw-offline-<ver>-windows-x86_64-*`) via `.github/workflows/release-windows.yml`.
-
-Local build (on Windows, MSVC + WebView2):
+Verify Arch packaging in Docker:
 
 ```bash
-cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
-cd src-tauri && cargo tauri build --target x86_64-pc-windows-msvc --config tauri.windows.ci.json
-# → target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-# → target/x86_64-pc-windows-msvc/release/excalidraw-offline.exe (portable)
+./scripts/verify-arch-packaging.sh
 ```
 
-Runtime on the target PC: WebView2. Native file dialogs use Win32 via `rfd`.
+## Windows 11
+
+GitHub Releases publish a portable zip and an NSIS installer via `.github/workflows/release-windows.yml`.
 
 ## macOS (Apple Silicon + universal)
 
-GitHub Releases publish universal and arm64 zips of the `.app` via `.github/workflows/release-macos.yml` (built on `macos-14`, ad-hoc signed).
-
-Local build:
-
-```bash
-cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
-cd src-tauri
-cargo tauri build --target aarch64-apple-darwin --config tauri.macos.ci.json
-cargo tauri build --target universal-apple-darwin --config tauri.macos.ci.json
-```
-
-Runtime: WKWebView (system). Unsigned/ad-hoc builds show a Gatekeeper warning on first launch.
+GitHub Releases publish universal and arm64 zips via `.github/workflows/release-macos.yml`.

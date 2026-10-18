@@ -11,37 +11,30 @@ url="https://github.com/gfaurobert/excalidraw-offline-bin"
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus'
          'libgcc' 'glibc' 'hicolor-icon-theme')
-makedepends=('rust>=1.90' 'cargo' 'nodejs' 'pnpm')
+makedepends=('nodejs')
 options=('!lto' '!debug')
 source=()
 sha256sums=()
 
-_build() {
-  # Keep build paths out of the binary; drop unused DT_NEEDED entries.
-  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$srcdir=/build -C link-arg=-Wl,--as-needed"
-  (cd frontend && CI=true pnpm install --frozen-lockfile && pnpm run build)
-  # tauri/custom-protocol = production build (what `cargo tauri build` enables).
-  (cd src-tauri && cargo build --release --locked --features tauri/custom-protocol)
-}
-
-_package() {
-  install -Dm755 src-tauri/target/release/excalidraw-offline \
-    "$pkgdir/usr/bin/excalidraw-offline"
-  install -Dm644 packaging/excalidraw-offline.desktop \
-    "$pkgdir/usr/share/applications/excalidraw-offline.desktop"
-  install -Dm644 packaging/application-x-excalidraw.xml \
-    "$pkgdir/usr/share/mime/packages/application-x-excalidraw.xml"
-  install -Dm644 icons/icon.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+prepare() {
+  # shellcheck source=/dev/null
+  source "$(dirname "${BUILDFILE}")/pkgbuild-common.sh"
+  _local_srcroot="$(cd "$(dirname "${BUILDFILE}")/.." && pwd)"
+  _buildroot="$srcdir/${pkgname}-build"
+  prepare_local_build_tree "$_local_srcroot" "$_buildroot"
+  ensure_rust_toolchain
 }
 
 build() {
-  cd "$(dirname "$BUILDFILE")/.."
-  _build
+  cd "$srcdir/${pkgname}-build"
+  # shellcheck source=/dev/null
+  source "$(dirname "${BUILDFILE}")/pkgbuild-common.sh"
+  excalidraw_offline_build
 }
 
 package() {
-  cd "$(dirname "$BUILDFILE")/.."
-  _package
+  cd "$srcdir/${pkgname}-build"
+  # shellcheck source=/dev/null
+  source "$(dirname "${BUILDFILE}")/pkgbuild-common.sh"
+  excalidraw_offline_package
 }

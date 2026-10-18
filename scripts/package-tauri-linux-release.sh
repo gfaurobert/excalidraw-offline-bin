@@ -40,8 +40,25 @@ APPIMAGE_NAME="excalidraw-offline-${VERSION}-linux-x86_64.AppImage"
 cp "$APPIMAGE_SRC" "$OUT/$APPIMAGE_NAME"
 chmod +x "$OUT/$APPIMAGE_NAME"
 
-echo "==> PKGBUILD"
-cp packaging/PKGBUILD "$OUT/PKGBUILD"
+echo "==> Linux binary tarball (Arch PKGBUILD-bin + portable usr tree)"
+STAGE="$OUT/stage"
+rm -rf "$STAGE"
+mkdir -p "$STAGE/usr/bin" "$STAGE/usr/share/applications" "$STAGE/usr/share/mime/packages" \
+  "$STAGE/usr/share/icons/hicolor/128x128/apps" "$STAGE/usr/share/licenses/excalidraw-offline"
+install -Dm755 src-tauri/target/release/excalidraw-offline "$STAGE/usr/bin/excalidraw-offline"
+install -Dm644 packaging/excalidraw-offline.desktop "$STAGE/usr/share/applications/excalidraw-offline.desktop"
+install -Dm644 packaging/application-x-excalidraw.xml "$STAGE/usr/share/mime/packages/application-x-excalidraw.xml"
+install -Dm644 icons/icon.png "$STAGE/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png"
+install -Dm644 LICENSE "$STAGE/usr/share/licenses/excalidraw-offline/LICENSE"
+TARBALL_NAME="excalidraw-offline-${VERSION}-linux-x86_64.tar.gz"
+tar -C "$STAGE" -czf "$OUT/$TARBALL_NAME" usr
+rm -rf "$STAGE"
 
-(cd "$OUT" && sha256sum "$APPIMAGE_NAME" PKGBUILD > SHA256SUMS)
+echo "==> PKGBUILD assets"
+cp packaging/PKGBUILD "$OUT/PKGBUILD"
+cp packaging/PKGBUILD-bin "$OUT/PKGBUILD-bin"
+TARBALL_SHA=$(sha256sum "$OUT/$TARBALL_NAME" | awk '{print $1}')
+sed -i "s/^sha256sums=('.*')/sha256sums=('${TARBALL_SHA}')/" "$OUT/PKGBUILD-bin"
+
+(cd "$OUT" && sha256sum "$APPIMAGE_NAME" "$TARBALL_NAME" PKGBUILD PKGBUILD-bin > SHA256SUMS)
 ls -la "$OUT"
