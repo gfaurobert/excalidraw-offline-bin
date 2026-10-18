@@ -14,7 +14,7 @@ cargo_version() { sed -nE 's/^version\s*=\s*"([^"]+)".*/\1/p' src-tauri/Cargo.to
 pkgbuild_version() { sed -nE 's/^pkgver=(.+)$/\1/p' "$1"; }
 
 VERSION="$(conf_version)"
-for other in "$(cargo_version)" "$(pkgbuild_version packaging/PKGBUILD)" "$(pkgbuild_version packaging/PKGBUILD.local)"; do
+for other in "$(cargo_version)" "$(pkgbuild_version packaging/PKGBUILD)" "$(pkgbuild_version packaging/PKGBUILD.local)" "$(pkgbuild_version packaging/PKGBUILD-bin)"; do
   if [[ "$other" != "$VERSION" ]]; then
     echo "error: version mismatch: tauri.conf.json=$VERSION vs $other (Cargo.toml / PKGBUILD / PKGBUILD.local)" >&2
     exit 1

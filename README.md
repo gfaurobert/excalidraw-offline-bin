@@ -4,7 +4,7 @@ Thin [Tauri 2](https://tauri.app/) desktop wrapper around [`@excalidraw/excalidr
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
-**Status:** [v0.8.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.0) is the unified Tauri 2 release for **Linux, Windows 11, and macOS** (AppImage, Arch packages, portable/installer, macOS zips).
+**Status:** [v0.8.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.1) is the current **Tauri 2** release for **Linux, Windows 11, and macOS** (AppImage, Arch packages, portable/installer, macOS zips).
 
 https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 

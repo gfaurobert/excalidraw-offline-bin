@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.1 (2026-10-18)
+
+- **Linux:** fix Global skill install — harness checklist OK was treated as cancel (GTK `GtkViewport` traversal)
+- **Arch:** rustup/mise-friendly source `PKGBUILD` (`nodejs` only from pacman; Rust ≥ 1.90 and pnpm on PATH)
+- **Arch:** new prebuilt `PKGBUILD-bin` and release `excalidraw-offline-<ver>-linux-x86_64.tar.gz`
+- **Arch:** fix `PKGBUILD.local` prepare hang (no recursive copy into `packaging/src`)
+
 ## v0.8.0 (2026-10-18)
 
 First **unified Tauri 2** release for **Linux, Windows 11, and macOS** (universal).

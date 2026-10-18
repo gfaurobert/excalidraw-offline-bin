@@ -5,7 +5,16 @@ nav_order: 5
 
 # What's new
 
-**Current GitHub release:** [v0.8.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.0) — **Tauri 2** on Linux, Windows 11, and macOS (universal). See [Install]({{ '/install.html' | relative_url }}).
+**Current GitHub release:** [v0.8.1](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.1) — **Tauri 2** on Linux, Windows 11, and macOS (universal). See [Install]({{ '/install.html' | relative_url }}).
+
+---
+
+## v0.8.1 (2026-10-18)
+
+- **Linux:** Global skill install checklist OK works again (GTK fix)
+- **Arch:** rustup/mise-friendly source PKGBUILD; prebuilt `PKGBUILD-bin` + linux tarball; `PKGBUILD.local` prepare no longer hangs
+
+[Release notes](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.1) · [Full changelog](https://github.com/gfaurobert/excalidraw-offline-bin/compare/v0.8.0...v0.8.1)
 
 ---
 
