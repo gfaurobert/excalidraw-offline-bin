@@ -6,7 +6,7 @@ This release ships the **Tauri 2** desktop app on **all supported platforms** (s
 
 | Platform | Assets |
 |----------|--------|
-| **Linux x86_64** | AppImage, Arch `PKGBUILD` (+ prebuilt `.pkg.tar.zst` when present), `SHA256SUMS` |
+| **Linux x86_64** | AppImage, `excalidraw-offline-<ver>-linux-x86_64.tar.gz`, Arch `PKGBUILD` / `PKGBUILD-bin`, prebuilt `.pkg.tar.zst`, `SHA256SUMS` |
 | **Windows 11 x64** | Portable zip, NSIS installer, `SHA256SUMS-windows-x86_64` |
 | **macOS 11+** | Universal and Apple Silicon arm64 `.zip` (`.app` inside), `SHA256SUMS-macos` |
 

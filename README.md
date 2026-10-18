@@ -4,7 +4,7 @@ Thin [Tauri 2](https://tauri.app/) desktop wrapper around [`@excalidraw/excalidr
 
 **Docs:** [https://gfaurobert.github.io/excalidraw-offline-bin/](https://gfaurobert.github.io/excalidraw-offline-bin/)
 
-**Status:** the Tauri 2 app (branch `cursor/tauri2-poc-fd6a`, PR #18) is end-to-end tested on **Linux, Windows 11, and macOS**. It is not in a GitHub release yet. Published [Releases](https://github.com/gfaurobert/excalidraw-offline-bin/releases) still ship older builds ([v0.7.2](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.7.2) Linux-only refresh; [v0.5.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.5.0) Windows/macOS). Until the Tauri release is tagged, get builds from CI artifacts or [build from source](#build-from-source).
+**Status:** [v0.8.0](https://github.com/gfaurobert/excalidraw-offline-bin/releases/tag/v0.8.0) is the unified Tauri 2 release for **Linux, Windows 11, and macOS** (AppImage, Arch packages, portable/installer, macOS zips).
 
 https://github.com/user-attachments/assets/6052418e-d231-42c4-9b4d-063d0d64e6eb
 
@@ -40,15 +40,15 @@ Tauri uses the system webview instead of bundling a runtime.
 
 ## Install
 
-### From CI artifacts (until the Tauri release)
+### GitHub Release ([latest](https://github.com/gfaurobert/excalidraw-offline-bin/releases/latest))
 
-| Platform | Workflow | Artifact |
-|----------|----------|----------|
-| Windows 11 x64 | [Release Windows](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-windows.yml) or [Tauri Windows x64 build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-windows-build.yml) | Portable zip + NSIS `*-setup.exe` |
-| macOS | [Release macOS](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-macos.yml) or [Tauri macOS build](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/tauri-macos-build.yml) | Universal + arm64 `.zip` (`.app` inside) |
-| Linux x86_64 | [Release Linux](https://github.com/gfaurobert/excalidraw-offline-bin/actions/workflows/release-linux.yml) (manual run) | `linux-appimage-<version>`: `excalidraw-offline-<version>-linux-x86_64.AppImage` + `PKGBUILD`; `linux-arch-package`: `excalidraw-offline-<version>-1-x86_64.pkg.tar.zst` |
+| Platform | Assets |
+|----------|--------|
+| Windows 11 x64 | `excalidraw-offline-<ver>-windows-x86_64-portable.zip`, `*-setup.exe` |
+| macOS | `excalidraw-offline-<ver>-macos-universal.zip`, `-macos-arm64.zip` |
+| Linux x86_64 | AppImage, `excalidraw-offline-<ver>-linux-x86_64.tar.gz`, prebuilt `.pkg.tar.zst`, `PKGBUILD` / `PKGBUILD-bin` |
 
-**Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it, or on Arch install the package with `sudo pacman -U excalidraw-offline-*-x86_64.pkg.tar.zst` (or build it yourself, below).
+**Linux:** `chmod +x excalidraw-offline-*-linux-x86_64.AppImage` and run it. On Arch, use the prebuilt binary package ([below](#arch-linux-makepkg)) or install the CI-built package: `sudo pacman -U excalidraw-offline-<ver>-1-x86_64.pkg.tar.zst`.
 
 **Windows:** run the installer, or extract the portable zip and run `Excalidraw-Offline.exe`. Unsigned builds may trigger SmartScreen (**More info → Run anyway**).
 
@@ -78,26 +78,34 @@ Headless export (all platforms): `excalidraw-offline export --help`
 
 ### Arch Linux (makepkg)
 
-Build and install the Tauri app from a local git checkout with [`packaging/PKGBUILD.local`](packaging/PKGBUILD.local):
+**Recommended — prebuilt, no Rust/Node/pnpm:** [`packaging/PKGBUILD-bin`](packaging/PKGBUILD-bin) (`excalidraw-offline-bin` package, provides `excalidraw-offline`):
 
 ```bash
-# Prereqs: base-devel (makepkg -s pulls rust >= 1.90, nodejs, pnpm, webkit2gtk-4.1, gtk3)
+cd packaging
+makepkg -si -f -p PKGBUILD-bin
+```
+
+Downloads `excalidraw-offline-<ver>-linux-x86_64.tar.gz` from the GitHub Release (same files as the source package).
+
+**Alternative — build from source** ([`packaging/PKGBUILD.local`](packaging/PKGBUILD.local) or release [`packaging/PKGBUILD`](packaging/PKGBUILD)):
+
+```bash
+# Prereqs: base-devel, Rust >= 1.90 and cargo on PATH (pacman rust or rustup),
+# pnpm on PATH (mise/corepack/npm) or corepack; makepkg -s installs nodejs + runtime libs only.
 cd packaging
 makepkg -si -f -p PKGBUILD.local
 ```
 
-`-s` pulls runtime/build deps, `-i` installs the package. No GitHub release or AUR account needed.
+`PKGBUILD.local` copies the checkout into `$srcdir` (skips `frontend/node_modules`) so root-owned Docker `node_modules` does not break the build.
 
-Installs:
+Install layout (both packages):
 
-- `/usr/bin/excalidraw-offline` (single binary, frontend embedded)
+- `/usr/bin/excalidraw-offline`
 - `/usr/share/applications/excalidraw-offline.desktop`
 - `/usr/share/mime/packages/application-x-excalidraw.xml`
 - `/usr/share/icons/hicolor/128x128/apps/excalidraw-offline.png`
 
-Uninstall: `sudo pacman -Rns excalidraw-offline`.
-
-[`packaging/PKGBUILD`](packaging/PKGBUILD) builds the same package from the GitHub source archive of tag `v$pkgver`; it ships as a release asset (AUR-ready).
+Uninstall: `sudo pacman -Rns excalidraw-offline-bin` or `excalidraw-offline`.
 
 ## Build from source
 

@@ -1,0 +1,23 @@
+# Prebuilt binary package (no Rust/Node/pnpm build). Installs the GitHub Release Linux tarball.
+# Usage from packaging/:
+#   makepkg -si -f -p PKGBUILD-bin
+# Maintainer: Gregoire <gregoire@faurobert.fr>
+pkgname=excalidraw-offline-bin
+pkgver=0.8.0
+pkgrel=1
+pkgdesc="Offline Excalidraw desktop app for local .excalidraw files (Tauri 2, prebuilt)"
+arch=('x86_64')
+url="https://github.com/gfaurobert/excalidraw-offline-bin"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus'
+         'libgcc' 'glibc' 'hicolor-icon-theme')
+makedepends=()
+provides=('excalidraw-offline')
+conflicts=('excalidraw-offline')
+options=('!strip' '!debug')
+source=("excalidraw-offline-${pkgver}-linux-x86_64.tar.gz::${url}/releases/download/v${pkgver}/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz")
+sha256sums=('a668c28450986ef45b9b4b8400238ddfcec5479ac7381b277ab53fa3b0109d2b')
+
+package() {
+  tar -xzf "$srcdir/excalidraw-offline-${pkgver}-linux-x86_64.tar.gz" -C "$pkgdir"
+}
