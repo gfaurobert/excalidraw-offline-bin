@@ -1,7 +1,8 @@
 use crate::app_state::{AppState, CliExportState};
 use crate::export::{resolve_export_jobs, ExportSelectorInput, ParsedExportCli};
 use crate::http_server::start_http_server;
-use crate::paths::{recent_file_path, resolve_dist_dir};
+use crate::library::LibraryStore;
+use crate::paths::{library_file_path, recent_file_path, resolve_dist_dir};
 use crate::recent::RecentStore;
 use crate::scene::read_scene;
 use serde_json::{json, Value};
@@ -10,7 +11,8 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 pub fn run_cli_export(command: ParsedExportCli) -> i32 {
     let dist_dir = resolve_dist_dir();
     let recent = RecentStore::load(recent_file_path());
-    let state = AppState::new(recent);
+    let library = LibraryStore::new(library_file_path());
+    let state = AppState::new(recent, library);
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let scene = rt.block_on(read_scene(&command.document_path));

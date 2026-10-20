@@ -56,6 +56,7 @@ pub async fn start_http_server(state: Arc<AppState>, dist: PathBuf) -> u16 {
         .route("/api/ready", post(frontend_ready))
         .route("/api/info", get(info))
         .route("/api/recent", get(recent))
+        .route("/api/library", get(get_library).post(save_library))
         .route("/api/poll", get(poll))
         .route("/api/focus", post(focus))
         .route("/api/log", post(log))
@@ -131,6 +132,30 @@ async fn info(State(state): State<Arc<AppState>>) -> Json<Value> {
         "excalidrawVersion": "0.18.0-4ce38fb",
         "e2e": e2e_enabled(),
     }))
+}
+
+async fn get_library(State(state): State<Arc<AppState>>) -> Json<Value> {
+    match state.library.load() {
+        Ok(library_items) => Json(json!({
+            "ok": true,
+            "libraryItems": library_items,
+            "path": state.library.path().to_string_lossy(),
+        })),
+        Err(e) => Json(json!({ "ok": false, "error": e })),
+    }
+}
+
+async fn save_library(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(items) = body.get("libraryItems") else {
+        return Json(json!({ "ok": false, "error": "missing libraryItems" }));
+    };
+    match state.library.save(items) {
+        Ok(()) => Json(json!({ "ok": true })),
+        Err(e) => Json(json!({ "ok": false, "error": e })),
+    }
 }
 
 async fn recent(State(state): State<Arc<AppState>>) -> Json<Value> {

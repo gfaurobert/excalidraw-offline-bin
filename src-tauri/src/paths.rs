@@ -41,6 +41,10 @@ pub fn recent_file_path() -> PathBuf {
     config_dir().join("recent.json")
 }
 
+pub fn library_file_path() -> PathBuf {
+    config_dir().join("library.excalidrawlib")
+}
+
 pub fn resolve_open_path(raw: &str, cwd: &Path) -> PathBuf {
     let path = PathBuf::from(raw);
     if path.is_absolute() {

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
 import type {
   AppState,
   BinaryFiles,
   DataURL,
   ExcalidrawImperativeAPI,
 } from "@excalidraw/excalidraw/types";
+import { ExcalidrawCanvas } from "./ExcalidrawCanvas";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { StartScreen } from "./StartScreen";
 import {
@@ -1104,26 +1104,14 @@ export default function App() {
         <span style={{ marginLeft: "auto", opacity: 0.75 }}>{pathLabel}</span>
       </header>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <Excalidraw
-          key={docKey}
+        <ExcalidrawCanvas
+          docKey={docKey}
           onExcalidrawAPI={(api) => {
             apiRef.current = api;
           }}
-          initialData={{
-            elements: initialData.elements,
-            appState: initialData.appState,
-            files: initialData.files,
-            scrollToContent: true,
-          }}
+          initialData={initialData}
           onChange={handleChange}
-          UIOptions={{
-            canvasActions: {
-              loadScene: false,
-              saveToActiveFile: false,
-              export: false,
-              saveAsImage: true,
-            },
-          }}
+          apiJson={apiJson}
         />
       </div>
     </div>
