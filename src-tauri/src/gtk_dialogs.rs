@@ -68,11 +68,9 @@ fn push_active_checklist_id(ids: &mut Vec<String>, cb: &CheckButton, options: &[
         return;
     }
     let name = cb.widget_name();
-    if !name.is_empty() {
-        if options.iter().any(|o| o.id == name) {
-            ids.push(name.to_string());
-            return;
-        }
+    if !name.is_empty() && options.iter().any(|o| o.id == name) {
+        ids.push(name.to_string());
+        return;
     }
     if let Some(label) = cb.label() {
         if let Some(opt) = options.iter().find(|o| o.label == label.as_str()) {

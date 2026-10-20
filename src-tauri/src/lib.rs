@@ -29,6 +29,7 @@ mod win_dialogs;
 mod desktop_log;
 mod export;
 mod http_server;
+mod library;
 mod local_http;
 mod menu;
 mod quit_flow;
@@ -39,7 +40,8 @@ mod scene;
 use app_state::AppState;
 use http_server::start_http_server;
 use menu::{build_menu, handle_menu_click};
-use paths::{recent_file_path, resolve_dist_dir_for_app};
+use paths::{library_file_path, recent_file_path, resolve_dist_dir_for_app};
+use library::LibraryStore;
 use recent::RecentStore;
 use std::sync::Arc;
 use quit_flow::request_application_quit;
@@ -54,7 +56,8 @@ pub use export::{
 pub fn run_gui(startup_open: Option<std::path::PathBuf>) {
     desktop_log::init();
     let recent = RecentStore::load(recent_file_path());
-    let state = AppState::new(recent);
+    let library = LibraryStore::new(library_file_path());
+    let state = AppState::new(recent, library);
 
     let rt = std::sync::Arc::new(tokio::runtime::Runtime::new().expect("tokio runtime"));
 

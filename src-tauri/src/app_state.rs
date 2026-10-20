@@ -1,3 +1,4 @@
+use crate::library::LibraryStore;
 use crate::recent::RecentStore;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -37,6 +38,7 @@ pub struct AppState {
     /// Set when the web UI has successfully reached /api/info (poll/quit works).
     pub frontend_ready: AtomicBool,
     pub recent: RecentStore,
+    pub library: LibraryStore,
     pub current_path: Mutex<Option<String>>,
     pub ui_mode: Mutex<UiMode>,
     pub ui_queue: Mutex<Vec<UiCommand>>,
@@ -66,10 +68,11 @@ impl AppState {
         self.open_dialog_invocations.store(0, Ordering::Relaxed);
     }
 
-    pub fn new(recent: RecentStore) -> Arc<Self> {
+    pub fn new(recent: RecentStore, library: LibraryStore) -> Arc<Self> {
         Arc::new(Self {
             frontend_ready: AtomicBool::new(false),
             recent,
+            library,
             current_path: Mutex::new(None),
             ui_mode: Mutex::new(UiMode::Start),
             ui_queue: Mutex::new(Vec::new()),
